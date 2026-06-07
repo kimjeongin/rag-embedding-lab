@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Claude Code (personal/local config)
+.claude/
+
+# tool caches
+.pytest_cache/
+.ruff_cache/
+
+# build artifacts
+dist/
+build/
+*.egg-info/
+
+# training artifacts — models are large, keep them out of git
+/outputs/
+/checkpoints/
+*.pt
+*.safetensors
+wandb/
+.ipynb_checkpoints/
+
+# web UI eval-run registry (generated at runtime)
+/runs/

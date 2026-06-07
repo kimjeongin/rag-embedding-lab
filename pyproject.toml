@@ -1,0 +1,47 @@
+[project]
+name = "rag"
+version = "0.2.0"
+description = "Dense-retrieval RAG server: FastAPI + Qdrant + Ollama (qwen3-embedding)"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "qdrant-client",
+    "httpx",
+    "numpy",          # in-memory cosine for datagen hard-negatives + rag-eval ranking
+]
+
+# Exact versions are pinned in uv.lock (the source of truth for reproducible installs).
+# Run `uv sync` to install, `uv lock --upgrade` to bump to the latest compatible set.
+
+[project.scripts]                       # every entrypoint lives in rag.cli
+rag-serve = "rag.cli.serve:run"              # serve the API:          uv run rag-serve
+rag-gen-data = "rag.cli.gen_data:main"       # toy train/test data:    uv run rag-gen-data
+rag-gen-synthetic = "rag.cli.gen_synthetic:main"  # LLM-generated data: uv run rag-gen-synthetic
+rag-gen-eval = "rag.cli.gen_eval:main"       # sample BEIR eval set:   uv run rag-gen-eval
+rag-train = "rag.cli.train:main"             # fine-tune embeddings:   uv run rag-train
+rag-eval = "rag.cli.evaluate:main"           # measure retrieval:      uv run rag-eval
+rag-ui = "rag.cli.webui:main"                # web UI (Gradio):        uv run rag-ui
+
+[dependency-groups]
+# Dev tooling (installed by `uv sync`); run tests with `uv run pytest`.
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]
+# Training-only stack — NOT required to run the server. Install with:
+#   uv sync --group training
+# Cross-platform: torch comes as a platform wheel (MPS on macOS, CUDA/CPU on Linux).
+training = ["sentence-transformers", "datasets", "accelerate"]
+# Web UI (rag-ui). Install with `uv sync --group ui` (add `--group training` for the
+# Train tab). gradio brings pandas, which the UI uses for the comparison tables.
+ui = ["gradio"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

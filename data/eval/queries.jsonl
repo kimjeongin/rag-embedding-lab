@@ -1,0 +1,48 @@
+{"_id": "q-0-0", "text": "how does async await work in python"}
+{"_id": "q-0-1", "text": "python event loop and coroutines"}
+{"_id": "q-0-2", "text": "run concurrent io-bound code in python"}
+{"_id": "q-1-0", "text": "add type annotations in python"}
+{"_id": "q-1-1", "text": "static type checking with mypy"}
+{"_id": "q-1-2", "text": "what are python type hints"}
+{"_id": "q-2-0", "text": "speed up a slow postgres query"}
+{"_id": "q-2-1", "text": "how do database indexes work"}
+{"_id": "q-2-2", "text": "make a sql lookup faster with an index"}
+{"_id": "q-3-0", "text": "search text columns in postgres"}
+{"_id": "q-3-1", "text": "tsvector and tsquery relevance ranking"}
+{"_id": "q-3-2", "text": "natural language search in a sql database"}
+{"_id": "q-4-0", "text": "write an async api with fastapi"}
+{"_id": "q-4-1", "text": "async def endpoint throughput"}
+{"_id": "q-4-2", "text": "concurrency in a python web framework"}
+{"_id": "q-5-0", "text": "difference between a docker image and a container"}
+{"_id": "q-5-1", "text": "how do docker containers work"}
+{"_id": "q-5-2", "text": "package an app into a container"}
+{"_id": "q-6-0", "text": "create and merge a git branch"}
+{"_id": "q-6-1", "text": "isolate feature work in git"}
+{"_id": "q-6-2", "text": "how does git merging work"}
+{"_id": "q-7-0", "text": "what does http 404 mean"}
+{"_id": "q-7-1", "text": "categories of http response codes"}
+{"_id": "q-7-2", "text": "client vs server error status codes"}
+{"_id": "q-8-0", "text": "principles of rest api design"}
+{"_id": "q-8-1", "text": "http verbs for crud operations"}
+{"_id": "q-8-2", "text": "what makes an api restful"}
+{"_id": "q-9-0", "text": "use redis as a cache"}
+{"_id": "q-9-1", "text": "serve hot data with sub-millisecond latency"}
+{"_id": "q-9-2", "text": "reduce database load with a cache"}
+{"_id": "q-10-0", "text": "difference between inner and left join"}
+{"_id": "q-10-1", "text": "combine two sql tables on a key"}
+{"_id": "q-10-2", "text": "how do sql joins work"}
+{"_id": "q-11-0", "text": "match a pattern with a regular expression"}
+{"_id": "q-11-1", "text": "what are regular expressions"}
+{"_id": "q-11-2", "text": "search text using a pattern"}
+{"_id": "q-12-0", "text": "what is the json data format"}
+{"_id": "q-12-1", "text": "represent structured data as text"}
+{"_id": "q-12-2", "text": "nested objects and arrays in json"}
+{"_id": "q-13-0", "text": "change file permissions in linux"}
+{"_id": "q-13-1", "text": "what does chmod 755 mean"}
+{"_id": "q-13-2", "text": "read write execute permission bits"}
+{"_id": "q-14-0", "text": "set up ssh key login"}
+{"_id": "q-14-1", "text": "passwordless ssh authentication"}
+{"_id": "q-14-2", "text": "public and private keys for ssh"}
+{"_id": "q-15-0", "text": "what is a kubernetes pod"}
+{"_id": "q-15-1", "text": "smallest deployable unit in kubernetes"}
+{"_id": "q-15-2", "text": "containers sharing a network namespace"}

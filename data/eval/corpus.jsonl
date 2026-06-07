@@ -1,0 +1,464 @@
+{"_id": "distractor-435", "title": "ClickHouse — monitoring", "text": "Monitoring ClickHouse means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-4", "title": "Apache Kafka — security", "text": "Securing Apache Kafka covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-165", "title": "Prometheus — backup and restore", "text": "Backup and restore for Prometheus uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-271", "title": "Apache Spark — capacity planning", "text": "Capacity planning for Apache Spark forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-406", "title": "Celery — networking", "text": "Networking for Celery covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-35", "title": "Apache Cassandra — monitoring", "text": "Monitoring Apache Cassandra means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-136", "title": "Terraform — upgrades", "text": "Upgrading Terraform safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-346", "title": "Istio — performance tuning", "text": "Performance tuning Istio means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-362", "title": "Helm — performance tuning", "text": "Performance tuning Helm means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-126", "title": "HAProxy — data modeling", "text": "Data modeling with HAProxy weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-80", "title": "MySQL — deployment", "text": "Deploying MySQL to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-260", "title": "Apache Spark — security", "text": "Securing Apache Spark covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-443", "title": "ClickHouse — cost optimization", "text": "Cost optimization for ClickHouse covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-391", "title": "Webpack — troubleshooting", "text": "Troubleshooting Webpack means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-404", "title": "Celery — security", "text": "Securing Celery covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-399", "title": "Webpack — capacity planning", "text": "Capacity planning for Webpack forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-10", "title": "Apache Kafka — performance tuning", "text": "Performance tuning Apache Kafka means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-318", "title": "Consul — data modeling", "text": "Data modeling with Consul weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-200", "title": "gRPC — upgrades", "text": "Upgrading gRPC safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-206", "title": "gRPC — data modeling", "text": "Data modeling with gRPC weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-86", "title": "MySQL — networking", "text": "Networking for MySQL covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-114", "title": "HAProxy — configuration", "text": "Configuring HAProxy involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-387", "title": "Webpack — monitoring", "text": "Monitoring Webpack means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-220", "title": "GraphQL — logging", "text": "Centralised logging for GraphQL uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-338", "title": "Istio — configuration", "text": "Configuring Istio involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-34", "title": "Apache Cassandra — configuration", "text": "Configuring Apache Cassandra involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-157", "title": "Ansible — access control", "text": "Access control in Ansible is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-100", "title": "Nginx — security", "text": "Securing Nginx covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-29", "title": "RabbitMQ — access control", "text": "Access control in RabbitMQ is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-400", "title": "Celery — deployment", "text": "Deploying Celery to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-336", "title": "Istio — deployment", "text": "Deploying Istio to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-110", "title": "Nginx — data modeling", "text": "Data modeling with Nginx weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-380", "title": "Jenkins — logging", "text": "Centralised logging for Jenkins uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-278", "title": "Apache Airflow — networking", "text": "Networking for Apache Airflow covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-101", "title": "Nginx — backup and restore", "text": "Backup and restore for Nginx uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-172", "title": "Prometheus — logging", "text": "Centralised logging for Prometheus uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-316", "title": "Consul — logging", "text": "Centralised logging for Consul uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-108", "title": "Nginx — logging", "text": "Centralised logging for Nginx uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-18", "title": "RabbitMQ — configuration", "text": "Configuring RabbitMQ involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-313", "title": "Consul — high availability", "text": "High availability for Consul relies on replication, failover, and quorum."}
+{"_id": "distractor-128", "title": "Terraform — deployment", "text": "Deploying Terraform to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-145", "title": "Ansible — scaling", "text": "Scaling Ansible horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-347", "title": "Istio — cost optimization", "text": "Cost optimization for Istio covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-245", "title": "CockroachDB — backup and restore", "text": "Backup and restore for CockroachDB uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-49", "title": "MongoDB — scaling", "text": "Scaling MongoDB horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-91", "title": "MySQL — cost optimization", "text": "Cost optimization for MySQL covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "gold-5", "title": "Docker images and containers", "text": "A Docker image is an immutable filesystem snapshot; a container is a running instance started from that image."}
+{"_id": "distractor-229", "title": "OAuth 2.0 — backup and restore", "text": "Backup and restore for OAuth 2.0 uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-70", "title": "Elasticsearch — networking", "text": "Networking for Elasticsearch covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-151", "title": "Ansible — troubleshooting", "text": "Troubleshooting Ansible means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "gold-14", "title": "SSH key authentication", "text": "SSH key pairs authenticate without passwords: the public key sits on the server, the private key stays with you."}
+{"_id": "distractor-30", "title": "RabbitMQ — data modeling", "text": "Data modeling with RabbitMQ weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-40", "title": "Apache Cassandra — upgrades", "text": "Upgrading Apache Cassandra safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-293", "title": "HashiCorp Vault — backup and restore", "text": "Backup and restore for HashiCorp Vault uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-239", "title": "OAuth 2.0 — capacity planning", "text": "Capacity planning for OAuth 2.0 forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-37", "title": "Apache Cassandra — backup and restore", "text": "Backup and restore for Apache Cassandra uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-290", "title": "HashiCorp Vault — configuration", "text": "Configuring HashiCorp Vault involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-36", "title": "Apache Cassandra — security", "text": "Securing Apache Cassandra covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-180", "title": "Grafana — security", "text": "Securing Grafana covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "gold-9", "title": "Redis caching", "text": "Redis is an in-memory key-value store often used as a cache to serve hot data with sub-millisecond latency."}
+{"_id": "distractor-42", "title": "Apache Cassandra — performance tuning", "text": "Performance tuning Apache Cassandra means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-410", "title": "Celery — performance tuning", "text": "Performance tuning Celery means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-371", "title": "Jenkins — monitoring", "text": "Monitoring Jenkins means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-122", "title": "HAProxy — performance tuning", "text": "Performance tuning HAProxy means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-14", "title": "Apache Kafka — data modeling", "text": "Data modeling with Apache Kafka weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-264", "title": "Apache Spark — upgrades", "text": "Upgrading Apache Spark safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-197", "title": "gRPC — backup and restore", "text": "Backup and restore for gRPC uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-137", "title": "Terraform — high availability", "text": "High availability for Terraform relies on replication, failover, and quorum."}
+{"_id": "distractor-413", "title": "Celery — access control", "text": "Access control in Celery is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-169", "title": "Prometheus — high availability", "text": "High availability for Prometheus relies on replication, failover, and quorum."}
+{"_id": "distractor-389", "title": "Webpack — backup and restore", "text": "Backup and restore for Webpack uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-333", "title": "etcd — access control", "text": "Access control in etcd is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-351", "title": "Istio — capacity planning", "text": "Capacity planning for Istio forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-259", "title": "Apache Spark — monitoring", "text": "Monitoring Apache Spark means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-15", "title": "Apache Kafka — capacity planning", "text": "Capacity planning for Apache Kafka forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-181", "title": "Grafana — backup and restore", "text": "Backup and restore for Grafana uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-356", "title": "Helm — security", "text": "Securing Helm covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-289", "title": "HashiCorp Vault — scaling", "text": "Scaling HashiCorp Vault horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-139", "title": "Terraform — cost optimization", "text": "Cost optimization for Terraform covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-193", "title": "gRPC — scaling", "text": "Scaling gRPC horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-111", "title": "Nginx — capacity planning", "text": "Capacity planning for Nginx forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-426", "title": "RocksDB — performance tuning", "text": "Performance tuning RocksDB means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "gold-6", "title": "Git branching and merging", "text": "Branches isolate feature work; merging integrates them back, with a merge commit recording the integration."}
+{"_id": "distractor-249", "title": "CockroachDB — high availability", "text": "High availability for CockroachDB relies on replication, failover, and quorum."}
+{"_id": "distractor-276", "title": "Apache Airflow — security", "text": "Securing Apache Airflow covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-222", "title": "GraphQL — data modeling", "text": "Data modeling with GraphQL weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-185", "title": "Grafana — high availability", "text": "High availability for Grafana relies on replication, failover, and quorum."}
+{"_id": "distractor-71", "title": "Elasticsearch — troubleshooting", "text": "Troubleshooting Elasticsearch means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-242", "title": "CockroachDB — configuration", "text": "Configuring CockroachDB involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-402", "title": "Celery — configuration", "text": "Configuring Celery involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-274", "title": "Apache Airflow — configuration", "text": "Configuring Apache Airflow involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-182", "title": "Grafana — networking", "text": "Networking for Grafana covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-184", "title": "Grafana — upgrades", "text": "Upgrading Grafana safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-67", "title": "Elasticsearch — monitoring", "text": "Monitoring Elasticsearch means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-372", "title": "Jenkins — security", "text": "Securing Jenkins covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-149", "title": "Ansible — backup and restore", "text": "Backup and restore for Ansible uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-236", "title": "OAuth 2.0 — logging", "text": "Centralised logging for OAuth 2.0 uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-210", "title": "GraphQL — configuration", "text": "Configuring GraphQL involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-419", "title": "RocksDB — monitoring", "text": "Monitoring RocksDB means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-208", "title": "GraphQL — deployment", "text": "Deploying GraphQL to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-231", "title": "OAuth 2.0 — troubleshooting", "text": "Troubleshooting OAuth 2.0 means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-241", "title": "CockroachDB — scaling", "text": "Scaling CockroachDB horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-331", "title": "etcd — cost optimization", "text": "Cost optimization for etcd covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-1", "title": "Apache Kafka — scaling", "text": "Scaling Apache Kafka horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-326", "title": "etcd — networking", "text": "Networking for etcd covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-361", "title": "Helm — high availability", "text": "High availability for Helm relies on replication, failover, and quorum."}
+{"_id": "distractor-153", "title": "Ansible — high availability", "text": "High availability for Ansible relies on replication, failover, and quorum."}
+{"_id": "distractor-381", "title": "Jenkins — access control", "text": "Access control in Jenkins is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-277", "title": "Apache Airflow — backup and restore", "text": "Backup and restore for Apache Airflow uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-291", "title": "HashiCorp Vault — monitoring", "text": "Monitoring HashiCorp Vault means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-89", "title": "MySQL — high availability", "text": "High availability for MySQL relies on replication, failover, and quorum."}
+{"_id": "distractor-177", "title": "Grafana — scaling", "text": "Scaling Grafana horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "gold-4", "title": "FastAPI async endpoints", "text": "FastAPI lets you write endpoints with async def, improving throughput for I/O-bound APIs via the event loop."}
+{"_id": "distractor-57", "title": "MongoDB — high availability", "text": "High availability for MongoDB relies on replication, failover, and quorum."}
+{"_id": "distractor-150", "title": "Ansible — networking", "text": "Networking for Ansible covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-322", "title": "etcd — configuration", "text": "Configuring etcd involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-266", "title": "Apache Spark — performance tuning", "text": "Performance tuning Apache Spark means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-179", "title": "Grafana — monitoring", "text": "Monitoring Grafana means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-369", "title": "Jenkins — scaling", "text": "Scaling Jenkins horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-32", "title": "Apache Cassandra — deployment", "text": "Deploying Apache Cassandra to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-385", "title": "Webpack — scaling", "text": "Scaling Webpack horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-217", "title": "GraphQL — high availability", "text": "High availability for GraphQL relies on replication, failover, and quorum."}
+{"_id": "distractor-43", "title": "Apache Cassandra — cost optimization", "text": "Cost optimization for Apache Cassandra covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-446", "title": "ClickHouse — data modeling", "text": "Data modeling with ClickHouse weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-247", "title": "CockroachDB — troubleshooting", "text": "Troubleshooting CockroachDB means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-129", "title": "Terraform — scaling", "text": "Scaling Terraform horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-285", "title": "Apache Airflow — access control", "text": "Access control in Apache Airflow is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-438", "title": "ClickHouse — networking", "text": "Networking for ClickHouse covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-284", "title": "Apache Airflow — logging", "text": "Centralised logging for Apache Airflow uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-190", "title": "Grafana — data modeling", "text": "Data modeling with Grafana weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-252", "title": "CockroachDB — logging", "text": "Centralised logging for CockroachDB uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-433", "title": "ClickHouse — scaling", "text": "Scaling ClickHouse horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-344", "title": "Istio — upgrades", "text": "Upgrading Istio safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-269", "title": "Apache Spark — access control", "text": "Access control in Apache Spark is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-178", "title": "Grafana — configuration", "text": "Configuring Grafana involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-191", "title": "Grafana — capacity planning", "text": "Capacity planning for Grafana forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-305", "title": "Consul — scaling", "text": "Scaling Consul horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-307", "title": "Consul — monitoring", "text": "Monitoring Consul means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-324", "title": "etcd — security", "text": "Securing etcd covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-156", "title": "Ansible — logging", "text": "Centralised logging for Ansible uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-162", "title": "Prometheus — configuration", "text": "Configuring Prometheus involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-152", "title": "Ansible — upgrades", "text": "Upgrading Ansible safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-148", "title": "Ansible — security", "text": "Securing Ansible covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "gold-0", "title": "asyncio — Asynchronous I/O", "text": "asyncio runs concurrent code with async/await on a single-threaded event loop, scheduling coroutines for I/O-bound work."}
+{"_id": "distractor-218", "title": "GraphQL — performance tuning", "text": "Performance tuning GraphQL means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-304", "title": "Consul — deployment", "text": "Deploying Consul to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-254", "title": "CockroachDB — data modeling", "text": "Data modeling with CockroachDB weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-442", "title": "ClickHouse — performance tuning", "text": "Performance tuning ClickHouse means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-52", "title": "MongoDB — security", "text": "Securing MongoDB covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-299", "title": "HashiCorp Vault — cost optimization", "text": "Cost optimization for HashiCorp Vault covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-257", "title": "Apache Spark — scaling", "text": "Scaling Apache Spark horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-216", "title": "GraphQL — upgrades", "text": "Upgrading GraphQL safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-329", "title": "etcd — high availability", "text": "High availability for etcd relies on replication, failover, and quorum."}
+{"_id": "distractor-246", "title": "CockroachDB — networking", "text": "Networking for CockroachDB covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-8", "title": "Apache Kafka — upgrades", "text": "Upgrading Apache Kafka safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-283", "title": "Apache Airflow — cost optimization", "text": "Cost optimization for Apache Airflow covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "gold-10", "title": "SQL joins", "text": "A JOIN combines rows from two tables on a related column; INNER keeps matches, LEFT keeps all left rows."}
+{"_id": "distractor-215", "title": "GraphQL — troubleshooting", "text": "Troubleshooting GraphQL means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-25", "title": "RabbitMQ — high availability", "text": "High availability for RabbitMQ relies on replication, failover, and quorum."}
+{"_id": "distractor-437", "title": "ClickHouse — backup and restore", "text": "Backup and restore for ClickHouse uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-403", "title": "Celery — monitoring", "text": "Monitoring Celery means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-234", "title": "OAuth 2.0 — performance tuning", "text": "Performance tuning OAuth 2.0 means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-243", "title": "CockroachDB — monitoring", "text": "Monitoring CockroachDB means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-378", "title": "Jenkins — performance tuning", "text": "Performance tuning Jenkins means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-363", "title": "Helm — cost optimization", "text": "Cost optimization for Helm covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-11", "title": "Apache Kafka — cost optimization", "text": "Cost optimization for Apache Kafka covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "gold-3", "title": "PostgreSQL full text search", "text": "Full text search uses tsvector and tsquery to search natural-language documents and rank them by relevance."}
+{"_id": "distractor-196", "title": "gRPC — security", "text": "Securing gRPC covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-427", "title": "RocksDB — cost optimization", "text": "Cost optimization for RocksDB covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-168", "title": "Prometheus — upgrades", "text": "Upgrading Prometheus safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-360", "title": "Helm — upgrades", "text": "Upgrading Helm safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-188", "title": "Grafana — logging", "text": "Centralised logging for Grafana uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-432", "title": "ClickHouse — deployment", "text": "Deploying ClickHouse to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-160", "title": "Prometheus — deployment", "text": "Deploying Prometheus to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-332", "title": "etcd — logging", "text": "Centralised logging for etcd uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-199", "title": "gRPC — troubleshooting", "text": "Troubleshooting gRPC means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-60", "title": "MongoDB — logging", "text": "Centralised logging for MongoDB uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-85", "title": "MySQL — backup and restore", "text": "Backup and restore for MySQL uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-164", "title": "Prometheus — security", "text": "Securing Prometheus covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-223", "title": "GraphQL — capacity planning", "text": "Capacity planning for GraphQL forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-202", "title": "gRPC — performance tuning", "text": "Performance tuning gRPC means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-228", "title": "OAuth 2.0 — security", "text": "Securing OAuth 2.0 covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-141", "title": "Terraform — access control", "text": "Access control in Terraform is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-13", "title": "Apache Kafka — access control", "text": "Access control in Apache Kafka is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-393", "title": "Webpack — high availability", "text": "High availability for Webpack relies on replication, failover, and quorum."}
+{"_id": "distractor-124", "title": "HAProxy — logging", "text": "Centralised logging for HAProxy uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-225", "title": "OAuth 2.0 — scaling", "text": "Scaling OAuth 2.0 horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-142", "title": "Terraform — data modeling", "text": "Data modeling with Terraform weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-84", "title": "MySQL — security", "text": "Securing MySQL covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-130", "title": "Terraform — configuration", "text": "Configuring Terraform involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-33", "title": "Apache Cassandra — scaling", "text": "Scaling Apache Cassandra horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-96", "title": "Nginx — deployment", "text": "Deploying Nginx to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-117", "title": "HAProxy — backup and restore", "text": "Backup and restore for HAProxy uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-45", "title": "Apache Cassandra — access control", "text": "Access control in Apache Cassandra is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-154", "title": "Ansible — performance tuning", "text": "Performance tuning Ansible means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-388", "title": "Webpack — security", "text": "Securing Webpack covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-314", "title": "Consul — performance tuning", "text": "Performance tuning Consul means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-198", "title": "gRPC — networking", "text": "Networking for gRPC covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-38", "title": "Apache Cassandra — networking", "text": "Networking for Apache Cassandra covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-349", "title": "Istio — access control", "text": "Access control in Istio is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-382", "title": "Jenkins — data modeling", "text": "Data modeling with Jenkins weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-280", "title": "Apache Airflow — upgrades", "text": "Upgrading Apache Airflow safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-431", "title": "RocksDB — capacity planning", "text": "Capacity planning for RocksDB forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-106", "title": "Nginx — performance tuning", "text": "Performance tuning Nginx means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-340", "title": "Istio — security", "text": "Securing Istio covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-22", "title": "RabbitMQ — networking", "text": "Networking for RabbitMQ covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-335", "title": "etcd — capacity planning", "text": "Capacity planning for etcd forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-47", "title": "Apache Cassandra — capacity planning", "text": "Capacity planning for Apache Cassandra forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-323", "title": "etcd — monitoring", "text": "Monitoring etcd means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-212", "title": "GraphQL — security", "text": "Securing GraphQL covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-173", "title": "Prometheus — access control", "text": "Access control in Prometheus is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-123", "title": "HAProxy — cost optimization", "text": "Cost optimization for HAProxy covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-26", "title": "RabbitMQ — performance tuning", "text": "Performance tuning RabbitMQ means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-66", "title": "Elasticsearch — configuration", "text": "Configuring Elasticsearch involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "gold-12", "title": "JSON data format", "text": "JSON encodes structured data as nested objects and arrays of strings, numbers, booleans, and null."}
+{"_id": "distractor-189", "title": "Grafana — access control", "text": "Access control in Grafana is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-17", "title": "RabbitMQ — scaling", "text": "Scaling RabbitMQ horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-414", "title": "Celery — data modeling", "text": "Data modeling with Celery weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-120", "title": "HAProxy — upgrades", "text": "Upgrading HAProxy safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-73", "title": "Elasticsearch — high availability", "text": "High availability for Elasticsearch relies on replication, failover, and quorum."}
+{"_id": "gold-11", "title": "Regular expressions", "text": "Regular expressions describe text patterns for searching and matching, with character classes, quantifiers, and groups."}
+{"_id": "distractor-230", "title": "OAuth 2.0 — networking", "text": "Networking for OAuth 2.0 covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-405", "title": "Celery — backup and restore", "text": "Backup and restore for Celery uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-133", "title": "Terraform — backup and restore", "text": "Backup and restore for Terraform uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-97", "title": "Nginx — scaling", "text": "Scaling Nginx horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-255", "title": "CockroachDB — capacity planning", "text": "Capacity planning for CockroachDB forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-76", "title": "Elasticsearch — logging", "text": "Centralised logging for Elasticsearch uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-9", "title": "Apache Kafka — high availability", "text": "High availability for Apache Kafka relies on replication, failover, and quorum."}
+{"_id": "distractor-16", "title": "RabbitMQ — deployment", "text": "Deploying RabbitMQ to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-72", "title": "Elasticsearch — upgrades", "text": "Upgrading Elasticsearch safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "gold-8", "title": "REST API design", "text": "REST models resources as URLs and uses HTTP verbs (GET, POST, PUT, DELETE) to operate on them statelessly."}
+{"_id": "distractor-232", "title": "OAuth 2.0 — upgrades", "text": "Upgrading OAuth 2.0 safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-375", "title": "Jenkins — troubleshooting", "text": "Troubleshooting Jenkins means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-287", "title": "Apache Airflow — capacity planning", "text": "Capacity planning for Apache Airflow forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-61", "title": "MongoDB — access control", "text": "Access control in MongoDB is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-62", "title": "MongoDB — data modeling", "text": "Data modeling with MongoDB weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-39", "title": "Apache Cassandra — troubleshooting", "text": "Troubleshooting Apache Cassandra means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-24", "title": "RabbitMQ — upgrades", "text": "Upgrading RabbitMQ safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-194", "title": "gRPC — configuration", "text": "Configuring gRPC involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-78", "title": "Elasticsearch — data modeling", "text": "Data modeling with Elasticsearch weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-12", "title": "Apache Kafka — logging", "text": "Centralised logging for Apache Kafka uses structured logs, log shipping, and retention policies."}
+{"_id": "gold-13", "title": "Linux file permissions", "text": "Linux permissions grant read, write, and execute to owner, group, and others, shown as rwx triplets."}
+{"_id": "distractor-205", "title": "gRPC — access control", "text": "Access control in gRPC is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-348", "title": "Istio — logging", "text": "Centralised logging for Istio uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-244", "title": "CockroachDB — security", "text": "Securing CockroachDB covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-227", "title": "OAuth 2.0 — monitoring", "text": "Monitoring OAuth 2.0 means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-95", "title": "MySQL — capacity planning", "text": "Capacity planning for MySQL forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-119", "title": "HAProxy — troubleshooting", "text": "Troubleshooting HAProxy means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-263", "title": "Apache Spark — troubleshooting", "text": "Troubleshooting Apache Spark means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-423", "title": "RocksDB — troubleshooting", "text": "Troubleshooting RocksDB means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-303", "title": "HashiCorp Vault — capacity planning", "text": "Capacity planning for HashiCorp Vault forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-352", "title": "Helm — deployment", "text": "Deploying Helm to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-416", "title": "RocksDB — deployment", "text": "Deploying RocksDB to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-237", "title": "OAuth 2.0 — access control", "text": "Access control in OAuth 2.0 is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-107", "title": "Nginx — cost optimization", "text": "Cost optimization for Nginx covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-408", "title": "Celery — upgrades", "text": "Upgrading Celery safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-81", "title": "MySQL — scaling", "text": "Scaling MySQL horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-140", "title": "Terraform — logging", "text": "Centralised logging for Terraform uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-358", "title": "Helm — networking", "text": "Networking for Helm covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-7", "title": "Apache Kafka — troubleshooting", "text": "Troubleshooting Apache Kafka means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-302", "title": "HashiCorp Vault — data modeling", "text": "Data modeling with HashiCorp Vault weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-28", "title": "RabbitMQ — logging", "text": "Centralised logging for RabbitMQ uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-364", "title": "Helm — logging", "text": "Centralised logging for Helm uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-187", "title": "Grafana — cost optimization", "text": "Cost optimization for Grafana covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-146", "title": "Ansible — configuration", "text": "Configuring Ansible involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-297", "title": "HashiCorp Vault — high availability", "text": "High availability for HashiCorp Vault relies on replication, failover, and quorum."}
+{"_id": "distractor-373", "title": "Jenkins — backup and restore", "text": "Backup and restore for Jenkins uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-376", "title": "Jenkins — upgrades", "text": "Upgrading Jenkins safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-88", "title": "MySQL — upgrades", "text": "Upgrading MySQL safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-301", "title": "HashiCorp Vault — access control", "text": "Access control in HashiCorp Vault is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-131", "title": "Terraform — monitoring", "text": "Monitoring Terraform means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-109", "title": "Nginx — access control", "text": "Access control in Nginx is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-379", "title": "Jenkins — cost optimization", "text": "Cost optimization for Jenkins covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-353", "title": "Helm — scaling", "text": "Scaling Helm horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-261", "title": "Apache Spark — backup and restore", "text": "Backup and restore for Apache Spark uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-298", "title": "HashiCorp Vault — performance tuning", "text": "Performance tuning HashiCorp Vault means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-94", "title": "MySQL — data modeling", "text": "Data modeling with MySQL weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-341", "title": "Istio — backup and restore", "text": "Backup and restore for Istio uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-447", "title": "ClickHouse — capacity planning", "text": "Capacity planning for ClickHouse forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-58", "title": "MongoDB — performance tuning", "text": "Performance tuning MongoDB means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-64", "title": "Elasticsearch — deployment", "text": "Deploying Elasticsearch to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-240", "title": "CockroachDB — deployment", "text": "Deploying CockroachDB to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-176", "title": "Grafana — deployment", "text": "Deploying Grafana to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-0", "title": "Apache Kafka — deployment", "text": "Deploying Apache Kafka to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-309", "title": "Consul — backup and restore", "text": "Backup and restore for Consul uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-90", "title": "MySQL — performance tuning", "text": "Performance tuning MySQL means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-98", "title": "Nginx — configuration", "text": "Configuring Nginx involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-226", "title": "OAuth 2.0 — configuration", "text": "Configuring OAuth 2.0 involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-248", "title": "CockroachDB — upgrades", "text": "Upgrading CockroachDB safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-428", "title": "RocksDB — logging", "text": "Centralised logging for RocksDB uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-270", "title": "Apache Spark — data modeling", "text": "Data modeling with Apache Spark weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-321", "title": "etcd — scaling", "text": "Scaling etcd horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-63", "title": "MongoDB — capacity planning", "text": "Capacity planning for MongoDB forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-155", "title": "Ansible — cost optimization", "text": "Cost optimization for Ansible covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-147", "title": "Ansible — monitoring", "text": "Monitoring Ansible means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "gold-2", "title": "PostgreSQL indexes", "text": "An index lets PostgreSQL find rows without scanning the whole table, speeding up lookups and joins."}
+{"_id": "distractor-2", "title": "Apache Kafka — configuration", "text": "Configuring Apache Kafka involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-350", "title": "Istio — data modeling", "text": "Data modeling with Istio weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-368", "title": "Jenkins — deployment", "text": "Deploying Jenkins to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-224", "title": "OAuth 2.0 — deployment", "text": "Deploying OAuth 2.0 to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-23", "title": "RabbitMQ — troubleshooting", "text": "Troubleshooting RabbitMQ means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-354", "title": "Helm — configuration", "text": "Configuring Helm involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-121", "title": "HAProxy — high availability", "text": "High availability for HAProxy relies on replication, failover, and quorum."}
+{"_id": "distractor-138", "title": "Terraform — performance tuning", "text": "Performance tuning Terraform means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-192", "title": "gRPC — deployment", "text": "Deploying gRPC to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-46", "title": "Apache Cassandra — data modeling", "text": "Data modeling with Apache Cassandra weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-143", "title": "Terraform — capacity planning", "text": "Capacity planning for Terraform forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-421", "title": "RocksDB — backup and restore", "text": "Backup and restore for RocksDB uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-342", "title": "Istio — networking", "text": "Networking for Istio covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-253", "title": "CockroachDB — access control", "text": "Access control in CockroachDB is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-31", "title": "RabbitMQ — capacity planning", "text": "Capacity planning for RabbitMQ forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-159", "title": "Ansible — capacity planning", "text": "Capacity planning for Ansible forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-377", "title": "Jenkins — high availability", "text": "High availability for Jenkins relies on replication, failover, and quorum."}
+{"_id": "distractor-315", "title": "Consul — cost optimization", "text": "Cost optimization for Consul covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-262", "title": "Apache Spark — networking", "text": "Networking for Apache Spark covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-328", "title": "etcd — upgrades", "text": "Upgrading etcd safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-386", "title": "Webpack — configuration", "text": "Configuring Webpack involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-395", "title": "Webpack — cost optimization", "text": "Cost optimization for Webpack covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-19", "title": "RabbitMQ — monitoring", "text": "Monitoring RabbitMQ means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-69", "title": "Elasticsearch — backup and restore", "text": "Backup and restore for Elasticsearch uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-339", "title": "Istio — monitoring", "text": "Monitoring Istio means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-41", "title": "Apache Cassandra — high availability", "text": "High availability for Apache Cassandra relies on replication, failover, and quorum."}
+{"_id": "distractor-268", "title": "Apache Spark — logging", "text": "Centralised logging for Apache Spark uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-68", "title": "Elasticsearch — security", "text": "Securing Elasticsearch covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-82", "title": "MySQL — configuration", "text": "Configuring MySQL involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-135", "title": "Terraform — troubleshooting", "text": "Troubleshooting Terraform means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-77", "title": "Elasticsearch — access control", "text": "Access control in Elasticsearch is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-158", "title": "Ansible — data modeling", "text": "Data modeling with Ansible weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-275", "title": "Apache Airflow — monitoring", "text": "Monitoring Apache Airflow means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-282", "title": "Apache Airflow — performance tuning", "text": "Performance tuning Apache Airflow means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-167", "title": "Prometheus — troubleshooting", "text": "Troubleshooting Prometheus means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-3", "title": "Apache Kafka — monitoring", "text": "Monitoring Apache Kafka means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-286", "title": "Apache Airflow — data modeling", "text": "Data modeling with Apache Airflow weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-281", "title": "Apache Airflow — high availability", "text": "High availability for Apache Airflow relies on replication, failover, and quorum."}
+{"_id": "distractor-5", "title": "Apache Kafka — backup and restore", "text": "Backup and restore for Apache Kafka uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-300", "title": "HashiCorp Vault — logging", "text": "Centralised logging for HashiCorp Vault uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-92", "title": "MySQL — logging", "text": "Centralised logging for MySQL uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-383", "title": "Jenkins — capacity planning", "text": "Capacity planning for Jenkins forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-105", "title": "Nginx — high availability", "text": "High availability for Nginx relies on replication, failover, and quorum."}
+{"_id": "distractor-292", "title": "HashiCorp Vault — security", "text": "Securing HashiCorp Vault covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-54", "title": "MongoDB — networking", "text": "Networking for MongoDB covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-320", "title": "etcd — deployment", "text": "Deploying etcd to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-250", "title": "CockroachDB — performance tuning", "text": "Performance tuning CockroachDB means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-175", "title": "Prometheus — capacity planning", "text": "Capacity planning for Prometheus forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-345", "title": "Istio — high availability", "text": "High availability for Istio relies on replication, failover, and quorum."}
+{"_id": "distractor-415", "title": "Celery — capacity planning", "text": "Capacity planning for Celery forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-163", "title": "Prometheus — monitoring", "text": "Monitoring Prometheus means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-112", "title": "HAProxy — deployment", "text": "Deploying HAProxy to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-195", "title": "gRPC — monitoring", "text": "Monitoring gRPC means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-65", "title": "Elasticsearch — scaling", "text": "Scaling Elasticsearch horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-366", "title": "Helm — data modeling", "text": "Data modeling with Helm weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-311", "title": "Consul — troubleshooting", "text": "Troubleshooting Consul means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-374", "title": "Jenkins — networking", "text": "Networking for Jenkins covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-238", "title": "OAuth 2.0 — data modeling", "text": "Data modeling with OAuth 2.0 weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-56", "title": "MongoDB — upgrades", "text": "Upgrading MongoDB safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-434", "title": "ClickHouse — configuration", "text": "Configuring ClickHouse involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-6", "title": "Apache Kafka — networking", "text": "Networking for Apache Kafka covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-201", "title": "gRPC — high availability", "text": "High availability for gRPC relies on replication, failover, and quorum."}
+{"_id": "gold-1", "title": "Python type hints", "text": "Type hints annotate variables and function signatures so static checkers like mypy catch bugs before runtime."}
+{"_id": "distractor-183", "title": "Grafana — troubleshooting", "text": "Troubleshooting Grafana means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-221", "title": "GraphQL — access control", "text": "Access control in GraphQL is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-306", "title": "Consul — configuration", "text": "Configuring Consul involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-441", "title": "ClickHouse — high availability", "text": "High availability for ClickHouse relies on replication, failover, and quorum."}
+{"_id": "distractor-392", "title": "Webpack — upgrades", "text": "Upgrading Webpack safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-21", "title": "RabbitMQ — backup and restore", "text": "Backup and restore for RabbitMQ uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-51", "title": "MongoDB — monitoring", "text": "Monitoring MongoDB means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-171", "title": "Prometheus — cost optimization", "text": "Cost optimization for Prometheus covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-343", "title": "Istio — troubleshooting", "text": "Troubleshooting Istio means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-83", "title": "MySQL — monitoring", "text": "Monitoring MySQL means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-355", "title": "Helm — monitoring", "text": "Monitoring Helm means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-273", "title": "Apache Airflow — scaling", "text": "Scaling Apache Airflow horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-104", "title": "Nginx — upgrades", "text": "Upgrading Nginx safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-397", "title": "Webpack — access control", "text": "Access control in Webpack is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-235", "title": "OAuth 2.0 — cost optimization", "text": "Cost optimization for OAuth 2.0 covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-279", "title": "Apache Airflow — troubleshooting", "text": "Troubleshooting Apache Airflow means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-430", "title": "RocksDB — data modeling", "text": "Data modeling with RocksDB weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-186", "title": "Grafana — performance tuning", "text": "Performance tuning Grafana means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-127", "title": "HAProxy — capacity planning", "text": "Capacity planning for HAProxy forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-294", "title": "HashiCorp Vault — networking", "text": "Networking for HashiCorp Vault covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-384", "title": "Webpack — deployment", "text": "Deploying Webpack to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-219", "title": "GraphQL — cost optimization", "text": "Cost optimization for GraphQL covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-174", "title": "Prometheus — data modeling", "text": "Data modeling with Prometheus weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-113", "title": "HAProxy — scaling", "text": "Scaling HAProxy horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-401", "title": "Celery — scaling", "text": "Scaling Celery horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-251", "title": "CockroachDB — cost optimization", "text": "Cost optimization for CockroachDB covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-75", "title": "Elasticsearch — cost optimization", "text": "Cost optimization for Elasticsearch covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-87", "title": "MySQL — troubleshooting", "text": "Troubleshooting MySQL means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-424", "title": "RocksDB — upgrades", "text": "Upgrading RocksDB safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-74", "title": "Elasticsearch — performance tuning", "text": "Performance tuning Elasticsearch means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-258", "title": "Apache Spark — configuration", "text": "Configuring Apache Spark involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-211", "title": "GraphQL — monitoring", "text": "Monitoring GraphQL means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-357", "title": "Helm — backup and restore", "text": "Backup and restore for Helm uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-330", "title": "etcd — performance tuning", "text": "Performance tuning etcd means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-209", "title": "GraphQL — scaling", "text": "Scaling GraphQL horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-53", "title": "MongoDB — backup and restore", "text": "Backup and restore for MongoDB uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-367", "title": "Helm — capacity planning", "text": "Capacity planning for Helm forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-296", "title": "HashiCorp Vault — upgrades", "text": "Upgrading HashiCorp Vault safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-267", "title": "Apache Spark — cost optimization", "text": "Cost optimization for Apache Spark covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-213", "title": "GraphQL — backup and restore", "text": "Backup and restore for GraphQL uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-337", "title": "Istio — scaling", "text": "Scaling Istio horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-409", "title": "Celery — high availability", "text": "High availability for Celery relies on replication, failover, and quorum."}
+{"_id": "distractor-308", "title": "Consul — security", "text": "Securing Consul covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-288", "title": "HashiCorp Vault — deployment", "text": "Deploying HashiCorp Vault to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-161", "title": "Prometheus — scaling", "text": "Scaling Prometheus horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-44", "title": "Apache Cassandra — logging", "text": "Centralised logging for Apache Cassandra uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-319", "title": "Consul — capacity planning", "text": "Capacity planning for Consul forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-144", "title": "Ansible — deployment", "text": "Deploying Ansible to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-310", "title": "Consul — networking", "text": "Networking for Consul covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-422", "title": "RocksDB — networking", "text": "Networking for RocksDB covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-170", "title": "Prometheus — performance tuning", "text": "Performance tuning Prometheus means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-327", "title": "etcd — troubleshooting", "text": "Troubleshooting etcd means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-203", "title": "gRPC — cost optimization", "text": "Cost optimization for gRPC covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-272", "title": "Apache Airflow — deployment", "text": "Deploying Apache Airflow to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-265", "title": "Apache Spark — high availability", "text": "High availability for Apache Spark relies on replication, failover, and quorum."}
+{"_id": "distractor-370", "title": "Jenkins — configuration", "text": "Configuring Jenkins involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-233", "title": "OAuth 2.0 — high availability", "text": "High availability for OAuth 2.0 relies on replication, failover, and quorum."}
+{"_id": "distractor-103", "title": "Nginx — troubleshooting", "text": "Troubleshooting Nginx means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-166", "title": "Prometheus — networking", "text": "Networking for Prometheus covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-115", "title": "HAProxy — monitoring", "text": "Monitoring HAProxy means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-420", "title": "RocksDB — security", "text": "Securing RocksDB covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-55", "title": "MongoDB — troubleshooting", "text": "Troubleshooting MongoDB means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-207", "title": "gRPC — capacity planning", "text": "Capacity planning for gRPC forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-425", "title": "RocksDB — high availability", "text": "High availability for RocksDB relies on replication, failover, and quorum."}
+{"_id": "distractor-214", "title": "GraphQL — networking", "text": "Networking for GraphQL covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-407", "title": "Celery — troubleshooting", "text": "Troubleshooting Celery means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-118", "title": "HAProxy — networking", "text": "Networking for HAProxy covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-396", "title": "Webpack — logging", "text": "Centralised logging for Webpack uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-398", "title": "Webpack — data modeling", "text": "Data modeling with Webpack weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-390", "title": "Webpack — networking", "text": "Networking for Webpack covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-27", "title": "RabbitMQ — cost optimization", "text": "Cost optimization for RabbitMQ covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-436", "title": "ClickHouse — security", "text": "Securing ClickHouse covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-411", "title": "Celery — cost optimization", "text": "Cost optimization for Celery covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-125", "title": "HAProxy — access control", "text": "Access control in HAProxy is managed with roles, policies, and least-privilege grants."}
+{"_id": "gold-7", "title": "HTTP status codes", "text": "HTTP status codes signal request outcomes: 2xx success, 3xx redirect, 4xx client error, 5xx server error."}
+{"_id": "distractor-295", "title": "HashiCorp Vault — troubleshooting", "text": "Troubleshooting HashiCorp Vault means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-444", "title": "ClickHouse — logging", "text": "Centralised logging for ClickHouse uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-412", "title": "Celery — logging", "text": "Centralised logging for Celery uses structured logs, log shipping, and retention policies."}
+{"_id": "distractor-48", "title": "MongoDB — deployment", "text": "Deploying MongoDB to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-204", "title": "gRPC — logging", "text": "Centralised logging for gRPC uses structured logs, log shipping, and retention policies."}
+{"_id": "gold-15", "title": "Kubernetes pods", "text": "A pod is the smallest deployable unit in Kubernetes, wrapping one or more containers that share network and storage."}
+{"_id": "distractor-134", "title": "Terraform — networking", "text": "Networking for Terraform covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-365", "title": "Helm — access control", "text": "Access control in Helm is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-93", "title": "MySQL — access control", "text": "Access control in MySQL is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-417", "title": "RocksDB — scaling", "text": "Scaling RocksDB horizontally means sharding, partitioning, and balancing load across nodes."}
+{"_id": "distractor-256", "title": "Apache Spark — deployment", "text": "Deploying Apache Spark to production covers packaging, rollout strategy, and zero-downtime releases."}
+{"_id": "distractor-20", "title": "RabbitMQ — security", "text": "Securing RabbitMQ covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-50", "title": "MongoDB — configuration", "text": "Configuring MongoDB involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-440", "title": "ClickHouse — upgrades", "text": "Upgrading ClickHouse safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-359", "title": "Helm — troubleshooting", "text": "Troubleshooting Helm means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-312", "title": "Consul — upgrades", "text": "Upgrading Consul safely needs version compatibility checks, rolling upgrades, and a rollback plan."}
+{"_id": "distractor-99", "title": "Nginx — monitoring", "text": "Monitoring Nginx means exporting metrics, building dashboards, and alerting on unhealthy instances."}
+{"_id": "distractor-429", "title": "RocksDB — access control", "text": "Access control in RocksDB is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-59", "title": "MongoDB — cost optimization", "text": "Cost optimization for MongoDB covers right-sizing, autoscaling, and cleaning up idle resources."}
+{"_id": "distractor-325", "title": "etcd — backup and restore", "text": "Backup and restore for etcd uses snapshots, point-in-time recovery, and disaster drills."}
+{"_id": "distractor-102", "title": "Nginx — networking", "text": "Networking for Nginx covers ports, service discovery, and connection pooling."}
+{"_id": "distractor-317", "title": "Consul — access control", "text": "Access control in Consul is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-79", "title": "Elasticsearch — capacity planning", "text": "Capacity planning for Elasticsearch forecasts throughput, storage growth, and headroom."}
+{"_id": "distractor-439", "title": "ClickHouse — troubleshooting", "text": "Troubleshooting ClickHouse means reading logs, recognising common failure modes, and recovery steps."}
+{"_id": "distractor-418", "title": "RocksDB — configuration", "text": "Configuring RocksDB involves its key settings, tuning parameters, and sensible production defaults."}
+{"_id": "distractor-394", "title": "Webpack — performance tuning", "text": "Performance tuning Webpack means profiling hotspots, caching, and reducing tail latency."}
+{"_id": "distractor-445", "title": "ClickHouse — access control", "text": "Access control in ClickHouse is managed with roles, policies, and least-privilege grants."}
+{"_id": "distractor-334", "title": "etcd — data modeling", "text": "Data modeling with etcd weighs schemas, keys, and trade-offs for the query patterns you expect."}
+{"_id": "distractor-132", "title": "Terraform — security", "text": "Securing Terraform covers authentication, authorization, encryption in transit, and network policy."}
+{"_id": "distractor-116", "title": "HAProxy — security", "text": "Securing HAProxy covers authentication, authorization, encryption in transit, and network policy."}

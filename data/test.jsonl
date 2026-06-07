@@ -1,0 +1,12 @@
+{"query": "how does git merging work", "positive": {"title": "Git branching and merging", "content": "Branches let you develop features in isolation, then merge them back, with merge commits recording the integration."}}
+{"query": "how do sql joins work", "positive": {"title": "SQL joins", "content": "A JOIN combines rows from two tables on a related column; INNER keeps matches, LEFT keeps all left-side rows."}}
+{"query": "adding type annotations in python", "positive": {"title": "Python type hints", "content": "Type hints annotate variables and function signatures so static checkers like mypy can catch bugs before runtime."}}
+{"query": "combine two sql tables", "positive": {"title": "SQL joins", "content": "A JOIN combines rows from two tables on a related column; INNER keeps matches, LEFT keeps all left-side rows."}}
+{"query": "client vs server error status codes", "positive": {"title": "HTTP status codes", "content": "HTTP status codes signal request outcomes: 2xx success, 3xx redirect, 4xx client error, 5xx server error."}}
+{"query": "reduce database load with caching", "positive": {"title": "Redis caching", "content": "Redis is an in-memory key-value store often used as a cache to serve hot data with sub-millisecond latency."}}
+{"query": "containers sharing a network namespace", "positive": {"title": "Kubernetes pods", "content": "A pod is the smallest deployable unit in Kubernetes, wrapping one or more containers that share network and storage."}}
+{"query": "package an app into a container", "positive": {"title": "Docker images and containers", "content": "A Docker image is an immutable filesystem snapshot; a container is a running instance started from that image."}}
+{"query": "tsvector and tsquery relevance ranking", "positive": {"title": "PostgreSQL full text search", "content": "Full text search uses tsvector and tsquery to query natural-language documents and rank them by relevance."}}
+{"query": "what are python type hints", "positive": {"title": "Python type hints", "content": "Type hints annotate variables and function signatures so static checkers like mypy can catch bugs before runtime."}}
+{"query": "speed up slow postgres queries", "positive": {"title": "PostgreSQL indexes", "content": "An index lets PostgreSQL find rows without scanning the whole table, greatly speeding up lookups and joins."}}
+{"query": "what does chmod 755 mean", "positive": {"title": "Linux file permissions", "content": "Linux permissions grant read, write, and execute to the owner, group, and others, shown as rwx triplets."}}

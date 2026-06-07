@@ -1,0 +1,17 @@
+services:
+  qdrant:
+    # Dedicated vector database — self-contained, no extensions to install. This
+    # decouples the vector store from whatever managed PostgreSQL is used later.
+    image: qdrant/qdrant:latest
+    container_name: rag-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST + HTTP dashboard (http://localhost:6333/dashboard)
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    # No healthcheck: the qdrant image ships without curl/bash. The app waits for
+    # readiness itself (retrying ensure_collection at startup).
+
+volumes:
+  qdrant_storage:
