@@ -426,3 +426,7 @@ Qdrant there are two clean routes:
 Either way the use cases depend on the `VectorStore` port and `page`/`site` stay pure
 ranking over `Hit` entities, so fusion slots in under both modes without touching the
 API — and `site_score` is already isolated for swapping in e.g. a top-N average.
+
+## License
+
+[MIT](LICENSE) © 2026 Jeongin Kim
