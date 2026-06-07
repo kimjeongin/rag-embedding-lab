@@ -27,6 +27,28 @@ from rag.webui.jobs import python_call, stream_command
 
 _KPI_METRICS = ("recall@1", "recall@3", "ndcg@10", "mrr@10")
 
+# Inline styles (with !important) for coloured chips. The theme — especially dark mode —
+# otherwise recolours text to a light value, leaving it invisible on our light chips.
+# An inline `!important` declaration wins over any stylesheet, so this is bulletproof.
+_C_WARN = "background:#fff4e5 !important;color:#7a4a00 !important;border:1px solid #ffce85"
+_C_INFO = "background:#eef2ff !important;color:#3730a3 !important;border:1px solid #c7d2fe"
+_C_OK = "background:#e7f6ec !important;color:#14532d !important;border:1px solid #a7d8b8"
+_C_DOWN = "background:#fdecec !important;color:#8a1c1c !important;border:1px solid #f3c2c2"
+_BANNER = "display:block;padding:11px 15px;border-radius:12px;line-height:1.55;margin:6px 0;"
+_PILL = "display:inline-block;font-size:12.5px;padding:5px 12px;border-radius:999px;margin:2px 6px 2px 0;"
+_CHIP = "display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;margin-top:6px;"
+
+
+def _banner(colors: str, inner: str) -> str:
+    return f"<div style='{_BANNER}{colors}'>{inner}</div>"
+
+
+def _code(text: str) -> str:
+    return (
+        f"<code style='background:rgba(0,0,0,.08);color:inherit !important;"
+        f"padding:1px 6px;border-radius:5px'>{text}</code>"
+    )
+
 
 # ── status header ─────────────────────────────────────────────────────────────
 def ollama_status(url: str | None = None) -> tuple[bool, list[str]]:
@@ -70,10 +92,10 @@ def status_html() -> str:
     sample = is_sample_eval(eval_dir)
     n_runs = len(registry.load_runs())
     pills = [
-        f"<span class='pill {'ok' if ok else 'warn'}'>Ollama {'🟢' if ok else '🔴'}</span>",
-        f"<span class='pill'>device: {device_status()}</span>",
-        f"<span class='pill{' warn' if sample else ''}'>eval: {eval_dir}{' (샘플)' if sample else ''}</span>",
-        f"<span class='pill'>runs: {n_runs}</span>",
+        f"<span style='{_PILL}{_C_OK if ok else _C_WARN}'>Ollama {'🟢' if ok else '🔴'}</span>",
+        f"<span style='{_PILL}{_C_INFO}'>device: {device_status()}</span>",
+        f"<span style='{_PILL}{_C_WARN if sample else _C_INFO}'>eval: {eval_dir}{' (샘플)' if sample else ''}</span>",
+        f"<span style='{_PILL}{_C_INFO}'>runs: {n_runs}</span>",
     ]
     return "<div class='statusbar'>" + "".join(pills) + "</div>"
 
@@ -89,16 +111,17 @@ def eval_header_html() -> str:
     """Evaluate-tab banner: which eval set is used (binding) + a sample-data warning."""
     eval_dir = eval_dir_from_env()
     binding = (
-        f"📂 평가셋 <code>{eval_dir}</code> · corpus {_count(f'{eval_dir}/corpus.jsonl')} · "
+        f"📂 평가셋 {_code(eval_dir)} · corpus {_count(f'{eval_dir}/corpus.jsonl')} · "
         f"queries {_count(f'{eval_dir}/queries.jsonl')} "
-        f"<span style='opacity:.7'>(① 데이터 탭의 ‘평가 데이터’)</span>"
+        f"<span style='opacity:.75'>(① 데이터 탭의 ‘평가 데이터’)</span>"
     )
     if is_sample_eval(eval_dir):
-        return (
-            f"<div class='banner warn'>{binding}<br>⚠️ <b>샘플 데이터</b>라 distractor가 쉬워 점수가 높게 "
-            f"나옵니다 — 실제 측정은 사내 데이터를 같은 형식으로 넣으세요 (docs/evaluation.md).</div>"
+        return _banner(
+            _C_WARN,
+            f"{binding}<br>⚠️ <b>샘플 데이터</b>라 distractor가 쉬워 점수가 높게 나옵니다 — "
+            "실제 측정은 사내 데이터를 같은 형식으로 넣으세요 (docs/evaluation.md).",
         )
-    return f"<div class='banner info'>{binding}</div>"
+    return _banner(_C_INFO, binding)
 
 
 # ── model discovery ───────────────────────────────────────────────────────────
@@ -128,11 +151,11 @@ def _pairs_frame(path: str, limit: int | None = None, with_content: bool = False
     rows = []
     for r in records:
         pos = r.get("positive", {})
-        row = {"query": r.get("query"), "정답 제목": pos.get("title"), "오답 수": len(r.get("negatives", []))}
+        row = {"query": r.get("query"), "정답 제목": pos.get("title")}
         if with_content:
             row["정답 내용"] = pos.get("content", "")
         rows.append(row)
-    cols = ["query", "정답 제목", "오답 수"] + (["정답 내용"] if with_content else [])
+    cols = ["query", "정답 제목"] + (["정답 내용"] if with_content else [])
     return pd.DataFrame(rows, columns=cols)
 
 
@@ -179,10 +202,11 @@ def data_overview() -> pd.DataFrame:
 def train_data_info() -> str:
     """Train-tab banner: which data this run will train on (binding + counts)."""
     train_file, test_file = dataset_paths()
-    return (
-        f"<div class='banner info'>📂 학습 데이터 <code>{train_file}</code> ({_count(train_file)} pairs) · "
-        f"검증 <code>{test_file}</code> ({_count(test_file)}) "
-        f"<span style='opacity:.7'>(① 데이터 탭의 ‘학습 데이터’)</span></div>"
+    return _banner(
+        _C_INFO,
+        f"📂 학습 데이터 {_code(train_file)} ({_count(train_file)} pairs) · "
+        f"검증 {_code(test_file)} ({_count(test_file)}) "
+        f"<span style='opacity:.75'>(① 데이터 탭의 ‘학습 데이터’)</span>",
     )
 
 
@@ -220,10 +244,9 @@ def training_ready() -> bool:
 
 def training_status_html() -> str:
     if training_ready():
-        return "<div class='banner info'>✅ 학습 라이브러리 설치됨 — 바로 학습할 수 있어요.</div>"
-    return (
-        "<div class='banner warn'>⚠️ 학습용 라이브러리(torch 등)가 아직 없어요. 아래 버튼으로 <b>한 번만</b> "
-        "설치하면 됩니다.</div>"
+        return _banner(_C_INFO, "✅ 학습 라이브러리 설치됨 — 바로 학습할 수 있어요.")
+    return _banner(
+        _C_WARN, "⚠️ 학습용 라이브러리(torch 등)가 아직 없어요. 아래 버튼으로 <b>한 번만</b> 설치하면 됩니다."
     )
 
 
@@ -340,15 +363,15 @@ def _infer_dim(embedder: str, model: str, ollama_url: str) -> int:
 
 
 def _kpi_card(label: str, value: float, delta: float | None = None) -> str:
-    delta_html = ""
+    chip = ""
     if delta is not None:
         if delta > 1e-6:
-            delta_html = f"<span class='delta up'>▲ {delta:+.4f}</span>"
+            chip = f"<span style='{_CHIP}{_C_OK}'>▲ {delta:+.4f}</span>"
         elif delta < -1e-6:
-            delta_html = f"<span class='delta down'>▼ {delta:+.4f}</span>"
+            chip = f"<span style='{_CHIP}{_C_DOWN}'>▼ {delta:+.4f}</span>"
         else:
-            delta_html = "<span class='delta flat'>±0</span>"
-    return f"<div class='kpi'><div class='label'>{label}</div><div class='value'>{value:.4f}</div>{delta_html}</div>"
+            chip = f"<span style='{_CHIP}{_C_INFO}'>±0</span>"
+    return f"<div class='kpi'><div class='label'>{label}</div><div class='value'>{value:.4f}</div>{chip}</div>"
 
 
 def _eval_kpi_html(metrics: dict, prior_best: dict) -> str:
@@ -358,9 +381,9 @@ def _eval_kpi_html(metrics: dict, prior_best: dict) -> str:
         if key in metrics
     ]
     note = (
-        "<div style='font-size:12px;color:#64748b;margin-top:2px'>▲▼ 기존 best 대비</div>"
+        f"<span style='{_CHIP}{_C_INFO};margin-top:2px'>▲▼ 기존 best 대비</span>"
         if any(prior_best.values())
-        else "<div class='banner info'>첫 평가 — 차이(▲▼)는 다음 평가부터 표시됩니다.</div>"
+        else _banner(_C_INFO, "첫 평가 — 차이(▲▼)는 다음 평가부터 표시됩니다.")
     )
     return f"<div class='kpi-row'>{''.join(cards)}</div>{note}"
 
@@ -390,10 +413,12 @@ def run_eval(embedder, model, ollama_url, eval_dir, label):
 
 # ── Compare tab (data only; app.py wraps these into components) ────────────────
 def _runs_frame() -> pd.DataFrame:
-    cols = ["label", "model", *registry.METRIC_KEYS, "when"]
+    # leading 🗑 column = per-row delete handle (clicking it removes that run)
+    cols = ["🗑", "label", "model", *registry.METRIC_KEYS, "when"]
     rows = []
     for r in registry.load_runs():
-        row = {"label": r.get("label"), "model": r.get("model"), "when": (r.get("created_at") or "")[5:16]}
+        row = {"🗑": "🗑", "label": r.get("label"), "model": r.get("model"),
+               "when": (r.get("created_at") or "")[5:16]}
         for key in registry.METRIC_KEYS:
             value = r.get("metrics", {}).get(key)
             row[key] = round(float(value), 4) if value is not None else None
@@ -435,6 +460,45 @@ def compare_all_data() -> tuple[pd.DataFrame, list[float]]:
     df = pd.DataFrame(rows, columns=["metric", "run", "value"])
     lo = min(values) if values else 0.0
     return df, [max(0.0, lo - 0.03), 1.0]
+
+
+def compare_figure():
+    """Grouped (side-by-side) bar chart of ALL metrics — one bar per model per metric.
+
+    Uses plotly's barmode='group' (Gradio's native BarPlot stacks colours instead of
+    grouping). The y-axis is zoomed to the data so small gaps are visible.
+    """
+    import plotly.express as px
+
+    df, y_lim = compare_all_data()
+    if df.empty:
+        fig = px.bar(title="아직 평가 결과가 없어요 — ③ 평가에서 모델을 평가해 보세요")
+    else:
+        fig = px.bar(
+            df, x="metric", y="value", color="run", barmode="group",
+            range_y=y_lim, title="지표별 점수 — 모델별 막대 (높을수록 좋음)",
+        )
+    # transparent background blends into the page in both light and dark mode
+    fig.update_layout(
+        height=360, margin={"l": 10, "r": 10, "t": 48, "b": 10},
+        legend_title_text="model", title_font_size=15,
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Pretendard, sans-serif", "color": "#8b93a7", "size": 12},
+    )
+    fig.update_xaxes(gridcolor="rgba(128,128,128,.15)", title_text=None)
+    fig.update_yaxes(gridcolor="rgba(128,128,128,.15)")
+    return fig
+
+
+def default_model(embedder: str, choices: list[str]) -> str:
+    """A sensible default selection when the backend changes (so a stale model isn't kept)."""
+    if not choices:
+        return ""
+    if embedder == "ollama":
+        for choice in choices:
+            if "embedding" in choice:
+                return choice
+    return choices[0]
 
 
 def delete_run_at(row_index: int | None) -> None:

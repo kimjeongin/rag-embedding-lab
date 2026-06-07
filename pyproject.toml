@@ -33,7 +33,7 @@ dev = ["pytest>=8", "pytest-asyncio>=0.24"]
 training = ["sentence-transformers", "datasets", "accelerate"]
 # Web UI (rag-ui). Install with `uv sync --group ui` (add `--group training` for the
 # Train tab). gradio brings pandas, which the UI uses for the comparison tables.
-ui = ["gradio"]
+ui = ["gradio", "plotly"]
 
 [build-system]
 requires = ["hatchling"]

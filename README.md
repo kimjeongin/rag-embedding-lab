@@ -310,14 +310,14 @@ src/rag/
 │   ├── app.py        create_app(): build Settings/adapters, wire use cases, lifespan
 │   ├── deps.py · errors.py · schemas/ (DTOs) · routes/ (thin)
 ├── cli/              ALL entrypoints (thin): serve · gen_data · gen_synthetic · gen_eval · train · evaluate · webui
-├── webui/            web UI delivery (Gradio): app.py (tabs) · actions.py (glue) · runs.py (eval registry) · jobs.py
+├── webui/            web UI delivery (Gradio): app.py (cards/tabs) · actions.py (glue) · theme.py · runs.py (registry) · jobs.py
 ├── datagen/          offline: dummy.py (toy) · synthetic.py (LLM + hard negatives) · eval_corpus.py (BEIR sample)
 ├── training/         offline: config · data · model · train (fine-tuning)
 ├── evaluation/       offline: beir.py (corpus/queries/qrels IO) · retrieval.py (embed + rank) · metrics.py (recall@k / MRR / nDCG)
 ├── dataset.py        shared training-pair JSONL IO (datagen ↔ training)
 └── config.py         serving Settings (injected; from_env at the root)
 
-tests/                pure: ranking · urls · formatting · settings · qdrant-mapping · eval-metrics · beir · runs
+tests/                pure: ranking · urls · formatting · settings · qdrant-mapping · eval-metrics · beir · runs · webui-data
                       + use cases & datagen with in-memory fakes (no DB/Ollama/torch)
 docs/evaluation.md    the eval data contract + experiment assumptions (read before measuring)
 docker-compose.yml · pyproject.toml · uv.lock · .python-version (3.13)
@@ -389,18 +389,19 @@ compare** — for anyone who'd rather not drive the CLI:
 uv sync --group ui            # add --group training too for the Train tab
 uv run rag-ui                 # http://127.0.0.1:7860   (UI_HOST / UI_PORT to change)
 ```
-Four themed tabs (a status bar shows Ollama / device / active-eval / run-count), each calling
-the **same `rag.*` code** as the CLIs:
+A card-based layout (Soft indigo theme, Pretendard font) with four tabs and a status bar
+(Ollama / device / active-eval / run-count). Each tab calls the **same `rag.*` code** as
+the CLIs:
 - **① 데이터** — generate training pairs (pre-made sample or LLM-synthetic) and a sample BEIR
-  eval set, with table previews, a full-data modal, and a sample-data warning.
+  eval set, with table previews, an expandable full-data panel, and a sample-data warning.
 - **② 학습** — set hyperparameters and run `rag-train` (subprocess → torch stays out of the
   UI); watch a **live loss curve** + before/after nDCG@10 cards. A one-click button installs
   the training stack if it's missing.
 - **③ 평가** — pick a model from a dropdown (`outputs/` scan or Ollama); the embedding dim is
   **auto-detected**. Results show as **KPI cards (Δ vs best so far)** and auto-feed Compare.
 - **④ 비교** — every run in a **heatmap table** (best-per-metric highlighted) + a grouped
-  **bar chart of all metrics at once** (y-axis zoomed so small gaps show). Click a table row,
-  then *삭제*, to remove a run.
+  **bar chart of all metrics at once** (y-axis zoomed so small gaps show). Click the **🗑
+  cell** in a row to delete that run.
 
 It's a thin **delivery layer** (`rag/webui/`, alongside `api/` and `cli/`) with no logic of its
 own. Bring your in-house eval set ([`docs/evaluation.md`](docs/evaluation.md)) and the 평가/비교
