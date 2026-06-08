@@ -1,4 +1,4 @@
-"""Eval-run registry — append/load/delete round-trip (stdlib only, no gradio/pandas)."""
+"""Eval-run registry — append/load/delete round-trip (stdlib only)."""
 from rag.runs import (
     METRIC_KEYS,
     append_run,

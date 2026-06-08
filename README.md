@@ -30,10 +30,9 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 | `uv run rag-gen-eval` | write a sample **BEIR-format eval set** (`data/eval`) |
 | `uv run rag-train` | fine-tune the embedding model |
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
-| `uv run rag-ui` | **web UI** (Gradio, legacy) — superseded by the React lab in `frontend/` |
 
-`rag-serve` (API + UI) and `rag-ui` (Gradio) are long-running servers; the rest are batch
-tools that run and exit. The **React lab** (`frontend/`) is the primary UI — see [Web UI](#web-ui).
+`rag-serve` (API + UI) is a long-running server; the rest are batch tools that run and
+exit. The web UI lives in [`frontend/`](frontend) — see [Web UI](#web-ui).
 
 ## How it works
 
@@ -102,12 +101,10 @@ Configuration is via environment variables (all optional). See [`.env.example`](
 
 ## Web UI
 
-Two delivery layers wrap the **same `rag.*` offline loop** (generate data → train →
-evaluate → compare). Both are thin — no business logic of their own. Bring your in-house
-eval set ([`docs/evaluation.md`](docs/evaluation.md)) and the eval/compare screens measure
-real models.
-
-### React lab (primary) — [`frontend/`](frontend)
+The React app ([`frontend/`](frontend)) wraps the **same `rag.*` offline loop** (generate
+data → train → evaluate → compare) — a thin client with no business logic of its own.
+Bring your in-house eval set ([`docs/evaluation.md`](docs/evaluation.md)) and the
+eval/compare screens measure real models.
 
 A single-page studio: an **Overview** dashboard (champion + leaderboard + nDCG trend),
 **Data** (generate/preview training pairs & the BEIR eval set), **Train** (live SSE loss
@@ -146,17 +143,10 @@ The React app is a thin client over these (FastAPI, [`rag/api/routes/lab/`](src/
 | `GET`·`DELETE /api/runs[/{id}]` | list (with best-per-metric) / delete a run |
 | `POST /api/train` | fine-tune, streamed live over **SSE** (log / loss / metrics / done) |
 
-Lab support code is framework-free and shared with the Gradio UI: the run registry in
+Lab support code is framework-free (keeping the route handlers thin): the run registry in
 [`rag/runs.py`](src/rag/runs.py), environment/model introspection in
 [`rag/lab.py`](src/rag/lab.py), and training-log parsing in
 [`rag/trainlog.py`](src/rag/trainlog.py).
-
-### Gradio (legacy) — [`rag/webui/`](src/rag/webui)
-The original click-through, kept for the no-Node path (`uv sync --group ui`):
-```bash
-uv run rag-ui                 # http://127.0.0.1:7860   (UI_HOST / UI_PORT to change)
-```
-Same four-step loop in a card layout. The React lab supersedes it.
 
 ## Fine-tuning & evaluation (offline / CLI)
 
@@ -226,15 +216,14 @@ src/rag/
 ├── api/              lab HTTP API (FastAPI) + composition root
 │   ├── app.py        create_app(): Settings + lab routes + serve frontend/dist
 │   └── deps.py · errors.py · schemas/lab.py · routes/lab/ (status·models·data·runs·evaluate·train SSE)
-├── cli/              entrypoints (thin): serve · gen_data · gen_synthetic · gen_eval · train · evaluate · webui
-├── webui/            legacy Gradio UI: app.py · actions.py · theme.py · jobs.py
+├── cli/              entrypoints (thin): serve · gen_data · gen_synthetic · gen_eval · train · evaluate
 ├── runs.py           eval-run registry (JSONL) ·  lab.py  env/model introspection ·  trainlog.py  log parsing
 ├── dataset.py        shared training-pair JSONL IO (datagen ↔ training)
 └── config.py         Settings (injected; from_env at the root)
 
 frontend/             React lab (Vite + TS + Tailwind) — see frontend/README.md
-tests/                pure: formatting · settings · eval-metrics · beir · runs · trainlog · datagen
-                      + the SSE route (fake subprocess) + webui-data — no vector DB / torch needed
+tests/                pure: formatting · settings · lab · eval-metrics · beir · runs · trainlog · datagen
+                      + the SSE route (a fake subprocess) — no vector DB / torch needed
 docs/evaluation.md    the eval data contract + experiment assumptions (read before measuring)
 data/                 corpus.jsonl · train/test.jsonl (training pairs) · eval/ (BEIR-format eval set)
 ```

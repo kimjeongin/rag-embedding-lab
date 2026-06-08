@@ -1,9 +1,9 @@
-"""Eval-run registry — append each evaluation result so any delivery layer (web UI,
-HTTP API, CLI) can list and compare models.
+"""Eval-run registry — append each evaluation result so the API (and CLI) can list and
+compare models.
 
 A run is one row: which model was measured, over which eval set, and the metrics it
-scored. Stored append-only as JSONL under `runs/`, newest-first on read. Stdlib only
-(no gradio / pandas / fastapi) — keeps it unit-testable and shareable.
+scored. Stored append-only as JSONL under `runs/`, newest-first on read. Stdlib only —
+keeps it unit-testable and free of the API/training stacks.
 """
 from __future__ import annotations
 

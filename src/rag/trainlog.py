@@ -2,9 +2,9 @@
 
 ``rag-train`` (a subprocess) streams the HF Trainer's logs: per-step ``{'loss': …,
 'epoch': …}`` dicts and a baseline/after ``ndcg@10 = …`` line on either side of the
-fine-tune. Both the Gradio UI (live loss curve + before/after KPI) and the HTTP API's
-SSE stream need to turn that text into points and numbers, so the regex lives here
-once — stdlib ``re`` only, no pandas/gradio/fastapi.
+fine-tune. The HTTP API's SSE stream turns that text into points and numbers for the
+live Train screen, so the regex lives here once — stdlib ``re`` only, framework-free
+and unit-testable.
 
 Tolerant of transformers' quoted (``'loss': '0.39'``) and unquoted (``'loss': 0.39``)
 forms, and of tqdm's ``\\r`` progress redraws.

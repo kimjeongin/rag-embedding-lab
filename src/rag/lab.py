@@ -7,10 +7,9 @@ training use?*, *does this eval set look like the bundled sample?*, *what embedd
 dimension does this model produce?*.
 
 This module owns those, framework-free: stdlib + httpx + the rag stack, but **no
-gradio, pandas, or fastapi**. That's the whole point — both the Gradio web UI
-(`rag.webui.actions`) and the HTTP API (`rag.api`) import from here, so the logic
-lives once and stays unit-testable without the UI extras installed. (Same neutral
-move as `rag.runs` for the eval-run registry.)
+fastapi**. The HTTP API (`rag.api`) imports from here, which keeps the route handlers
+thin and this logic unit-testable. (Same neutral move as `rag.runs` for the eval-run
+registry.)
 """
 from __future__ import annotations
 

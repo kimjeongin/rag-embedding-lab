@@ -6,7 +6,6 @@ Concerns under this package:
     (generate data → train → evaluate).
   - ``rag.embeddings`` — the ``Embedder`` adapters (Ollama / sentence-transformers).
   - ``rag.api``        — the lab HTTP API (FastAPI) that the React UI drives.
-  - ``rag.webui``      — the legacy Gradio UI.
 
 They share ``rag.core`` (notably the embedding-input formatting) so that what the model
 is trained on matches what we send at query time (train/inference parity).
