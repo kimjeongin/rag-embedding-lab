@@ -1,14 +1,13 @@
 [project]
 name = "rag"
-version = "0.2.0"
-description = "Dense-retrieval RAG server: FastAPI + Qdrant + Ollama (qwen3-embedding)"
+version = "0.3.0"
+description = "Embedding fine-tuning & evaluation lab: FastAPI + Ollama + sentence-transformers"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "qdrant-client",
-    "httpx",
+    "httpx",          # Ollama embedding calls + synthetic data generation
     "numpy",          # in-memory cosine for datagen hard-negatives + rag-eval ranking
 ]
 

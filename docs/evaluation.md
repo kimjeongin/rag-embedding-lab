@@ -108,8 +108,8 @@ training, so the numbers reflect production behaviour:
 
 ### 4. Cosine over normalized embeddings, in-memory
 Every doc and query is embedded, L2-normalized, and scored by dot product (= cosine).
-The ranking runs **in-process with numpy** — no Qdrant, and with the Ollama backend no
-torch. Only the top-`N` results per query are kept (N = max cutoff = 10), so memory stays
+The ranking runs **in-process with numpy**, and with the Ollama backend no torch is
+loaded. Only the top-`N` results per query are kept (N = max cutoff = 10), so memory stays
 bounded on large corpora.
 
 ### 5. Which model is measured = whatever you configure
@@ -218,8 +218,9 @@ adjacent. Cap the haystack while iterating with `N_DISTRACTORS=100 uv run rag-ge
   only its top-10, so memory is bounded by the corpus matrix (`#docs × dim × 4 bytes`).
 - **Ollama** embeds the whole corpus in one HTTP call. For a very large corpus prefer the
   **sentence-transformers** backend (on-device, batched) or split the corpus.
-- **Millions of docs?** Back the search with Qdrant instead of numpy — the `metrics`
-  module is independent of how the ranking is produced, so only the ranking step changes.
+- **Millions of docs?** Back the ranking with a vector database or ANN index instead of
+  numpy — the `metrics` module is independent of how the ranking is produced, so only the
+  ranking step changes.
 
 ---
 

@@ -15,8 +15,6 @@ from rag.core.formatting import DEFAULT_QUERY_INSTRUCTION
 # Defaults live as module constants so they're a single source shared by both the
 # field defaults and `from_env` (and not read off the slotted class, where the
 # class attribute is a descriptor rather than the value).
-_DEFAULT_QDRANT_URL = "http://localhost:6333"
-_DEFAULT_QDRANT_COLLECTION = "documents"
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
 _DEFAULT_EMBED_MODEL = "qwen3-embedding:0.6b"
 _DEFAULT_EMBED_DIM = 1024
@@ -26,8 +24,6 @@ _DEFAULT_ST_MODEL = "outputs/embedding-ft"
 
 @dataclass(frozen=True, slots=True)
 class Settings:
-    qdrant_url: str = _DEFAULT_QDRANT_URL
-    qdrant_collection: str = _DEFAULT_QDRANT_COLLECTION
     embed_dim: int = _DEFAULT_EMBED_DIM
     query_instruction: str = DEFAULT_QUERY_INSTRUCTION
 
@@ -48,8 +44,6 @@ class Settings:
     def from_env(cls) -> "Settings":
         """Build settings from environment variables, falling back to the defaults."""
         return cls(
-            qdrant_url=os.getenv("QDRANT_URL", _DEFAULT_QDRANT_URL),
-            qdrant_collection=os.getenv("QDRANT_COLLECTION", _DEFAULT_QDRANT_COLLECTION),
             embed_dim=int(os.getenv("EMBED_DIM", str(_DEFAULT_EMBED_DIM))),
             query_instruction=os.getenv("QUERY_INSTRUCTION", DEFAULT_QUERY_INSTRUCTION),
             embedder=os.getenv("EMBEDDER", _DEFAULT_EMBEDDER),

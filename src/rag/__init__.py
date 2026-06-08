@@ -1,15 +1,18 @@
-"""Qdrant dense-retrieval RAG.
+"""RAG embedding lab — fine-tune an embedding model and measure retrieval quality.
 
-Two concerns live under this package, kept separate by design:
+Concerns under this package:
 
-  - ``rag.api``       — the retrieval *serving* app (FastAPI).
-  - ``rag.training``  — embedding *training* (fine-tuning) code.
+  - ``rag.datagen`` / ``rag.training`` / ``rag.evaluation`` — the offline pipeline
+    (generate data → train → evaluate).
+  - ``rag.embeddings`` — the ``Embedder`` adapters (Ollama / sentence-transformers).
+  - ``rag.api``        — the lab HTTP API (FastAPI) that the React UI drives.
+  - ``rag.webui``      — the legacy Gradio UI.
 
-They share ``rag.core`` (notably the embedding input formatting) so that what the
-model is trained on matches what we send at query time (train/inference parity).
+They share ``rag.core`` (notably the embedding-input formatting) so that what the model
+is trained on matches what we send at query time (train/inference parity).
 
-This top-level package is intentionally import-light: importing ``rag`` (or
-``rag.core``) must not pull in the web framework or any training stack.
+Importing ``rag`` (or ``rag.core``) is intentionally light: it must not pull in the web
+framework or any training stack.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

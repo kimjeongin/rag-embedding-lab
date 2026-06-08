@@ -2,9 +2,8 @@
 
 Embeds with a LOCAL sentence-transformers model — e.g. one fine-tuned by
 `rag.training` (saved under outputs/...). It's the alternative to OllamaEmbedder:
-selecting it (EMBEDDER=sentence-transformers) makes the SAME /search run on the
-fine-tuned model, closing the train→serve loop. Use cases, API, and Qdrant are
-unchanged — only the composition root picks which embedder to build.
+selecting it (EMBEDDER=sentence-transformers) evaluates the fine-tuned model instead of
+the Ollama one — only the place that builds the embedder picks which one.
 
 Applies the same rag.core.formatting as serving/training (parity). Needs the
 training stack (`uv sync --group training`); the heavy imports are deferred to
@@ -43,7 +42,7 @@ class SentenceTransformerEmbedder:
         if dim != settings.embed_dim:
             raise EmbeddingError(
                 f"Model '{settings.st_model}' outputs dim {dim} != EMBED_DIM "
-                f"{settings.embed_dim}. Set EMBED_DIM={dim} and recreate the collection."
+                f"{settings.embed_dim}. Set EMBED_DIM={dim} to match the model."
             )
 
     async def embed_documents(self, documents: Sequence[Document]) -> list[list[float]]:

@@ -45,11 +45,6 @@ _LINES = [
 
 
 def _build_app(monkeypatch):
-    # lab-only mode + fast startup: no Qdrant needed for /api/train.
-    monkeypatch.setenv("RAG_STORE_WAIT_ATTEMPTS", "1")
-    monkeypatch.setenv("RAG_STORE_WAIT_DELAY", "0")
-    monkeypatch.setenv("QDRANT_URL", "http://127.0.0.1:65500")
-
     async def _fake_exec(*_args, **_kwargs):
         return _FakeProc(_LINES)
 

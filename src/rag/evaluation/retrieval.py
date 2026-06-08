@@ -5,9 +5,9 @@ Embedder used in serving — so the text is formatted identically (train/inferen
 parity) — ranks each query's docs by cosine, and scores the ranking against the
 qrels with `metrics`.
 
-Search is in-memory (numpy): no Qdrant, and with the Ollama backend no torch. This
+Ranking is in-memory (numpy), and with the Ollama backend no torch is loaded. This
 scales comfortably to tens of thousands of docs; for much larger corpora prefer the
-local sentence-transformers backend (batched on-device) or a vector-store-backed run.
+local sentence-transformers backend (batched on-device) or an ANN index.
 
 The corpus must be large and realistic — gold docs PLUS many distractors. If it
 contains only the answer docs, every metric saturates near 1.0 and can't tell models

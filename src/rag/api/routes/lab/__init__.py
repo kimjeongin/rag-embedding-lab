@@ -1,10 +1,9 @@
 """Lab API — the ``/api/*`` surface the React front-end drives.
 
 One router per screen-concern (status / models / data / runs / evaluate / train),
-combined under the ``/api`` prefix and mounted by the app factory. These routes need no
-vector store: they read/write files and run the offline pipeline, so they work even when
-Qdrant is down (the serving routes — /documents, /search — 503 in that case). Training
-streams its progress over Server-Sent Events (see ``train``).
+combined under the ``/api`` prefix and mounted by the app factory. These routes run the
+offline pipeline (read/write files + in-memory eval), so there's no vector store to stand
+up. Training streams its progress over Server-Sent Events (see ``train``).
 """
 from __future__ import annotations
 
