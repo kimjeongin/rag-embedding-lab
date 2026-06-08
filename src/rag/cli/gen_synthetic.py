@@ -17,7 +17,7 @@ def main() -> None:
     settings = Settings.from_env()
     train_file, eval_file = dataset_paths()
     corpus_file = os.getenv("CORPUS_FILE", "data/corpus.jsonl")
-    gen_model = os.getenv("GEN_MODEL", "qwen3:4b")
+    gen_model = os.getenv("GEN_MODEL", "qwen3.5:2b")
     n_queries = int(os.getenv("N_QUERIES", "3"))
     hard_negatives = int(os.getenv("HARD_NEGATIVES", "1"))
 

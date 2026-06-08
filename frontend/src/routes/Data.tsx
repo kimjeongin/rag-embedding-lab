@@ -20,7 +20,7 @@ export default function Data() {
 
   const [method, setMethod] = useState<Method>("toy");
   const [corpusFile, setCorpusFile] = useState("data/corpus.jsonl");
-  const [genModel, setGenModel] = useState("qwen3.5:4b");
+  const [genModel, setGenModel] = useState("qwen3.5:2b");
   const [nQueries, setNQueries] = useState(5);
   const [ndist, setNdist] = useState(448);
   const [modal, setModal] = useState<null | "pairs" | "corpus">(null);
