@@ -7,7 +7,8 @@ import pytest
 
 pytest.importorskip("pandas")
 
-from rag.webui import actions, runs  # noqa: E402 — after importorskip by design
+from rag import runs  # noqa: E402 — after importorskip by design
+from rag.webui import actions  # noqa: E402
 
 
 def test_default_model_prefers_embedding_for_ollama():

@@ -31,3 +31,7 @@ wandb/
 
 # web UI eval-run registry (generated at runtime)
 /runs/
+
+# browser-automation / preview artifacts (local only)
+.playwright-mcp/
+*.local.png

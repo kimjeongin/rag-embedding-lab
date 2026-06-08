@@ -1,5 +1,5 @@
 """Eval-run registry — append/load/delete round-trip (stdlib only, no gradio/pandas)."""
-from rag.webui.runs import (
+from rag.runs import (
     METRIC_KEYS,
     append_run,
     best_per_metric,

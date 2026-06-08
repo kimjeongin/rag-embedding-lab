@@ -1,0 +1,145 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap");
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  --color-ink-950: #08090b;
+  --color-ink-925: #0a0c0f;
+  --color-ink-900: #0d0f13;
+  --color-ink-880: #111419;
+  --color-ink-850: #15191f;
+  --color-ink-800: #1b2128;
+  --color-ink-700: #262d36;
+
+  --color-line: #ffffff12;
+  --color-line2: #ffffff1f;
+
+  --color-fg: #e9ecef;
+  --color-mut: #98a1ab;
+  --color-faint: #5b646e;
+
+  --color-signal: #c6f24a;
+  --color-signal2: #a7d534;
+  --color-amber: #f3b14a;
+  --color-danger: #f1685e;
+  --color-cyan: #5ad1d6;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-ink-950);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background: var(--color-signal);
+    color: #0a0c06;
+  }
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-700);
+    border-radius: 7px;
+    border: 3px solid var(--color-ink-950);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #313a45;
+  }
+}
+
+/* numeric/data text: tabular mono */
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* atmospheric glow + film grain, fixed behind the app */
+.atmos::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 45% at 8% -8%, rgba(198, 242, 74, 0.08), transparent 60%),
+    radial-gradient(45% 40% at 102% -5%, rgba(90, 209, 214, 0.06), transparent 55%);
+}
+.atmos::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* command palette (cmdk) group heading */
+[cmdk-group-heading] {
+  padding: 10px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+/* Radix dialog entrance — overlay fade + content rise (used by Modal + CommandPalette) */
+@keyframes dlg-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* X-centering is Tailwind's `-translate-x-1/2` (the CSS `translate` property in v4);
+   this keyframe only animates the `transform` property (Y + scale) so the two compose
+   instead of doubling the horizontal shift. */
+@keyframes dlg-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.dlg-overlay[data-state="open"] {
+  animation: dlg-overlay-in 0.16s ease both;
+}
+.dlg-content[data-state="open"] {
+  animation: dlg-content-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}

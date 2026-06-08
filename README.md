@@ -23,16 +23,16 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 
 | Command | What it does |
 |---------|--------------|
-| `uv run rag-serve` | 🟢 run the HTTP search **API** server |
+| `uv run rag-serve` | 🟢 run the HTTP **API** + serve the built **React UI** (one port) |
 | `uv run rag-gen-data` | write a toy fine-tuning dataset |
 | `uv run rag-gen-synthetic` | write an LLM-generated **training** dataset (+ hard negatives) |
 | `uv run rag-gen-eval` | write a sample **BEIR-format eval set** (`data/eval`) |
 | `uv run rag-train` | fine-tune the embedding model |
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
-| `uv run rag-ui` | 🟢 **web UI** (Gradio) — data → train → eval → compare |
+| `uv run rag-ui` | **web UI** (Gradio, legacy) — superseded by the React lab in `frontend/` |
 
-`rag-serve` (API) and `rag-ui` (Gradio) are long-running servers; the rest are batch
-tools that run and exit.
+`rag-serve` (API + UI) and `rag-ui` (Gradio) are long-running servers; the rest are batch
+tools that run and exit. The **React lab** (`frontend/`) is the primary UI — see [Web UI](#web-ui).
 
 ## How it works
 
@@ -382,30 +382,63 @@ in this format (point `TRAIN_FILE`/`TRAIN_EVAL_FILE` at it) or put documents in
 `data/corpus.jsonl` and run `rag-gen-synthetic`. Key env: `TRAIN_BASE_MODEL`,
 `TRAIN_EPOCHS`, `TRAIN_BATCH_SIZE`, `TRAIN_DEVICE`, `GEN_MODEL`, `HARD_NEGATIVES`.
 
-### Web UI (Gradio)
-A click-through of the whole offline loop — **generate data → train → evaluate →
-compare** — for anyone who'd rather not drive the CLI:
+## Web UI
+
+Two delivery layers wrap the **same `rag.*` offline loop** (generate data → train →
+evaluate → compare). Both are thin — no business logic of their own. Bring your in-house
+eval set ([`docs/evaluation.md`](docs/evaluation.md)) and the eval/compare screens measure
+real models.
+
+### React lab (primary) — [`frontend/`](frontend)
+
+A single-page studio: an **Overview** dashboard (champion + leaderboard + nDCG trend),
+**Data** (generate/preview training pairs & the BEIR eval set), **Train** (live SSE loss
+curve + before/after nDCG), **Eval** (auto-dim model scoring with Δ-vs-best), and
+**Compare** (grouped metric bars + best-per-metric table). ⌘K command palette, toasts,
+focus-trapped dialogs.
+
+**Stack:** Vite · React + TypeScript · Tailwind v4 · TanStack Query (server state) ·
+React Router · Radix UI + cmdk + Sonner (behaviour) · hand-drawn SVG charts (data-viz).
+The design system, data layer, and screens live in
+`frontend/src/{components,lib,routes}`. It talks to the **lab API** (`/api/*`); Qdrant is
+**not** required for the lab — only the search server (`/search`, `/documents`) needs it.
+
 ```bash
-uv sync --group ui            # add --group training too for the Train tab
+npm install --prefix frontend          # one-time: JS deps
+
+# dev (two terminals): API on :8800, Vite HMR on :5273 (proxies /api → :8800)
+RAG_PORT=8800 uv run rag-serve
+npm run dev --prefix frontend          # http://localhost:5273
+
+# production single-port: build the SPA, then rag-serve mounts it at /
+npm run build --prefix frontend
+uv run rag-serve                       # http://localhost:8000  (UI + /api together)
+```
+
+#### Lab API (`/api/*`)
+The React app is a thin client over these (FastAPI, [`rag/api/routes/lab/`](src/rag/api/routes/lab)):
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/status` | Ollama / device / eval-set / training-ready / run-count |
+| `GET /api/models?embedder=` | model list + a sensible default |
+| `GET /api/data/{overview,pairs,corpus}` | dataset counts + previews |
+| `POST /api/data/{pairs,eval}` | (re)generate training pairs / the BEIR eval set |
+| `POST /api/eval` | score a model → append to the run registry → metrics + Δ |
+| `GET`·`DELETE /api/runs[/{id}]` | list (with best-per-metric) / delete a run |
+| `POST /api/train` | fine-tune, streamed live over **SSE** (log / loss / metrics / done) |
+
+Lab support code is framework-free and shared with the Gradio UI: the run registry in
+[`rag/runs.py`](src/rag/runs.py), environment/model introspection in
+[`rag/lab.py`](src/rag/lab.py), and training-log parsing in
+[`rag/trainlog.py`](src/rag/trainlog.py).
+
+### Gradio (legacy) — [`rag/webui/`](src/rag/webui)
+The original click-through, kept for the no-Node path (`uv sync --group ui`):
+```bash
 uv run rag-ui                 # http://127.0.0.1:7860   (UI_HOST / UI_PORT to change)
 ```
-A card-based layout (Soft indigo theme, Pretendard font) with four tabs and a status bar
-(Ollama / device / active-eval / run-count). Each tab calls the **same `rag.*` code** as
-the CLIs:
-- **① 데이터** — generate training pairs (pre-made sample or LLM-synthetic) and a sample BEIR
-  eval set, with table previews, an expandable full-data panel, and a sample-data warning.
-- **② 학습** — set hyperparameters and run `rag-train` (subprocess → torch stays out of the
-  UI); watch a **live loss curve** + before/after nDCG@10 cards. A one-click button installs
-  the training stack if it's missing.
-- **③ 평가** — pick a model from a dropdown (`outputs/` scan or Ollama); the embedding dim is
-  **auto-detected**. Results show as **KPI cards (Δ vs best so far)** and auto-feed Compare.
-- **④ 비교** — every run in a **heatmap table** (best-per-metric highlighted) + a grouped
-  **bar chart of all metrics at once** (y-axis zoomed so small gaps show). Click the **🗑
-  cell** in a row to delete that run.
-
-It's a thin **delivery layer** (`rag/webui/`, alongside `api/` and `cli/`) with no logic of its
-own. Bring your in-house eval set ([`docs/evaluation.md`](docs/evaluation.md)) and the 평가/비교
-tabs measure real models.
+Same four-step loop in a card layout. The React lab supersedes it.
 
 ## Tests
 ```bash

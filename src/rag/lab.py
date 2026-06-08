@@ -1,0 +1,131 @@
+"""Lab support glue — environment introspection + eval-settings construction.
+
+The "lab" (generate data → train → evaluate → compare) needs to answer a few
+cross-cutting questions that aren't business logic and don't belong to any one
+delivery layer: *is Ollama up and what models does it serve?*, *what device will
+training use?*, *does this eval set look like the bundled sample?*, *what embedding
+dimension does this model produce?*.
+
+This module owns those, framework-free: stdlib + httpx + the rag stack, but **no
+gradio, pandas, or fastapi**. That's the whole point — both the Gradio web UI
+(`rag.webui.actions`) and the HTTP API (`rag.api`) import from here, so the logic
+lives once and stays unit-testable without the UI extras installed. (Same neutral
+move as `rag.runs` for the eval-run registry.)
+"""
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+import httpx
+
+from rag.config import Settings
+from rag.dataset import load_jsonl
+
+
+# ── environment introspection ──────────────────────────────────────────────────
+def ollama_status(url: str | None = None) -> tuple[bool, list[str]]:
+    """(reachable, model_names). Any failure means "not reachable" with no models."""
+    url = url or Settings.from_env().ollama_url
+    try:
+        resp = httpx.get(f"{url}/api/tags", timeout=2.5)
+        resp.raise_for_status()
+        return True, [m["name"] for m in resp.json().get("models", [])]
+    except Exception:  # noqa: BLE001 — any failure means "not reachable"
+        return False, []
+
+
+def device_status() -> str:
+    """The device training would pick: cuda / mps / cpu (or a note if torch is absent)."""
+    try:
+        import torch
+    except ImportError:
+        return "torch 미설치 (학습 그룹 필요)"
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def training_ready() -> bool:
+    """True if the training stack (torch + sentence-transformers) is importable."""
+    return all(importlib.util.find_spec(m) is not None for m in ("torch", "sentence_transformers"))
+
+
+# ── model discovery ────────────────────────────────────────────────────────────
+def list_st_models() -> list[str]:
+    """Sub-dirs of outputs/ that look like a saved sentence-transformers model."""
+    root = Path("outputs")
+    if not root.exists():
+        return []
+    return [
+        str(p)
+        for p in sorted(root.iterdir())
+        if p.is_dir() and ((p / "config.json").exists() or (p / "modules.json").exists())
+    ]
+
+
+def list_models(embedder: str, ollama_url: str) -> list[str]:
+    """Available models for the chosen backend: Ollama's served tags or local ST dirs."""
+    if embedder == "ollama":
+        return ollama_status(ollama_url)[1]
+    return list_st_models()
+
+
+def default_model(embedder: str, choices: list[str]) -> str:
+    """A sensible default selection when the backend changes (so a stale model isn't kept)."""
+    if not choices:
+        return ""
+    if embedder == "ollama":
+        for choice in choices:
+            if "embedding" in choice:
+                return choice
+    return choices[0]
+
+
+# ── eval set introspection ─────────────────────────────────────────────────────
+def count_lines(path: str) -> int:
+    """Number of JSONL records in `path` (0 if it doesn't exist)."""
+    try:
+        return sum(1 for _ in load_jsonl(path))
+    except FileNotFoundError:
+        return 0
+
+
+def is_sample_eval(eval_dir: str) -> bool:
+    """True if EVAL_DIR looks like the bundled sample (gold-/distractor- ids)."""
+    path = Path(eval_dir) / "corpus.jsonl"
+    if not path.exists():
+        return False
+    try:
+        first = next(load_jsonl(str(path)))
+    except (StopIteration, FileNotFoundError):
+        return False
+    return str(first.get("_id", "")).startswith(("distractor-", "gold-"))
+
+
+# ── eval settings (which model to measure) ─────────────────────────────────────
+def infer_dim(embedder: str, model: str, ollama_url: str) -> int:
+    """The embedding dimension this model produces — so no manual dim field can be wrong."""
+    if embedder == "ollama":
+        resp = httpx.post(f"{ollama_url}/api/embed", json={"model": model, "input": "x"}, timeout=30)
+        resp.raise_for_status()
+        return len(resp.json()["embeddings"][0])
+    from sentence_transformers import SentenceTransformer
+
+    return int(SentenceTransformer(model).get_sentence_embedding_dimension())
+
+
+def build_eval_settings(embedder: str, model: str, embed_dim: int, ollama_url: str) -> Settings:
+    """Settings for evaluating one model, inheriting unrelated fields from the env."""
+    base = Settings.from_env()
+    if embedder == "ollama":
+        return Settings(
+            embedder="ollama", embed_model=(model or base.embed_model), embed_dim=embed_dim,
+            ollama_url=(ollama_url or base.ollama_url), query_instruction=base.query_instruction,
+        )
+    return Settings(
+        embedder="sentence-transformers", st_model=(model or base.st_model), embed_dim=embed_dim,
+        query_instruction=base.query_instruction,
+    )

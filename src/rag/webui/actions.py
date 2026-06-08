@@ -8,22 +8,31 @@ here means the package imports (and unit-tests) without gradio installed.
 from __future__ import annotations
 
 import asyncio
-import importlib.util
-import re
 import shutil
 from pathlib import Path
 
-import httpx
 import pandas as pd
 
+from rag import runs as registry
+from rag import trainlog
 from rag.config import Settings
 from rag.datagen.dummy import generate_dataset
 from rag.datagen.eval_corpus import generate as generate_eval_set
 from rag.dataset import dataset_paths, load_jsonl, write_jsonl
 from rag.evaluation.beir import eval_dir_from_env, write_beir_dataset
 from rag.evaluation.retrieval import evaluate
-from rag.webui import runs as registry
+from rag.lab import (
+    build_eval_settings,
+    count_lines,
+    device_status,
+    infer_dim,
+    is_sample_eval,
+    ollama_status,
+)
 from rag.webui.jobs import python_call, stream_command
+
+# Re-exported so the Gradio app (rag.webui.app) can keep calling these as actions.*.
+from rag.lab import default_model, list_models, training_ready  # noqa: F401
 
 _KPI_METRICS = ("recall@1", "recall@3", "ndcg@10", "mrr@10")
 
@@ -51,40 +60,6 @@ def _code(text: str) -> str:
 
 
 # ── status header ─────────────────────────────────────────────────────────────
-def ollama_status(url: str | None = None) -> tuple[bool, list[str]]:
-    url = url or Settings.from_env().ollama_url
-    try:
-        resp = httpx.get(f"{url}/api/tags", timeout=2.5)
-        resp.raise_for_status()
-        return True, [m["name"] for m in resp.json().get("models", [])]
-    except Exception:  # noqa: BLE001 — any failure means "not reachable"
-        return False, []
-
-
-def device_status() -> str:
-    try:
-        import torch
-    except ImportError:
-        return "torch 미설치 (학습 그룹 필요)"
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
-
-
-def is_sample_eval(eval_dir: str) -> bool:
-    """True if EVAL_DIR looks like the bundled sample (gold-/distractor- ids)."""
-    path = Path(eval_dir) / "corpus.jsonl"
-    if not path.exists():
-        return False
-    try:
-        first = next(load_jsonl(str(path)))
-    except (StopIteration, FileNotFoundError):
-        return False
-    return str(first.get("_id", "")).startswith(("distractor-", "gold-"))
-
-
 def status_html() -> str:
     settings = Settings.from_env()
     ok, _ = ollama_status(settings.ollama_url)
@@ -100,19 +75,12 @@ def status_html() -> str:
     return "<div class='statusbar'>" + "".join(pills) + "</div>"
 
 
-def _count(path: str) -> int:
-    try:
-        return sum(1 for _ in load_jsonl(path))
-    except FileNotFoundError:
-        return 0
-
-
 def eval_header_html() -> str:
     """Evaluate-tab banner: which eval set is used (binding) + a sample-data warning."""
     eval_dir = eval_dir_from_env()
     binding = (
-        f"📂 평가셋 {_code(eval_dir)} · corpus {_count(f'{eval_dir}/corpus.jsonl')} · "
-        f"queries {_count(f'{eval_dir}/queries.jsonl')} "
+        f"📂 평가셋 {_code(eval_dir)} · corpus {count_lines(f'{eval_dir}/corpus.jsonl')} · "
+        f"queries {count_lines(f'{eval_dir}/queries.jsonl')} "
         f"<span style='opacity:.75'>(① 데이터 탭의 ‘평가 데이터’)</span>"
     )
     if is_sample_eval(eval_dir):
@@ -122,25 +90,6 @@ def eval_header_html() -> str:
             "실제 측정은 사내 데이터를 같은 형식으로 넣으세요 (docs/evaluation.md).",
         )
     return _banner(_C_INFO, binding)
-
-
-# ── model discovery ───────────────────────────────────────────────────────────
-def list_st_models() -> list[str]:
-    """Sub-dirs of outputs/ that look like a saved model."""
-    root = Path("outputs")
-    if not root.exists():
-        return []
-    return [
-        str(p)
-        for p in sorted(root.iterdir())
-        if p.is_dir() and ((p / "config.json").exists() or (p / "modules.json").exists())
-    ]
-
-
-def list_models(embedder: str, ollama_url: str) -> list[str]:
-    if embedder == "ollama":
-        return ollama_status(ollama_url)[1]
-    return list_st_models()
 
 
 # ── Data tab ──────────────────────────────────────────────────────────────────
@@ -189,11 +138,11 @@ def data_overview() -> pd.DataFrame:
     train_file, test_file = dataset_paths()
     eval_dir = eval_dir_from_env()
     rows = [
-        {"데이터": "학습쌍 (train)", "개수": _count(train_file), "쓰이는 곳": "② 학습", "파일": train_file},
-        {"데이터": "학습쌍 (test)", "개수": _count(test_file), "쓰이는 곳": "② 학습 (검증)", "파일": test_file},
-        {"데이터": "평가 corpus", "개수": _count(f"{eval_dir}/corpus.jsonl"), "쓰이는 곳": "③ 평가",
+        {"데이터": "학습쌍 (train)", "개수": count_lines(train_file), "쓰이는 곳": "② 학습", "파일": train_file},
+        {"데이터": "학습쌍 (test)", "개수": count_lines(test_file), "쓰이는 곳": "② 학습 (검증)", "파일": test_file},
+        {"데이터": "평가 corpus", "개수": count_lines(f"{eval_dir}/corpus.jsonl"), "쓰이는 곳": "③ 평가",
          "파일": f"{eval_dir}/corpus.jsonl"},
-        {"데이터": "평가 queries", "개수": _count(f"{eval_dir}/queries.jsonl"), "쓰이는 곳": "③ 평가",
+        {"데이터": "평가 queries", "개수": count_lines(f"{eval_dir}/queries.jsonl"), "쓰이는 곳": "③ 평가",
          "파일": f"{eval_dir}/queries.jsonl"},
     ]
     return pd.DataFrame(rows, columns=["데이터", "개수", "쓰이는 곳", "파일"])
@@ -204,8 +153,8 @@ def train_data_info() -> str:
     train_file, test_file = dataset_paths()
     return _banner(
         _C_INFO,
-        f"📂 학습 데이터 {_code(train_file)} ({_count(train_file)} pairs) · "
-        f"검증 {_code(test_file)} ({_count(test_file)}) "
+        f"📂 학습 데이터 {_code(train_file)} ({count_lines(train_file)} pairs) · "
+        f"검증 {_code(test_file)} ({count_lines(test_file)}) "
         f"<span style='opacity:.75'>(① 데이터 탭의 ‘학습 데이터’)</span>",
     )
 
@@ -237,11 +186,6 @@ def gen_eval_set(n_distractors) -> tuple[str, pd.DataFrame]:
 
 
 # ── Train tab: dependency readiness (so the user never touches the CLI) ─────────
-def training_ready() -> bool:
-    """True if the training stack (torch + sentence-transformers) is importable."""
-    return all(importlib.util.find_spec(m) is not None for m in ("torch", "sentence_transformers"))
-
-
 def training_status_html() -> str:
     if training_ready():
         return _banner(_C_INFO, "✅ 학습 라이브러리 설치됨 — 바로 학습할 수 있어요.")
@@ -264,45 +208,10 @@ def install_training():
 
 
 # ── Train tab (parse the streamed log into a loss curve + before/after KPI) ─────
-# Tolerant of transformers' quoted ('loss': '0.39') and unquoted ('loss': 0.39) logs.
-_LOSS_RE = re.compile(r"'loss':\s*'?([0-9.eE+-]+)")
-_EPOCH_RE = re.compile(r"'epoch':\s*'?([0-9.eE+-]+)")
-_NDCG_RE = re.compile(r"ndcg@10\s*=\s*([0-9.]+)")
-
-
-def _clean_tqdm(text: str) -> str:
-    """Collapse tqdm carriage-return redraws so the log reads cleanly in a textbox."""
-    return "\n".join(line.split("\r")[-1] for line in text.split("\n"))
-
-
+# The log parsing lives in the framework-free rag.trainlog (shared with the HTTP API);
+# here we only wrap the loss points into a DataFrame for Gradio's LinePlot.
 def _parse_loss(text: str) -> pd.DataFrame:
-    rows = []
-    for line in text.split("\n"):
-        loss = _LOSS_RE.search(line)
-        if loss:
-            epoch = _EPOCH_RE.search(line)
-            rows.append(
-                {"step": len(rows) + 1, "epoch": float(epoch.group(1)) if epoch else float(len(rows) + 1),
-                 "loss": float(loss.group(1))}
-            )
-    return pd.DataFrame(rows, columns=["step", "epoch", "loss"])
-
-
-def _parse_eval(text: str) -> tuple[float | None, float | None]:
-    before = after = None
-    section = None
-    for line in text.split("\n"):
-        if "baseline eval" in line:
-            section = "before"
-        elif "after fine-tuning" in line:
-            section = "after"
-        m = _NDCG_RE.search(line)
-        if m:
-            if section == "before" and before is None:
-                before = float(m.group(1))
-            elif section == "after":
-                after = float(m.group(1))
-    return before, after
+    return pd.DataFrame(trainlog.parse_loss_points(text), columns=["step", "epoch", "loss"])
 
 
 def _train_kpi_html(before: float | None, after: float | None) -> str:
@@ -334,34 +243,11 @@ def run_train(base_model, epochs, batch_size, learning_rate, output_dir, device)
     )
     yield header, pd.DataFrame(columns=["step", "epoch", "loss"]), ""
     for accumulated in stream_command(python_call("rag.cli.train"), env):
-        clean = _clean_tqdm(accumulated)
-        yield header + clean, _parse_loss(clean), _train_kpi_html(*_parse_eval(clean))
+        clean = trainlog.clean_tqdm(accumulated)
+        yield header + clean, _parse_loss(clean), _train_kpi_html(*trainlog.parse_eval_ndcg(clean))
 
 
 # ── Evaluate tab ──────────────────────────────────────────────────────────────
-def _settings(embedder: str, model: str, embed_dim: int, ollama_url: str) -> Settings:
-    base = Settings.from_env()
-    if embedder == "ollama":
-        return Settings(
-            embedder="ollama", embed_model=(model or base.embed_model), embed_dim=embed_dim,
-            ollama_url=(ollama_url or base.ollama_url), query_instruction=base.query_instruction,
-        )
-    return Settings(
-        embedder="sentence-transformers", st_model=(model or base.st_model), embed_dim=embed_dim,
-        query_instruction=base.query_instruction,
-    )
-
-
-def _infer_dim(embedder: str, model: str, ollama_url: str) -> int:
-    if embedder == "ollama":
-        resp = httpx.post(f"{ollama_url}/api/embed", json={"model": model, "input": "x"}, timeout=30)
-        resp.raise_for_status()
-        return len(resp.json()["embeddings"][0])
-    from sentence_transformers import SentenceTransformer
-
-    return int(SentenceTransformer(model).get_sentence_embedding_dimension())
-
-
 def _kpi_card(label: str, value: float, delta: float | None = None) -> str:
     chip = ""
     if delta is not None:
@@ -397,8 +283,8 @@ def run_eval(embedder, model, ollama_url, eval_dir, label):
     eval_dir = (eval_dir or "").strip() or eval_dir_from_env()
     yield f"⏳ 평가 중… ({model} 으로 코퍼스+쿼리 임베딩)", ""
     try:
-        dim = _infer_dim(embedder, model, ollama_url)
-        settings = _settings(embedder, model, dim, ollama_url)
+        dim = infer_dim(embedder, model, ollama_url)
+        settings = build_eval_settings(embedder, model, dim, ollama_url)
         prior_best = registry.best_per_metric()
         metrics = asyncio.run(evaluate(settings, eval_dir))
     except Exception as exc:  # noqa: BLE001 — surface to the UI
@@ -488,17 +374,6 @@ def compare_figure():
     fig.update_xaxes(gridcolor="rgba(128,128,128,.15)", title_text=None)
     fig.update_yaxes(gridcolor="rgba(128,128,128,.15)")
     return fig
-
-
-def default_model(embedder: str, choices: list[str]) -> str:
-    """A sensible default selection when the backend changes (so a stale model isn't kept)."""
-    if not choices:
-        return ""
-    if embedder == "ollama":
-        for choice in choices:
-            if "embedding" in choice:
-                return choice
-    return choices[0]
 
 
 def delete_run_at(row_index: int | None) -> None:
