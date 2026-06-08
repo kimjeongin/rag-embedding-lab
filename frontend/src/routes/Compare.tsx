@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { BarChart3, Play, Trash2 } from "lucide-react";
 
+import { RUN_COLORS, runColor } from "../lib/colors";
 import { fmt, short } from "../lib/format";
-import { PATH, RUN_COLORS, runColor } from "../lib/nav";
+import { PATH } from "../lib/nav";
 import { useDeleteRun, useRuns } from "../lib/queries";
 import { METRICS } from "../lib/types";
 import { BarChart } from "../components/charts";

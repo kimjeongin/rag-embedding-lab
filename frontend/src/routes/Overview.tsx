@@ -5,7 +5,8 @@ import { fmt, pct, short, when } from "../lib/format";
 import { PATH } from "../lib/nav";
 import { useRuns } from "../lib/queries";
 import type { RunRecord } from "../lib/types";
-import { ActionCard, Btn, ErrorNote, Loading, Metric, Panel, Section, SectionLabel, Sparkline, Tag } from "../components/ui";
+import { Sparkline } from "../components/charts";
+import { ActionCard, Btn, ErrorNote, Loading, Metric, Panel, Section, SectionLabel, Tag } from "../components/ui";
 
 const ndcg = (r: RunRecord) => r.metrics["ndcg@10"] ?? 0;
 

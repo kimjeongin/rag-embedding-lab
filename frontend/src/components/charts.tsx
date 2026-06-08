@@ -1,4 +1,5 @@
 // Domain data-viz — hand-drawn SVG so they match the design exactly (custom, not shadcn).
+// The run palette is a plain constant, so it lives in lib/colors (not in this component file).
 import type { RunRecord } from "../lib/types";
 
 /** Grouped (side-by-side) bars of all metrics; y-axis zoomed to the data so small gaps show. */
@@ -97,6 +98,23 @@ export function LossCurve({ points }: { points: number[] }) {
       </defs>
       <polygon points={`0,${H} ${path} ${W},${H}`} fill="url(#loss)" />
       <polyline points={path} fill="none" stroke="#c6f24a" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Tiny trend line with a dotted last point — the Overview's nDCG sparkline. */
+export function Sparkline({ data, color = "#c6f24a", className }: { data: number[]; color?: string; className?: string }) {
+  const W = 120;
+  const H = 40;
+  const lo = Math.min(...data);
+  const hi = Math.max(...data);
+  const rng = hi - lo || 1;
+  const yy = (v: number) => H - ((v - lo) / rng) * (H - 8) - 4;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * W},${yy(v)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className={className} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={W} cy={yy(data[data.length - 1])} r="2.6" fill={color} />
     </svg>
   );
 }
