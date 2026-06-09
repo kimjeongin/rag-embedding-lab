@@ -79,6 +79,15 @@ uv sync --group training   # add the training stack (torch, sentence-transformer
 ```
 
 ### 3. Run
+
+A `Makefile` wraps the common tasks (`make help` lists them all):
+```bash
+make install   # backend (uv + training) + frontend (npm) deps — once
+make dev       # API + Vite dev server together, Ctrl-C stops both → http://localhost:5273
+make serve     # production: build the UI, serve UI + API on one port → http://localhost:8000
+```
+
+Or drive it directly:
 ```bash
 # build the React UI once, then serve UI + API together
 npm install --prefix frontend && npm run build --prefix frontend
