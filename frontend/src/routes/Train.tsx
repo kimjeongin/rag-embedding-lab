@@ -99,12 +99,18 @@ export default function Train() {
               <LossCurve points={lossValues} />
             </Panel>
             <div className="grid grid-rows-2 gap-3">
-              <Stat label="nDCG@10 · 학습 전" value={train.metrics.before != null ? fmt(train.metrics.before) : "—"} tone="cyan" />
               <Stat
-                label="nDCG@10 · 학습 후"
+                label="검증쌍 nDCG@10 · 학습 전"
+                value={train.metrics.before != null ? fmt(train.metrics.before) : "—"}
+                tone="cyan"
+                sub="held-out 학습쌍"
+              />
+              <Stat
+                label="검증쌍 nDCG@10 · 학습 후"
                 value={train.metrics.after != null ? fmt(train.metrics.after) : "—"}
                 tag={train.metrics.after != null ? "완료" : undefined}
                 tone="signal"
+                sub="실측은 평가 화면에서"
               />
             </div>
           </div>
