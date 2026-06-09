@@ -52,7 +52,7 @@ class OllamaEmbedder:
         inputs = [format_document(doc.title, doc.content) for doc in documents]
         return await self._embed(inputs)
 
-    async def embed_query(self, query: str) -> list[float]:
-        """Query side: instruction-prefixed."""
-        embeddings = await self._embed([format_query(query, self._instruction)])
-        return embeddings[0]
+    async def embed_queries(self, queries: Sequence[str]) -> list[list[float]]:
+        """Query side: instruction-prefixed — embedded in one request."""
+        inputs = [format_query(q, self._instruction) for q in queries]
+        return await self._embed(inputs)

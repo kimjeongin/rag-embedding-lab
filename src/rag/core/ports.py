@@ -14,8 +14,12 @@ from rag.core.entities import Document
 
 
 class Embedder(Protocol):
-    """Turns documents/queries into vectors (asymmetric — see rag.core.formatting)."""
+    """Turns documents/queries into vectors (asymmetric — see rag.core.formatting).
+
+    Both sides are batch (one call per collection) so adapters can issue a single
+    Ollama request / on-device encode instead of one round-trip per item.
+    """
 
     async def embed_documents(self, documents: Sequence[Document]) -> list[list[float]]: ...
 
-    async def embed_query(self, query: str) -> list[float]: ...
+    async def embed_queries(self, queries: Sequence[str]) -> list[list[float]]: ...

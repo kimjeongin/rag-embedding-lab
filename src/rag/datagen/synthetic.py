@@ -53,23 +53,31 @@ async def _mine_hard_negatives(
     pairs: list[dict], docs: list[dict], settings: Settings, n_negatives: int
 ) -> None:
     """Attach the top-`n_negatives` most-similar docs that aren't the positive (by the
-    configured embedder) to each pair as hard negatives."""
+    configured embedder) to each pair as hard negatives.
+
+    Corpus and all pair queries are embedded in one batch each, then scored as a single
+    (queries × docs) matrix product.
+    """
     import numpy as np
 
+    def _l2(matrix):
+        return matrix / (np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12)
+
     async with build_embedder(settings) as embedder:
-        corpus = np.asarray(
+        corpus = _l2(np.asarray(
             await embedder.embed_documents(
                 [Document(content=d["content"], title=d.get("title")) for d in docs]
             ),
             dtype="float32",
-        )
-        corpus /= np.linalg.norm(corpus, axis=1, keepdims=True) + 1e-12
+        ))
+        qmatrix = _l2(np.asarray(
+            await embedder.embed_queries([pair["query"] for pair in pairs]), dtype="float32"
+        ))
 
-        for pair in pairs:
-            qvec = np.asarray(await embedder.embed_query(pair["query"]), dtype="float32")
-            qvec /= np.linalg.norm(qvec) + 1e-12
-            order = np.argsort(-(corpus @ qvec))
-            negatives = [i for i in order.tolist() if i != pair["_doc"]][:n_negatives]
+        sims = qmatrix @ corpus.T  # (n_pairs, n_docs)
+        for pair, row in zip(pairs, sims):
+            order = np.argsort(-row).tolist()
+            negatives = [i for i in order if i != pair["_doc"]][:n_negatives]
             pair["negatives"] = [
                 {"title": docs[i].get("title"), "content": docs[i]["content"]} for i in negatives
             ]

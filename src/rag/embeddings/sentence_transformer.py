@@ -50,10 +50,10 @@ class SentenceTransformerEmbedder:
         inputs = [format_document(doc.title, doc.content) for doc in documents]
         return await self._encode(inputs)
 
-    async def embed_query(self, query: str) -> list[float]:
-        """Query side: instruction-prefixed."""
-        vectors = await self._encode([format_query(query, self._instruction)])
-        return vectors[0]
+    async def embed_queries(self, queries: Sequence[str]) -> list[list[float]]:
+        """Query side: instruction-prefixed — encoded in one batch."""
+        inputs = [format_query(q, self._instruction) for q in queries]
+        return await self._encode(inputs)
 
     async def _encode(self, texts: list[str]) -> list[list[float]]:
         # encode() is blocking (torch); run it off the event loop.

@@ -43,8 +43,8 @@ class _KeywordEmbedder:
     async def embed_documents(self, documents):
         return [self._vec(f"{d.title or ''} {d.content}") for d in documents]
 
-    async def embed_query(self, query):
-        return self._vec(query)
+    async def embed_queries(self, queries):
+        return [self._vec(q) for q in queries]
 
 
 async def test_rank_corpus_orders_by_cosine(tmp_path):

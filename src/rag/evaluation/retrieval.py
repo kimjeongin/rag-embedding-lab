@@ -41,6 +41,13 @@ def _top_indices(scores, n: int) -> list[int]:
     return top[np.argsort(-scores[top])].tolist()
 
 
+def _l2_normalize(matrix):
+    """Row-wise L2 normalise so a dot product equals cosine similarity."""
+    import numpy as np
+
+    return matrix / (np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12)
+
+
 async def rank_corpus(
     embedder: Embedder,
     corpus: dict[str, dict[str, str | None]],
@@ -48,23 +55,28 @@ async def rank_corpus(
 ) -> dict[str, list[str]]:
     """Embed the corpus + queries and rank: {query_id: [doc_id, ...]} (top-N, best first).
 
-    Takes an Embedder (not Settings) so it can be unit-tested with an in-memory fake.
+    Documents and queries are each embedded in a single batch call, then scored as one
+    (queries × docs) matrix product — no per-query round-trip. Takes an Embedder (not
+    Settings) so it can be unit-tested with an in-memory fake.
     """
     import numpy as np
 
     doc_ids = list(corpus)
+    query_ids = list(queries)
+    if not doc_ids or not query_ids:
+        return {q: [] for q in query_ids}
+
     docs = [Document(content=corpus[d]["text"] or "", title=corpus[d]["title"]) for d in doc_ids]
+    doc_matrix = _l2_normalize(np.asarray(await embedder.embed_documents(docs), dtype="float32"))
+    query_matrix = _l2_normalize(
+        np.asarray(await embedder.embed_queries([queries[q] for q in query_ids]), dtype="float32")
+    )
 
-    matrix = np.asarray(await embedder.embed_documents(docs), dtype="float32")
-    matrix /= np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12
-
-    rankings: dict[str, list[str]] = {}
-    for query_id, text in queries.items():
-        qvec = np.asarray(await embedder.embed_query(text), dtype="float32")
-        qvec /= np.linalg.norm(qvec) + 1e-12
-        scores = matrix @ qvec  # cosine — both sides L2-normalised
-        rankings[query_id] = [doc_ids[i] for i in _top_indices(scores, _TOP_N)]
-    return rankings
+    sims = query_matrix @ doc_matrix.T  # (n_queries, n_docs) cosine — both sides normalised
+    return {
+        query_id: [doc_ids[i] for i in _top_indices(row, _TOP_N)]
+        for query_id, row in zip(query_ids, sims)
+    }
 
 
 async def evaluate(settings: Settings, eval_dir: str) -> dict[str, float]:
