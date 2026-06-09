@@ -5,7 +5,7 @@ FRONTEND := frontend
 # Vite proxies /api → API_PORT (see frontend/vite.config.ts), so keep them in sync.
 API_PORT ?= 8800
 
-.PHONY: help install dev build serve test lint
+.PHONY: help install run dev build stop clean test lint
 
 help:  ## List available commands
 	@grep -hE '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) \
@@ -15,7 +15,10 @@ install:  ## Install backend (uv, incl. training stack) + frontend (npm) deps
 	uv sync --group training
 	npm install --prefix $(FRONTEND)
 
-dev:  ## Run the API + the Vite dev server together — Ctrl-C stops both
+run: build  ## Use the lab: build the UI + serve UI + API on one port → http://localhost:8000
+	uv run rag-serve
+
+dev:  ## Develop the UI: API + Vite (HMR) on two ports → http://localhost:5273 · Ctrl-C stops both
 	@echo "▸ API  http://localhost:$(API_PORT)      ▸ UI  http://localhost:5273"
 	@trap 'kill 0' INT TERM; \
 	  RAG_PORT=$(API_PORT) uv run rag-serve & \
@@ -25,8 +28,17 @@ dev:  ## Run the API + the Vite dev server together — Ctrl-C stops both
 build:  ## Build the React app → frontend/dist
 	npm run build --prefix $(FRONTEND)
 
-serve: build  ## Production single-port: build the UI, then serve UI + API on :8000
-	uv run rag-serve
+stop:  ## Stop any running lab servers (ports 8000 / 8800 / 5273)
+	@for p in 8000 $(API_PORT) 5273; do \
+	  pids=$$(lsof -ti:$$p 2>/dev/null); \
+	  if [ -n "$$pids" ]; then kill $$pids 2>/dev/null && echo "  stopped :$$p ($$pids)"; fi; \
+	done; \
+	echo "✓ no lab servers running"
+
+clean:  ## Remove build artifacts (frontend/dist + Python caches) — keeps deps
+	rm -rf $(FRONTEND)/dist .pytest_cache .ruff_cache
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@echo "✓ cleaned build artifacts (deps untouched — 'make install' if needed)"
 
 test:  ## Run the backend tests (pytest)
 	uv run pytest -q

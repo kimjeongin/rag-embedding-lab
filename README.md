@@ -83,8 +83,9 @@ uv sync --group training   # add the training stack (torch, sentence-transformer
 A `Makefile` wraps the common tasks (`make help` lists them all):
 ```bash
 make install   # backend (uv + training) + frontend (npm) deps — once
-make dev       # API + Vite dev server together, Ctrl-C stops both → http://localhost:5273
-make serve     # production: build the UI, serve UI + API on one port → http://localhost:8000
+make run       # use the lab: build the UI + serve UI + API on one port → http://localhost:8000
+make dev       # develop the UI: API + Vite (HMR) on two ports → http://localhost:5273
+make stop      # stop any running lab servers   (make clean / test / lint also available)
 ```
 
 Or drive it directly:
