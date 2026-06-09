@@ -6,15 +6,12 @@ formatting in ``rag.core.formatting`` (the same formatting training uses, for pa
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
 class Document:
-    """A page/passage to embed. ``metadata`` is carried through untouched."""
+    """A page/passage to embed — only the fields the embedder actually reads."""
 
     content: str
-    url: str | None = None
     title: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
