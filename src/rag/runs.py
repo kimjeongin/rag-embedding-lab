@@ -76,10 +76,16 @@ def delete_run(run_id: str, path: str | None = None) -> int:
     return len(kept)
 
 
-def best_per_metric(path: str | None = None) -> dict[str, float]:
-    """The best (max) value seen for each metric across all runs — for Δ comparisons."""
+def best_per_metric(path: str | None = None, eval_dir: str | None = None) -> dict[str, float]:
+    """The best (max) value seen for each metric — for Δ comparisons.
+
+    Pass ``eval_dir`` to restrict to runs measured on that eval set; scores from
+    different eval sets aren't comparable, so a cross-set "best" would be meaningless.
+    """
     best: dict[str, float] = {}
     for record in load_runs(path):
+        if eval_dir is not None and record.get("eval_dir") != eval_dir:
+            continue
         for key, value in record.get("metrics", {}).items():
             if value is not None and (key not in best or value > best[key]):
                 best[key] = float(value)

@@ -27,7 +27,9 @@ async def run_eval(req: EvalRequest) -> EvalResponse:
     try:
         dim = lab.infer_dim(req.embedder, req.model, ollama_url)
         settings = lab.build_eval_settings(req.embedder, req.model, dim, ollama_url)
-        prior_best = registry.best_per_metric()
+        # Δ is only meaningful against runs on the SAME eval set (different haystacks
+        # aren't comparable), so scope the prior best to this eval_dir.
+        prior_best = registry.best_per_metric(eval_dir=eval_dir)
         metrics = await evaluate(settings, eval_dir)
     except Exception as exc:  # noqa: BLE001 — surface model/embedding failures as 502
         raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc
