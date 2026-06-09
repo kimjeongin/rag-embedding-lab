@@ -226,7 +226,7 @@ src/rag/
 │   ├── formatting.py format_query / format_document  (asymmetry, one place)
 │   └── errors.py
 ├── embeddings/       Embedder adapters: ollama.py · sentence_transformer.py · factory.py (build_embedder)
-├── datagen/          dummy.py (toy) · synthetic.py (LLM + hard negatives) · eval_corpus.py (BEIR sample)
+├── datagen/          topics.py (shared 16-topic set) · dummy.py (toy) · synthetic.py (LLM + hard negatives) · eval_corpus.py (BEIR sample)
 ├── training/         config · data · model · train  (contrastive fine-tuning)
 ├── evaluation/       beir.py (corpus/queries/qrels IO) · retrieval.py (embed + in-memory rank) · metrics.py
 ├── api/              lab HTTP API (FastAPI) + composition root

@@ -196,6 +196,12 @@ NFCorpus — so you see both in-domain lift and whether general ability regresse
   in the same tech register: plausible noise that answers no query.
 - Total corpus ≈ **464 docs**, deterministically shuffled.
 
+> **No leak with the toy training set.** The gold docs are shared with the toy training
+> data (`rag-gen-data`), but the *queries* are not: the toy set learns from each topic's
+> `train_queries` and the eval scores on disjoint `eval_queries` (both defined once in
+> [`datagen/topics.py`](../src/rag/datagen/topics.py)). So a toy fine-tune is measured on
+> phrasings it never saw — generalisation, not memorisation.
+
 Observed with the base `qwen3-embedding:0.6b`:
 
 ```

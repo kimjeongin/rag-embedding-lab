@@ -1,48 +1,48 @@
-{"_id": "q-0-0", "text": "how does async await work in python"}
-{"_id": "q-0-1", "text": "python event loop and coroutines"}
-{"_id": "q-0-2", "text": "run concurrent io-bound code in python"}
-{"_id": "q-1-0", "text": "add type annotations in python"}
-{"_id": "q-1-1", "text": "static type checking with mypy"}
-{"_id": "q-1-2", "text": "what are python type hints"}
-{"_id": "q-2-0", "text": "speed up a slow postgres query"}
-{"_id": "q-2-1", "text": "how do database indexes work"}
-{"_id": "q-2-2", "text": "make a sql lookup faster with an index"}
-{"_id": "q-3-0", "text": "search text columns in postgres"}
-{"_id": "q-3-1", "text": "tsvector and tsquery relevance ranking"}
-{"_id": "q-3-2", "text": "natural language search in a sql database"}
-{"_id": "q-4-0", "text": "write an async api with fastapi"}
-{"_id": "q-4-1", "text": "async def endpoint throughput"}
-{"_id": "q-4-2", "text": "concurrency in a python web framework"}
-{"_id": "q-5-0", "text": "difference between a docker image and a container"}
-{"_id": "q-5-1", "text": "how do docker containers work"}
-{"_id": "q-5-2", "text": "package an app into a container"}
-{"_id": "q-6-0", "text": "create and merge a git branch"}
-{"_id": "q-6-1", "text": "isolate feature work in git"}
-{"_id": "q-6-2", "text": "how does git merging work"}
-{"_id": "q-7-0", "text": "what does http 404 mean"}
-{"_id": "q-7-1", "text": "categories of http response codes"}
-{"_id": "q-7-2", "text": "client vs server error status codes"}
-{"_id": "q-8-0", "text": "principles of rest api design"}
-{"_id": "q-8-1", "text": "http verbs for crud operations"}
-{"_id": "q-8-2", "text": "what makes an api restful"}
-{"_id": "q-9-0", "text": "use redis as a cache"}
-{"_id": "q-9-1", "text": "serve hot data with sub-millisecond latency"}
-{"_id": "q-9-2", "text": "reduce database load with a cache"}
-{"_id": "q-10-0", "text": "difference between inner and left join"}
-{"_id": "q-10-1", "text": "combine two sql tables on a key"}
-{"_id": "q-10-2", "text": "how do sql joins work"}
-{"_id": "q-11-0", "text": "match a pattern with a regular expression"}
-{"_id": "q-11-1", "text": "what are regular expressions"}
-{"_id": "q-11-2", "text": "search text using a pattern"}
-{"_id": "q-12-0", "text": "what is the json data format"}
-{"_id": "q-12-1", "text": "represent structured data as text"}
-{"_id": "q-12-2", "text": "nested objects and arrays in json"}
-{"_id": "q-13-0", "text": "change file permissions in linux"}
-{"_id": "q-13-1", "text": "what does chmod 755 mean"}
-{"_id": "q-13-2", "text": "read write execute permission bits"}
-{"_id": "q-14-0", "text": "set up ssh key login"}
-{"_id": "q-14-1", "text": "passwordless ssh authentication"}
-{"_id": "q-14-2", "text": "public and private keys for ssh"}
-{"_id": "q-15-0", "text": "what is a kubernetes pod"}
-{"_id": "q-15-1", "text": "smallest deployable unit in kubernetes"}
-{"_id": "q-15-2", "text": "containers sharing a network namespace"}
+{"_id": "q-0-0", "text": "single-threaded concurrency model in python"}
+{"_id": "q-0-1", "text": "schedule coroutines for network calls"}
+{"_id": "q-0-2", "text": "non-blocking i/o using async def"}
+{"_id": "q-1-0", "text": "catch bugs before runtime with annotations"}
+{"_id": "q-1-1", "text": "annotate function signatures in python"}
+{"_id": "q-1-2", "text": "tool that verifies variable types"}
+{"_id": "q-2-0", "text": "avoid a full table scan in postgres"}
+{"_id": "q-2-1", "text": "why is my postgres join slow"}
+{"_id": "q-2-2", "text": "find rows without reading the whole table"}
+{"_id": "q-3-0", "text": "rank documents by relevance in postgres"}
+{"_id": "q-3-1", "text": "query prose stored in a postgres column"}
+{"_id": "q-3-2", "text": "keyword search over text with tsquery"}
+{"_id": "q-4-0", "text": "handle many concurrent requests in fastapi"}
+{"_id": "q-4-1", "text": "improve io-bound api throughput"}
+{"_id": "q-4-2", "text": "event-loop backed web endpoints"}
+{"_id": "q-5-0", "text": "immutable filesystem snapshot vs running instance"}
+{"_id": "q-5-1", "text": "start a container from an image"}
+{"_id": "q-5-2", "text": "what is a docker image made of"}
+{"_id": "q-6-0", "text": "record an integration with a merge commit"}
+{"_id": "q-6-1", "text": "develop a feature without touching main"}
+{"_id": "q-6-2", "text": "combine two branches back together"}
+{"_id": "q-7-0", "text": "what does a 5xx response indicate"}
+{"_id": "q-7-1", "text": "how are http response codes grouped"}
+{"_id": "q-7-2", "text": "signal a redirect with a status code"}
+{"_id": "q-8-0", "text": "model resources as urls"}
+{"_id": "q-8-1", "text": "stateless operations over http verbs"}
+{"_id": "q-8-2", "text": "use get post put delete on a resource"}
+{"_id": "q-9-0", "text": "in-memory key-value store for hot data"}
+{"_id": "q-9-1", "text": "cut read latency to under a millisecond"}
+{"_id": "q-9-2", "text": "cache layer in front of a database"}
+{"_id": "q-10-0", "text": "keep all left-side rows in a join"}
+{"_id": "q-10-1", "text": "match rows across tables on a column"}
+{"_id": "q-10-2", "text": "inner join versus outer join behaviour"}
+{"_id": "q-11-0", "text": "character classes and quantifiers in regex"}
+{"_id": "q-11-1", "text": "capture groups in a pattern"}
+{"_id": "q-11-2", "text": "validate a string against a pattern"}
+{"_id": "q-12-0", "text": "encode data as objects and arrays"}
+{"_id": "q-12-1", "text": "text format with strings numbers and null"}
+{"_id": "q-12-2", "text": "serialize a nested structure to text"}
+{"_id": "q-13-0", "text": "rwx triplets for owner group and others"}
+{"_id": "q-13-1", "text": "grant execute permission to a file"}
+{"_id": "q-13-2", "text": "who can read or write a linux file"}
+{"_id": "q-14-0", "text": "log in over ssh without a password"}
+{"_id": "q-14-1", "text": "where the public key lives on the server"}
+{"_id": "q-14-2", "text": "keep the private key on the client"}
+{"_id": "q-15-0", "text": "containers that share storage and network"}
+{"_id": "q-15-1", "text": "smallest thing you can deploy in k8s"}
+{"_id": "q-15-2", "text": "wrap multiple containers as one unit"}
