@@ -32,7 +32,8 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
 
 `rag-serve` (API + UI) is a long-running server; the rest are batch tools that run and
-exit. The web UI lives in [`frontend/`](frontend) — see [Web UI](#web-ui).
+exit. The web UI lives in [`frontend/`](frontend) — see [Web UI](#web-ui). For everyday
+use, a [`Makefile`](#3-run) wraps these (`make run` / `make dev` / `make help`).
 
 ## How it works
 
@@ -80,13 +81,18 @@ uv sync --group training   # add the training stack (torch, sentence-transformer
 
 ### 3. Run
 
-A `Makefile` wraps the common tasks (`make help` lists them all):
-```bash
-make install   # backend (uv + training) + frontend (npm) deps — once
-make run       # use the lab: build the UI + serve UI + API on one port → http://localhost:8000
-make dev       # develop the UI: API + Vite (HMR) on two ports → http://localhost:5273
-make stop      # stop any running lab servers   (make clean / test / lint also available)
-```
+A `Makefile` wraps every everyday task — run `make` (or `make help`) to list them:
+
+| Command | What it does |
+|---------|--------------|
+| `make install` | install backend (uv + training) + frontend (npm) deps — run once |
+| `make run` | **use the lab** — build the UI, serve UI + API on one port → http://localhost:8000 |
+| `make dev` | **develop the UI** — API + Vite (HMR) on two ports → http://localhost:5273 (Ctrl-C stops both) |
+| `make stop` | stop any running lab servers (ports 8000 / 8800 / 5273) |
+| `make build` | build the React app → `frontend/dist` |
+| `make clean` | remove build artifacts (dist + caches); deps untouched |
+| `make test` | run the backend tests (pytest) |
+| `make lint` | ruff (Python) + eslint (frontend) |
 
 Or drive it directly:
 ```bash
