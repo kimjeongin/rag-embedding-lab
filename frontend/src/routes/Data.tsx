@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Database, FileText, Gauge, Sparkles } from "lucide-react";
 
 import { api } from "../lib/api";
 import { short } from "../lib/format";
-import { useCorpus, useDataOverview, useGenEval, useGenPairs, usePairs } from "../lib/queries";
+import { keys, useCorpus, useDataOverview, useGenEval, useGenPairs, usePairs } from "../lib/queries";
+import { startSynthetic, useSyntheticState } from "../lib/syntheticStore";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { Btn, ErrorNote, Field, Input, Loading, Panel, Section, SectionLabel, Seg, Stat, Tag } from "../components/ui";
@@ -17,6 +19,8 @@ export default function Data() {
   const corpus = useCorpus();
   const genPairs = useGenPairs();
   const genEval = useGenEval();
+  const synth = useSyntheticState();
+  const qc = useQueryClient();
 
   const [method, setMethod] = useState<Method>("toy");
   const [corpusFile, setCorpusFile] = useState("data/corpus.jsonl");
@@ -28,12 +32,34 @@ export default function Data() {
   const fullPairs = useQuery({ queryKey: ["data", "pairs", "full"], queryFn: () => api.pairs(10000, false), enabled: modal === "pairs" });
   const fullCorpus = useQuery({ queryKey: ["data", "corpus", "full"], queryFn: () => api.corpus(10000), enabled: modal === "corpus" });
 
-  const runGenPairs = () =>
-    genPairs.mutate(
-      method === "toy"
-        ? { method: "toy" }
-        : { method: "synthetic", corpus_file: corpusFile, gen_model: genModel, n_queries: nQueries, hard_negatives: 4 },
-    );
+  // Synthetic streams its own progress; on finish, refresh the data views (the toy path
+  // goes through the mutation, which already invalidates).
+  useEffect(() => {
+    if (synth.status === "done" && synth.result) {
+      toast.success(synth.result.message);
+      qc.invalidateQueries({ queryKey: keys.dataOverview });
+      qc.invalidateQueries({ queryKey: keys.pairs });
+      qc.invalidateQueries({ queryKey: keys.status });
+    }
+    if (synth.status === "error" && synth.error) toast.error(synth.error);
+  }, [synth.status, synth.result, synth.error, qc]);
+
+  const synthRunning = synth.status === "running";
+  const busy = method === "toy" ? genPairs.isPending : synthRunning;
+  const busyLabel =
+    method === "synthetic" && synthRunning
+      ? synth.mining
+        ? "오답 마이닝 중…"
+        : `생성 중… ${synth.done}/${synth.total || "?"}`
+      : "생성 중…";
+
+  const runGenPairs = () => {
+    if (method === "toy") {
+      genPairs.mutate({ method: "toy" });
+    } else {
+      startSynthetic({ method: "synthetic", corpus_file: corpusFile, gen_model: genModel, n_queries: nQueries, hard_negatives: 4 });
+    }
+  };
 
   const inv = overview.data;
 
@@ -91,13 +117,63 @@ export default function Data() {
             )}
 
             <div className="mt-4 flex flex-wrap gap-2.5">
-              <Btn icon={<Sparkles size={15} />} onClick={runGenPairs} disabled={genPairs.isPending}>
-                {genPairs.isPending ? "생성 중…" : "학습 데이터 생성"}
+              <Btn icon={<Sparkles size={15} />} onClick={runGenPairs} disabled={busy}>
+                {busy ? busyLabel : "학습 데이터 생성"}
               </Btn>
               <Btn variant="ghost" icon={<FileText size={15} />} onClick={() => setModal("pairs")}>
                 전체 보기 {pairs.data ? `(${pairs.data.total})` : ""}
               </Btn>
             </div>
+
+            {method === "synthetic" && synth.status !== "idle" && (
+              <div className="mt-4 rounded-xl border border-line bg-ink-925/60 p-4">
+                <div className="mb-2 flex items-center justify-between text-[12px]">
+                  <span className="font-medium text-mut">
+                    {synth.status === "error"
+                      ? "오류 발생"
+                      : synth.status === "done"
+                        ? "완료"
+                        : synth.mining
+                          ? "유사 오답(hard negative) 마이닝 중…"
+                          : `LLM이 쿼리 생성 중 · 문서 ${synth.done}/${synth.total || "?"}`}
+                  </span>
+                  {synth.thinkingDisabled && <Tag tone="cyan">추론 모드 끔 · 속도↑</Tag>}
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
+                  <div
+                    className={`h-full rounded-full transition-all ${synth.status === "error" ? "bg-danger" : "bg-signal"}`}
+                    style={{
+                      width: `${
+                        synth.status === "done"
+                          ? 100
+                          : synth.total
+                            ? Math.round((synth.done / synth.total) * 100)
+                            : 8
+                      }%`,
+                    }}
+                  />
+                </div>
+                {synth.docs.length > 0 && (
+                  <div className="mono mt-3 max-h-44 overflow-auto rounded-lg border border-line bg-ink-950 p-3 text-[11px] leading-relaxed">
+                    {synth.docs.slice(-6).map((d, i) => (
+                      <div key={i} className="mb-1.5 last:mb-0">
+                        <span className="text-faint">▸ {short(d.title) || "(제목 없음)"}</span>
+                        {d.queries.map((q, j) => (
+                          <div key={j} className="pl-3 text-mut">
+                            · {q}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {synth.status === "error" && synth.error && (
+                  <div className="mt-3">
+                    <ErrorNote>{synth.error}</ErrorNote>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="mt-5">
               <div className="mb-2 text-[11px] uppercase tracking-wider text-faint">미리보기 · 앞 5개</div>

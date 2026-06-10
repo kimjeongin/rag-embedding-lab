@@ -7,9 +7,11 @@ LLM-synthesised set) and the BEIR-format eval set. All of it delegates to
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from rag import lab
 from rag.api.schemas.lab import (
@@ -124,6 +126,54 @@ async def gen_pairs(req: GenPairsRequest) -> GenPairsResponse:
         train=FileCount(file=train_file, count=len(train)),
         test=FileCount(file=test_file, count=len(test)),
         preview=preview,
+    )
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@router.post("/data/pairs/stream")
+async def gen_pairs_stream(req: GenPairsRequest) -> StreamingResponse:
+    """Synthetic training-pair generation, streamed over SSE (start/doc/mining/done/error).
+
+    Same result as ``POST /data/pairs`` with ``method=synthetic``, but emits per-document
+    progress so the UI isn't a black box during the (LLM-bound) run.
+    """
+    if not req.corpus_file:
+        raise HTTPException(status_code=400, detail="synthetic 생성에는 corpus_file이 필요합니다")
+
+    train_file, test_file = dataset_paths()
+
+    async def _events():
+        from rag.datagen.synthetic import generate_stream
+
+        try:
+            async for ev in generate_stream(
+                req.corpus_file, req.gen_model or "", req.n_queries, req.hard_negatives, Settings.from_env()
+            ):
+                if ev["event"] != "done":
+                    yield _sse(ev["event"], {k: v for k, v in ev.items() if k != "event"})
+                    continue
+                train, test = ev["train"], ev["test"]
+                write_jsonl(train_file, train)
+                write_jsonl(test_file, test)
+                _, preview = _pair_items(train_file, 8, with_content=False)
+                yield _sse("done", {
+                    "message": f"학습쌍 저장: {train_file} ({len(train)}) + {test_file} ({len(test)})",
+                    "train": {"file": train_file, "count": len(train)},
+                    "test": {"file": test_file, "count": len(test)},
+                    "preview": [p.model_dump() for p in preview],
+                })
+        except Exception as exc:  # noqa: BLE001 — surface upstream (Ollama) failures into the stream
+            yield _sse("error", {
+                "detail": f"{type(exc).__name__}: {exc} (Ollama 실행 중인가요? '{req.gen_model}' 모델을 받으셨나요?)"
+            })
+
+    return StreamingResponse(
+        _events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
 
 
