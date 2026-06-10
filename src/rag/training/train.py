@@ -24,6 +24,7 @@ def train(cfg: TrainingConfig) -> dict:
     )
     from sentence_transformers.evaluation import InformationRetrievalEvaluator
     from sentence_transformers.losses import MultipleNegativesRankingLoss
+    from sentence_transformers.sentence_transformer.training_args import BatchSamplers
 
     device = pick_device(cfg.device)
     print(f"[train] device={device}  base_model={cfg.base_model}")
@@ -53,12 +54,24 @@ def train(cfg: TrainingConfig) -> dict:
         num_train_epochs=cfg.epochs,
         per_device_train_batch_size=cfg.batch_size,
         learning_rate=cfg.learning_rate,
+        warmup_ratio=0.1,        # ST-recommended LR ramp-up (the HF default is none)
         logging_steps=logging_steps,
+        # MNRL treats every other in-batch positive as a negative. Our data has many
+        # queries per document, so the default sampler routinely puts a query's own
+        # positive in the batch again — as a "negative" — corrupting the signal.
+        batch_sampler=BatchSamplers.NO_DUPLICATES,
+        # Re-run the evaluator every epoch: a falling loss with a falling nDCG is
+        # overfitting, invisible to the single before/after measurement.
+        eval_strategy="epoch",
         save_strategy="no",      # save once at the end, no intermediate checkpoints
         report_to=[],            # no wandb/tensorboard
     )
+    # eval_dataset feeds eval_strategy="epoch" (HF requires one even with an
+    # evaluator) and adds a held-out eval_loss next to the evaluator's nDCG.
+    eval_dataset = to_training_dataset(cfg.eval_file, cfg.query_instruction)
     trainer = SentenceTransformerTrainer(
-        model=model, args=args, train_dataset=train_dataset, loss=loss, evaluator=evaluator
+        model=model, args=args, train_dataset=train_dataset, eval_dataset=eval_dataset,
+        loss=loss, evaluator=evaluator,
     )
     trainer.train()
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Play } from "lucide-react";
 
 import { useModels, useRunEval } from "../lib/queries";
@@ -7,9 +8,16 @@ import { Btn, ErrorNote, Field, Input, Metric, Panel, Section, SectionLabel, Seg
 
 const KPIS = ["recall@1", "recall@3", "mrr@10", "ndcg@10"] as const;
 
+/** The Train screen's "이 모델 평가하기" CTA lands here with the model preset. */
+interface EvalPreset {
+  backend?: Embedder;
+  model?: string;
+}
+
 export default function Eval() {
-  const [backend, setBackend] = useState<Embedder>("ollama");
-  const [override, setOverride] = useState(""); // user-typed model ("" = use the query's default)
+  const preset = (useLocation().state ?? {}) as EvalPreset;
+  const [backend, setBackend] = useState<Embedder>(preset.backend ?? "ollama");
+  const [override, setOverride] = useState(preset.model ?? ""); // user-typed model ("" = use the query's default)
   const [label, setLabel] = useState("");
   const models = useModels(backend);
   const runEval = useRunEval();
@@ -81,16 +89,24 @@ export default function Eval() {
 
       {result && (
         <Section delay={70}>
-          <SectionLabel hint={hasPrior ? "▲▼ 기존 best 대비" : "첫 평가 — 다음부터 Δ 표시"}>
+          <SectionLabel
+            hint={`${hasPrior ? "▲▼ 같은 평가셋 기존 best 대비" : "이 평가셋의 첫 기록 — 다음부터 Δ 표시"} · 쿼리 ${result.n_queries}개`}
+          >
             결과 · {result.model} <span className="mono text-faint">(dim {result.embed_dim})</span>
           </SectionLabel>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {KPIS.map((k) => {
               const v = result.metrics[k] ?? 0;
               const p = prior[k];
+              const ci = result.ci95?.[k];
               return (
                 <div key={k} className="rounded-xl border border-line bg-ink-880/60 p-4">
-                  <Metric label={k} value={v} delta={hasPrior && p != null ? v - p : undefined} />
+                  <Metric
+                    label={k}
+                    value={v}
+                    delta={hasPrior && p != null ? v - p : undefined}
+                    sub={ci ? `95% CI ${ci[0].toFixed(3)}–${ci[1].toFixed(3)}` : undefined}
+                  />
                 </div>
               );
             })}

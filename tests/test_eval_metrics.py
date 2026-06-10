@@ -2,8 +2,11 @@
 import math
 
 from rag.evaluation.metrics import (
+    bootstrap_ci,
     evaluate_rankings,
+    mean_metrics,
     ndcg_at_k,
+    per_query_metrics,
     recall_at_k,
     reciprocal_rank,
 )
@@ -58,3 +61,32 @@ def test_evaluate_rankings_aggregates_and_skips_unjudged():
 
 def test_evaluate_rankings_empty_when_no_judged_queries():
     assert evaluate_rankings({"q1": ["d1"]}, {}) == {}
+
+
+def test_per_query_metrics_returns_raw_scores():
+    rankings = {
+        "q1": ["d1", "d2"],   # hit at rank 1
+        "q2": ["d9", "d2"],   # hit at rank 2
+        "q3": ["d1"],         # no qrels → skipped
+    }
+    qrels = {"q1": {"d1": 1.0}, "q2": {"d2": 1.0}}
+    per_query = per_query_metrics(rankings, qrels)
+
+    assert set(per_query) == {"q1", "q2"}
+    assert per_query["q1"]["recall@1"] == 1.0
+    assert per_query["q2"]["recall@1"] == 0.0
+    assert per_query["q2"]["mrr@10"] == 0.5
+    # the headline averages are exactly the means of these rows
+    assert evaluate_rankings(rankings, qrels) == mean_metrics(per_query)
+
+
+def test_bootstrap_ci_brackets_the_mean_and_is_seeded():
+    # 40 queries, half scoring 1.0 and half 0.0 → mean 0.5 with real spread
+    per_query = {f"q{i}": {"ndcg@10": 1.0 if i % 2 else 0.0} for i in range(40)}
+    ci = bootstrap_ci(per_query)
+    lo, hi = ci["ndcg@10"]
+
+    assert lo <= 0.5 <= hi               # the interval brackets the observed mean
+    assert 0.0 < lo < hi < 1.0           # and is non-degenerate on a mixed sample
+    assert bootstrap_ci(per_query) == ci  # seeded → reproducible
+    assert bootstrap_ci({}) == {}

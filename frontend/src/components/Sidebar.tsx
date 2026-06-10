@@ -3,9 +3,22 @@ import { Boxes, Search } from "lucide-react";
 
 import { cx } from "../lib/format";
 import { NAV_GROUPS, PATH, STEP_ICON } from "../lib/nav";
+import { useTrainStatus } from "../lib/trainStore";
 import { Kbd } from "./ui";
 
+/** Pulsing dot on the 학습 nav item while a fine-tune is streaming — the run keeps
+ * going when you leave the screen, so the app must say so somewhere global. */
+function TrainingDot() {
+  return (
+    <span className="relative flex h-2 w-2 shrink-0" title="학습 진행 중">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal opacity-60" />
+      <span className="relative inline-flex h-2 w-2 rounded-full bg-signal" />
+    </span>
+  );
+}
+
 export default function Sidebar({ onSearch }: { onSearch?: () => void }) {
+  const training = useTrainStatus() === "running";
   return (
     <aside className="sticky top-0 z-30 flex h-screen w-[244px] shrink-0 flex-col border-r border-line bg-ink-925/80 backdrop-blur-xl">
       <div className="flex items-center gap-2.5 px-6 pb-4 pt-6">
@@ -69,6 +82,7 @@ export default function Sidebar({ onSearch }: { onSearch?: () => void }) {
                         </span>
                         <span className="block text-[10.5px] text-faint">{item.sub}</span>
                       </span>
+                      {item.id === "train" && training && <TrainingDot />}
                     </>
                   )}
                 </NavLink>

@@ -107,10 +107,16 @@ export interface RunRecord {
   model: string;
   eval_dir: string;
   metrics: Metrics;
+  /** Content hash of the eval set this run was measured on (null for legacy runs).
+   * Scores are only comparable between runs sharing a fingerprint. */
+  eval_fingerprint?: string | null;
+  n_queries?: number | null;
+  ci95?: Record<string, number[]> | null;
 }
 export interface RunsResponse {
   runs: RunRecord[];
-  best: Metrics;
+  best: Metrics; // max per metric on the CURRENT eval set
+  current_fingerprint?: string | null;
   metric_keys: string[];
 }
 export interface DeleteRunResponse {
@@ -130,11 +136,13 @@ export interface EvalResponse {
   model: string;
   embed_dim: number;
   metrics: Metrics;
+  n_queries: number;
+  ci95: Record<string, number[]>; // {metric: [lo, hi]} bootstrap 95% CI
   run: RunRecord;
-  prior_best: Metrics;
+  prior_best: Metrics; // best before this run, same eval set only
 }
 
-// POST /api/train (SSE) — request body; the response is an event stream (see useTrainStream).
+// POST /api/train (SSE) — request body; the response is an event stream (see trainStore).
 export interface TrainRequest {
   base_model: string;
   output_dir: string;

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BarChart3, Play, Trash2 } from "lucide-react";
 
@@ -5,20 +6,61 @@ import { RUN_COLORS, runColor } from "../lib/colors";
 import { fmt, short } from "../lib/format";
 import { PATH } from "../lib/nav";
 import { useDeleteRun, useRuns } from "../lib/queries";
-import { METRICS } from "../lib/types";
+import { METRICS, type RunRecord } from "../lib/types";
 import { BarChart } from "../components/charts";
-import { Btn, ErrorNote, Loading, Panel, Section, SectionLabel } from "../components/ui";
+import { Btn, ErrorNote, Loading, Panel, Section, SectionLabel, Tag } from "../components/ui";
+
+/** Two-click delete: first click arms ("삭제?") for 3s, second click commits — an
+ * eval run is expensive to reproduce, one stray click must not erase it. */
+function DeleteRunBtn({ id }: { id: string }) {
+  const del = useDeleteRun();
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 3000);
+    return () => clearTimeout(t);
+  }, [armed]);
+
+  if (armed) {
+    return (
+      <button
+        onClick={() => del.mutate(id)}
+        disabled={del.isPending}
+        className="mono rounded-md bg-danger/15 px-2 py-1 text-[11px] font-semibold text-danger transition-colors hover:bg-danger/25 disabled:opacity-40"
+      >
+        삭제?
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={() => setArmed(true)}
+      aria-label="실험 삭제"
+      title="삭제"
+      className="text-faint transition-colors hover:text-danger"
+    >
+      <Trash2 size={15} />
+    </button>
+  );
+}
 
 export default function Compare() {
   const nav = useNavigate();
   const { data, isLoading, error } = useRuns();
-  const del = useDeleteRun();
 
   if (isLoading) return <Loading label="실험 결과를 불러오는 중…" />;
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
   const runs = data?.runs ?? [];
-  const best = data?.best ?? {};
+  const best = data?.best ?? {}; // server-scoped to the current eval set
+  const current = data?.current_fingerprint ?? null;
+  const onCurrent = (r: RunRecord) => !current || r.eval_fingerprint === current;
+
+  // Bars from different eval sets would be a meaningless comparison — the chart
+  // shows only runs measured on the current set; the table below keeps everything.
+  const chartRuns = runs.filter(onCurrent);
+  const chartIdx = new Map(chartRuns.map((r, i) => [r.id, i]));
+  const staleCount = runs.length - chartRuns.length;
 
   if (runs.length === 0) {
     return (
@@ -40,23 +82,35 @@ export default function Compare() {
   return (
     <div className="space-y-9">
       <Section>
-        <SectionLabel hint={`${runs.length} runs · y축 데이터 범위로 확대`}>지표 비교</SectionLabel>
+        <SectionLabel hint={`현재 평가셋 ${chartRuns.length} runs · y축 데이터 범위로 확대`}>지표 비교</SectionLabel>
         <Panel className="p-5">
-          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-            {runs.map((r, i) => (
-              <div key={r.id} className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: runColor(i) }} />
-                <span className="text-[13px] font-medium text-fg">{r.label}</span>
-                <span className="mono text-[11px] text-faint">{short(r.model)}</span>
+          {chartRuns.length > 0 ? (
+            <>
+              <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+                {chartRuns.map((r, i) => (
+                  <div key={r.id} className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: runColor(i) }} />
+                    <span className="text-[13px] font-medium text-fg">{r.label}</span>
+                    <span className="mono text-[11px] text-faint">{short(r.model)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <BarChart runs={runs} metrics={METRICS} colors={RUN_COLORS} />
+              <BarChart runs={chartRuns} metrics={METRICS} colors={RUN_COLORS} />
+            </>
+          ) : (
+            <div className="grid h-40 place-items-center text-[13px] text-mut">
+              현재 평가셋에서 측정한 실험이 없어 차트를 표시하지 않습니다 — 점수는 같은 평가셋끼리만 비교할 수 있어요.
+            </div>
+          )}
         </Panel>
       </Section>
 
       <Section delay={70}>
-        <SectionLabel hint="초록 = 지표별 1등 · 🗑 행 삭제">결과 표</SectionLabel>
+        <SectionLabel
+          hint={`초록 = 현재 평가셋 1등 · 🗑 행 삭제${staleCount > 0 ? ` · 흐린 행 ${staleCount}개 = 다른 평가셋` : ""}`}
+        >
+          결과 표
+        </SectionLabel>
         <Panel className="overflow-hidden">
           <table className="w-full text-left text-[13px]">
             <thead>
@@ -71,41 +125,47 @@ export default function Compare() {
               </tr>
             </thead>
             <tbody>
-              {runs.map((r, i) => (
-                <tr key={r.id} className="border-b border-line/60 last:border-0 hover:bg-ink-880/40">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: runColor(i) }} />
-                      <div>
-                        <div className="font-medium text-fg">{r.label}</div>
-                        <div className="mono text-[11px] text-faint">{short(r.model)}</div>
+              {runs.map((r) => {
+                const isCurrent = onCurrent(r);
+                const ci = chartIdx.get(r.id);
+                return (
+                  <tr
+                    key={r.id}
+                    className={`border-b border-line/60 last:border-0 hover:bg-ink-880/40 ${isCurrent ? "" : "opacity-55"}`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="h-2.5 w-2.5 rounded-[3px]"
+                          style={{ background: ci != null ? runColor(ci) : "var(--color-ink-700)" }}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2 font-medium text-fg">
+                            {r.label}
+                            {!isCurrent && <Tag>다른 평가셋</Tag>}
+                          </div>
+                          <div className="mono text-[11px] text-faint">{short(r.model)}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  {METRICS.map((m) => {
-                    const v = r.metrics[m] ?? 0;
-                    const isBest = v > 0 && Math.abs(v - (best[m] ?? 0)) < 1e-9;
-                    return (
-                      <td
-                        key={m}
-                        className={`mono px-3 py-3 text-right ${isBest ? "rounded bg-signal/12 font-semibold text-signal" : "text-mut"}`}
-                      >
-                        {fmt(v)}
-                      </td>
-                    );
-                  })}
-                  <td className="px-3 py-3 text-right">
-                    <button
-                      onClick={() => del.mutate(r.id)}
-                      disabled={del.isPending}
-                      title="삭제"
-                      className="text-faint transition-colors hover:text-danger disabled:opacity-40"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    {METRICS.map((m) => {
+                      const v = r.metrics[m] ?? 0;
+                      const isBest = isCurrent && v > 0 && Math.abs(v - (best[m] ?? 0)) < 1e-9;
+                      return (
+                        <td
+                          key={m}
+                          className={`mono px-3 py-3 text-right ${isBest ? "rounded bg-signal/12 font-semibold text-signal" : "text-mut"}`}
+                        >
+                          {fmt(v)}
+                        </td>
+                      );
+                    })}
+                    <td className="px-3 py-3 text-right">
+                      <DeleteRunBtn id={r.id} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Panel>

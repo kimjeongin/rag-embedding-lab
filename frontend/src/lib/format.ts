@@ -8,8 +8,9 @@ export const cx = (...c: ClassValue[]) => twMerge(clsx(c));
 /** Fixed-decimal metric, or an em-dash for missing values. */
 export const fmt = (n: number | null | undefined, d = 4) => (n == null ? "—" : n.toFixed(d));
 
-/** Signed percentage, e.g. +1.23% / -0.45%. */
-export const pct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
+/** Signed absolute delta of a 0–1 metric, e.g. +0.0345 / −0.0345 — same scale as the
+ * scores themselves (a "%" would read as a relative improvement, which it isn't). */
+export const delta = (n: number, d = 4) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(d)}`;
 
 /** The last path segment of a model id (outputs/embedding-ft → embedding-ft). */
 export const short = (model: string | null | undefined) => (model ? model.split("/").pop()! : "");

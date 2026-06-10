@@ -13,17 +13,28 @@ The corpus must be large and realistic — gold docs PLUS many distractors. If i
 contains only the answer docs, every metric saturates near 1.0 and can't tell models
 apart; that defeats the point of measuring. See docs/evaluation.md.
 
-Compare models by re-running with a different backend (same corpus, same metrics):
-    EMBEDDER=ollama                uv run rag-eval      # baseline
-    EMBEDDER=sentence-transformers uv run rag-eval      # a fine-tuned model
+To attribute a fine-tune's effect, measure base and fine-tuned with the SAME backend —
+quantisation/pooling/truncation differ between stacks and would pollute the Δ:
+    EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
+    EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eval  # tuned
+(An Ollama run measures the *serving* path — a useful parity check, not the baseline.)
 """
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 from rag.config import Settings
 from rag.core.entities import Document
 from rag.core.ports import Embedder
 from rag.evaluation.beir import load_corpus, load_qrels, load_queries
-from rag.evaluation.metrics import MRR_K, NDCG_K, RECALL_KS, evaluate_rankings
+from rag.evaluation.metrics import (
+    MRR_K,
+    NDCG_K,
+    RECALL_KS,
+    bootstrap_ci,
+    mean_metrics,
+    per_query_metrics,
+)
 
 # Only the top results feed our cutoffs, so we keep just this many per query — bounds
 # memory on a big corpus without affecting any reported metric.
@@ -79,7 +90,22 @@ async def rank_corpus(
     }
 
 
-async def evaluate(settings: Settings, eval_dir: str) -> dict[str, float]:
+@dataclass(frozen=True)
+class EvalReport:
+    """One model's scores on one eval set.
+
+    ``metrics`` are the headline averages; ``per_query`` holds the raw scores they
+    average (what CIs and paired run comparisons need); ``ci95`` is the bootstrap
+    95% interval of each average — without it, a Δ between two runs on a small set
+    can't be told apart from query-sampling noise.
+    """
+
+    metrics: dict[str, float]                   # {metric: mean} ({} if nothing judged)
+    per_query: dict[str, dict[str, float]]      # {query_id: {metric: score}}
+    ci95: dict[str, tuple[float, float]]        # {metric: (lo, hi)}
+
+
+async def evaluate(settings: Settings, eval_dir: str) -> EvalReport:
     """Load the BEIR-format eval set, rank it with the configured embedder, score it."""
     from rag.embeddings import build_embedder
 
@@ -90,4 +116,10 @@ async def evaluate(settings: Settings, eval_dir: str) -> dict[str, float]:
 
     async with build_embedder(settings) as embedder:
         rankings = await rank_corpus(embedder, corpus, judged)
-    return evaluate_rankings(rankings, qrels)
+
+    per_query = per_query_metrics(rankings, qrels)
+    return EvalReport(
+        metrics=mean_metrics(per_query),
+        per_query=per_query,
+        ci95=bootstrap_ci(per_query),
+    )

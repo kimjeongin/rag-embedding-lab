@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cx } from "../../lib/format";
+import { cx, delta as fmtDelta } from "../../lib/format";
 import { Tag } from "./badge";
 
 /** A single big-number KPI card with a soft glow. */
@@ -37,17 +37,20 @@ export function Stat({
   );
 }
 
-/** A 4-decimal metric with an optional ▲/▼ delta (green up / red down). */
+/** A 4-decimal metric with an optional ▲/▼ delta (green up / red down / faint — for
+ * zero) and an optional faint sub line (e.g. a confidence interval). */
 export function Metric({
   label,
   value,
   delta,
   big,
+  sub,
 }: {
   label: string;
   value: number;
   delta?: number;
   big?: boolean;
+  sub?: string;
 }) {
   return (
     <div>
@@ -55,12 +58,16 @@ export function Metric({
       <div className={cx("mono font-semibold leading-none text-fg", big ? "mt-2 text-[33px]" : "mt-1 text-[23px]")}>
         {value.toFixed(4)}
       </div>
-      {delta !== undefined && (
-        <div className={cx("mono mt-1.5 text-[12px]", delta >= 0 ? "text-signal2" : "text-danger")}>
-          {delta >= 0 ? "▲ +" : "▼ "}
-          {Math.abs(delta).toFixed(4)}
-        </div>
-      )}
+      {delta !== undefined &&
+        (delta === 0 ? (
+          <div className="mono mt-1.5 text-[12px] text-faint">—</div>
+        ) : (
+          <div className={cx("mono mt-1.5 text-[12px]", delta > 0 ? "text-signal2" : "text-danger")}>
+            {delta > 0 ? "▲ " : "▼ "}
+            {fmtDelta(delta)}
+          </div>
+        ))}
+      {sub && <div className="mono mt-1 text-[10.5px] text-faint">{sub}</div>}
     </div>
   );
 }

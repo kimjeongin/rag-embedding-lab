@@ -17,9 +17,9 @@ in-house data and run it unchanged.
 uv run rag-gen-eval            # write the SAMPLE eval set to data/eval (replace with real data)
 uv run rag-eval                # measure the configured embedder over it
 
-# compare two models on the same corpus — the deltas are the experiment result:
-EMBEDDER=ollama                EMBED_MODEL=qwen3-embedding:0.6b uv run rag-eval
-EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft   uv run rag-eval
+# compare two models on the same corpus, SAME backend — the deltas are the experiment result:
+EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
+EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eval  # fine-tuned
 ```
 
 ---
@@ -163,20 +163,30 @@ No code changes are needed — the format is the contract.
 
 ## Comparing models (the actual experiment)
 
-The point of measuring is to compare. Run the same corpus through each model and read
-the deltas:
+The point of measuring is to compare. Run the same corpus through each model — **with
+the same backend** — and read the deltas:
 
 ```bash
-# baseline — the original model via Ollama
-EMBEDDER=ollama EMBED_MODEL=qwen3-embedding:0.6b EMBED_DIM=1024 uv run rag-eval
+# baseline — the ORIGINAL checkpoint via sentence-transformers
+EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval
 
-# candidate — a fine-tuned model via sentence-transformers
+# candidate — the fine-tuned model via sentence-transformers
 EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft uv run rag-eval
 ```
 
-A fine-tune "helped" if its recall@1 / nDCG@10 go **up** on the *same* `EVAL_DIR`.
-(Run on a couple of datasets — your domain set + a standard BEIR set like SciFact or
-NFCorpus — so you see both in-domain lift and whether general ability regressed.)
+Keeping the backend fixed is what makes the Δ attributable to the fine-tune: the Ollama
+build (GGUF quantisation, llama.cpp pooling/truncation) and the HF fp32 path score the
+*same weights* slightly differently, and on a small query set that gap can rival the
+effect you're measuring. An `EMBEDDER=ollama` run is still useful — as a **serving-path
+parity check** against the ST run of the same model, not as the training baseline.
+
+A fine-tune "helped" if its recall@1 / nDCG@10 go **up** on the *same* `EVAL_DIR` — by
+more than the reported 95% CI suggests noise can explain. `rag-eval` (and the API)
+bootstrap-resample the per-query scores to print that interval; with ~50 queries one
+query is worth ~2 points of recall@1, so treat overlapping intervals as "no evidence",
+not as a win. (Run on a couple of datasets — your domain set + a standard BEIR set like
+SciFact or NFCorpus — so you see both in-domain lift and whether general ability
+regressed.)
 
 > **Not the same as training's in-loop eval.** `rag-train` prints an
 > `InformationRetrievalEvaluator` score *during* training as a progress signal, computed

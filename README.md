@@ -188,12 +188,13 @@ uv run rag-train           # fine-tune (default: Qwen/Qwen3-Embedding-0.6B) → 
   **[`docs/evaluation.md`](docs/evaluation.md)**. Bring your in-house data in that layout
   and `rag-eval` runs unchanged.
 
-**Measuring a fine-tune** = run `rag-eval` on each model over the same eval set and compare
-the deltas (recall@1 / nDCG@10 up = it helped). The Eval/Compare screens do this
-interactively; from the CLI:
+**Measuring a fine-tune** = run `rag-eval` on each model over the same eval set — with
+the **same backend**, so the Δ is the fine-tune and not a quantisation/pooling difference
+between stacks — and compare the deltas (recall@1 / nDCG@10 up = it helped). The
+Eval/Compare screens do this interactively; from the CLI:
 ```bash
-EMBEDDER=ollama                EMBED_MODEL=qwen3-embedding:0.6b uv run rag-eval
-EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft   uv run rag-eval
+EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
+EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eval  # fine-tuned
 ```
 > ⚠️ The sample eval set's distractors are deliberately *easy* (so a strong base model
 > scores ~0.98) — it proves the harness, not model quality. Real discrimination comes

@@ -128,11 +128,17 @@ class RunRecord(BaseModel):
     model: str
     eval_dir: str
     metrics: dict[str, float] = Field(default_factory=dict)
+    # Content hash of the eval set this run was measured on (None for legacy runs).
+    # Scores are only comparable within one fingerprint.
+    eval_fingerprint: str | None = None
+    n_queries: int | None = None                    # how many judged queries the means cover
+    ci95: dict[str, list[float]] | None = None      # {metric: [lo, hi]} bootstrap 95% CI
 
 
 class RunsResponse(BaseModel):
     runs: list[RunRecord]               # newest first
-    best: dict[str, float]              # max per metric across all runs (for Δ / highlight)
+    best: dict[str, float]              # max per metric on the CURRENT eval set (for Δ / highlight)
+    current_fingerprint: str | None = None  # fingerprint of the eval set bound right now
     metric_keys: list[str]              # display order
 
 
@@ -154,8 +160,10 @@ class EvalResponse(BaseModel):
     model: str                          # the resolved active model
     embed_dim: int                      # auto-detected
     metrics: dict[str, float]
+    n_queries: int                      # judged queries behind the means
+    ci95: dict[str, list[float]]        # {metric: [lo, hi]} bootstrap 95% CI of each mean
     run: RunRecord                      # the appended registry record
-    prior_best: dict[str, float]        # best-per-metric *before* this run (for Δ)
+    prior_best: dict[str, float]        # best *before* this run, same eval set only (for Δ)
 
 
 # ── POST /api/train (Server-Sent Events) ────────────────────────────────────────

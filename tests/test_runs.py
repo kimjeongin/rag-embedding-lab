@@ -50,3 +50,46 @@ def test_best_per_metric_takes_the_max(tmp_path):
     best = best_per_metric(path)
     assert best["recall@1"] == 0.7
     assert best["ndcg@10"] == 0.9
+
+
+def test_corrupt_line_is_skipped_not_fatal(tmp_path):
+    """An append torn by a crash must not take down the whole registry."""
+    path = tmp_path / "e.jsonl"
+    a = append_run("a", "ollama", "m1", "data/eval", {"recall@1": 0.4}, path=str(path))
+    with path.open("a", encoding="utf-8") as f:
+        f.write('{"id": "torn", "metr\n')  # partial write, e.g. power loss mid-append
+    b = append_run("b", "ollama", "m2", "data/eval", {"recall@1": 0.6}, path=str(path))
+
+    runs = load_runs(str(path))
+    assert [r["id"] for r in runs] == [b["id"], a["id"]]  # both intact rows survive
+
+    # delete rewrites the file — the corrupt line is dropped, the survivor kept
+    assert delete_run(a["id"], path=str(path)) == 1
+    assert [r["id"] for r in load_runs(str(path))] == [b["id"]]
+
+
+def test_append_run_records_eval_set_identity(tmp_path):
+    path = str(tmp_path / "e.jsonl")
+    append_run(
+        "a", "ollama", "m", "data/eval", {"ndcg@10": 0.9}, path=path,
+        eval_fingerprint="abc123def456", n_queries=48,
+        ci95={"ndcg@10": (0.85, 0.95)}, per_query={"q1": {"ndcg@10": 0.9}},
+    )
+    loaded = load_runs(path)[0]
+    assert loaded["eval_fingerprint"] == "abc123def456"
+    assert loaded["n_queries"] == 48
+    assert loaded["ci95"]["ndcg@10"] == [0.85, 0.95]
+    assert loaded["per_query"]["q1"]["ndcg@10"] == 0.9
+
+
+def test_best_per_metric_scopes_by_fingerprint(tmp_path):
+    """Scores from different eval-set contents must not mix into one 'best'."""
+    path = str(tmp_path / "e.jsonl")
+    append_run("old", "ollama", "m1", "data/eval", {"ndcg@10": 0.99}, path=path,
+               eval_fingerprint="old-set")
+    append_run("new", "ollama", "m2", "data/eval", {"ndcg@10": 0.80}, path=path,
+               eval_fingerprint="new-set")
+    append_run("legacy", "ollama", "m3", "data/eval", {"ndcg@10": 0.95}, path=path)  # pre-fingerprint
+
+    assert best_per_metric(path, fingerprint="new-set") == {"ndcg@10": 0.80}
+    assert best_per_metric(path)["ndcg@10"] == 0.99  # unscoped: max over everything

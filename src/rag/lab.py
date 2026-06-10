@@ -14,6 +14,7 @@ registry.)
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import httpx
@@ -99,8 +100,8 @@ def is_sample_eval(eval_dir: str) -> bool:
         return False
     try:
         first = next(load_jsonl(str(path)))
-    except (StopIteration, FileNotFoundError):
-        return False
+    except (StopIteration, FileNotFoundError, json.JSONDecodeError):
+        return False  # empty/missing/corrupt corpus — just "not the sample", never a 500
     return str(first.get("_id", "")).startswith(("distractor-", "gold-"))
 
 

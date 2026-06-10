@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { BarChart3, Database, FlaskConical, Gauge, Play, Trophy } from "lucide-react";
 
-import { fmt, pct, short, when } from "../lib/format";
+import { delta, fmt, short, when } from "../lib/format";
 import { PATH } from "../lib/nav";
 import { useRuns } from "../lib/queries";
 import type { RunRecord } from "../lib/types";
@@ -23,6 +23,37 @@ function QuickStart({ go }: { go: (p: string) => void }) {
   );
 }
 
+function EmptyHero({
+  title,
+  body,
+  go,
+}: {
+  title: string;
+  body: string;
+  go: (p: string) => void;
+}) {
+  return (
+    <Section>
+      <Panel className="relative overflow-hidden p-10 text-center">
+        <div className="absolute -right-12 -top-14 h-44 w-44 rounded-full bg-signal/10 blur-3xl" />
+        <div className="relative mx-auto max-w-md">
+          <Trophy size={28} className="mx-auto text-signal" />
+          <h2 className="mt-4 text-[20px] font-semibold text-fg">{title}</h2>
+          <p className="mt-2 text-[13.5px] leading-relaxed text-mut">{body}</p>
+          <div className="mt-6 flex justify-center gap-2.5">
+            <Btn onClick={() => go(PATH.eval)} icon={<Play size={15} />}>
+              평가 실행
+            </Btn>
+            <Btn variant="ghost" onClick={() => go(PATH.compare)} icon={<BarChart3 size={15} />}>
+              모든 실험 보기
+            </Btn>
+          </div>
+        </div>
+      </Panel>
+    </Section>
+  );
+}
+
 export default function Overview() {
   const nav = useNavigate();
   const go = (p: string) => nav(p);
@@ -31,8 +62,14 @@ export default function Overview() {
   if (isLoading) return <Loading label="실험 결과를 불러오는 중…" />;
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
-  const runs = data?.runs ?? [];
-  if (runs.length === 0) {
+  const all = data?.runs ?? [];
+  const current = data?.current_fingerprint ?? null;
+  // Scores are only comparable on the same eval-set contents — the leaderboard ranks
+  // only runs measured on the eval set bound right now. Older sets live in 실험.
+  const runs = current ? all.filter((r) => r.eval_fingerprint === current) : all;
+  const stale = all.length - runs.length;
+
+  if (all.length === 0) {
     return (
       <div className="space-y-9">
         <Section>
@@ -55,6 +92,19 @@ export default function Overview() {
             </div>
           </Panel>
         </Section>
+        <QuickStart go={go} />
+      </div>
+    );
+  }
+
+  if (runs.length === 0) {
+    return (
+      <div className="space-y-9">
+        <EmptyHero
+          title="현재 평가셋에서 측정한 실험이 없어요"
+          body={`기존 실험 ${stale}개는 다른(또는 재생성 이전의) 평가셋에서 측정되어 점수를 직접 비교할 수 없습니다. 지금 평가셋에서 다시 측정하면 리더보드가 채워집니다.`}
+          go={go}
+        />
         <QuickStart go={go} />
       </div>
     );
@@ -97,7 +147,8 @@ export default function Overview() {
                   big
                 />
               </div>
-              <div className="mt-7 flex gap-2.5">
+              <div className="mono mt-2 text-[10.5px] text-faint">Δ는 {base.label} 대비</div>
+              <div className="mt-5 flex gap-2.5">
                 <Btn onClick={() => go(PATH.compare)} icon={<BarChart3 size={15} />}>
                   실험 비교
                 </Btn>
@@ -111,7 +162,9 @@ export default function Overview() {
           <Panel className="flex flex-col p-6">
             <div className="text-[11.5px] font-medium uppercase tracking-[0.14em] text-faint">nDCG@10 추이</div>
             <div className="mono mt-3 text-[33px] font-semibold leading-none text-fg">{fmt(ndcg(champion))}</div>
-            <div className="mono mt-2 text-[12.5px] text-signal2">{dN === 0 ? "base 기준" : `${pct(dN)} vs base`}</div>
+            <div className="mono mt-2 text-[12.5px] text-signal2">
+              {dN === 0 ? "—" : `${delta(dN)} vs ${base.label}`}
+            </div>
             <div className="mt-auto pt-6">
               {trend.length > 1 ? (
                 <Sparkline data={trend} className="h-16 w-full" />
@@ -119,7 +172,7 @@ export default function Overview() {
                 <div className="h-16" />
               )}
               <div className="mono mt-1.5 flex justify-between text-[10.5px] text-faint">
-                <span>base</span>
+                <span>{runs[runs.length - 1].label}</span>
                 <span>{runs.length} runs</span>
               </div>
             </div>
@@ -128,7 +181,11 @@ export default function Overview() {
       </Section>
 
       <Section delay={70}>
-        <SectionLabel hint="nDCG@10 순 · Δ는 base 대비">리더보드</SectionLabel>
+        <SectionLabel
+          hint={`nDCG@10 순 · Δ는 ${base.label} 대비 · 현재 평가셋${stale > 0 ? ` (다른 평가셋 ${stale}개 제외)` : ""}`}
+        >
+          리더보드
+        </SectionLabel>
         <Panel className="overflow-hidden">
           <table className="w-full text-left text-[13px]">
             <thead>
@@ -138,7 +195,7 @@ export default function Overview() {
                 <th className="mono px-3 py-3 text-right font-medium normal-case">recall@1</th>
                 <th className="mono px-3 py-3 text-right font-medium normal-case">mrr@10</th>
                 <th className="mono px-3 py-3 text-right font-medium normal-case">ndcg@10</th>
-                <th className="mono px-3 py-3 text-right font-medium normal-case">Δ ndcg</th>
+                <th className="mono px-3 py-3 text-right font-medium normal-case">Δ vs {base.label}</th>
                 <th className="mono px-4 py-3 text-right font-medium normal-case">when</th>
               </tr>
             </thead>
@@ -172,7 +229,7 @@ export default function Overview() {
                     <td
                       className={`mono px-3 py-3 text-right ${d > 0 ? "text-signal2" : d < 0 ? "text-danger" : "text-faint"}`}
                     >
-                      {d === 0 ? "—" : pct(d)}
+                      {d === 0 ? "—" : delta(d)}
                     </td>
                     <td className="mono px-4 py-3 text-right text-faint">{when(r.created_at)}</td>
                   </tr>

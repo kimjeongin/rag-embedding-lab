@@ -8,10 +8,13 @@ keeps it unit-testable and free of the API/training stacks.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 DEFAULT_RUNS_FILE = "runs/evals.jsonl"
 
@@ -31,9 +34,20 @@ def append_run(
     eval_dir: str,
     metrics: dict[str, float],
     path: str | None = None,
+    *,
+    eval_fingerprint: str | None = None,
+    n_queries: int | None = None,
+    ci95: dict[str, tuple[float, float]] | None = None,
+    per_query: dict[str, dict[str, float]] | None = None,
 ) -> dict:
-    """Append one eval result and return the stored record (label falls back to model)."""
-    record = {
+    """Append one eval result and return the stored record (label falls back to model).
+
+    ``eval_fingerprint`` identifies the eval set's *contents* (the dir path can't —
+    regenerating the set reuses the path), so scores stay comparable only within a
+    fingerprint. ``per_query``/``ci95`` keep the raw scores behind the averages for
+    confidence intervals and paired run comparisons.
+    """
+    record: dict = {
         "id": uuid.uuid4().hex[:8],
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "label": (label or "").strip() or model,
@@ -42,6 +56,14 @@ def append_run(
         "eval_dir": eval_dir,
         "metrics": {k: float(v) for k, v in metrics.items()},
     }
+    if eval_fingerprint:
+        record["eval_fingerprint"] = eval_fingerprint
+    if n_queries is not None:
+        record["n_queries"] = n_queries
+    if ci95:
+        record["ci95"] = {k: [float(lo), float(hi)] for k, (lo, hi) in ci95.items()}
+    if per_query:
+        record["per_query"] = per_query
     out = Path(path or runs_file())
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("a", encoding="utf-8") as f:
@@ -50,8 +72,18 @@ def append_run(
 
 
 def _read(src: Path) -> list[dict]:
-    """Records in file (insertion) order."""
-    return [json.loads(line) for line in src.read_text(encoding="utf-8").splitlines() if line.strip()]
+    """Records in file (insertion) order. A corrupt line (e.g. an append torn by a
+    crash) is skipped with a warning instead of failing the whole registry — one bad
+    line must not take down every screen that lists runs."""
+    records: list[dict] = []
+    for lineno, line in enumerate(src.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            log.warning("runs registry: skipping corrupt line %d in %s", lineno, src)
+    return records
 
 
 def load_runs(path: str | None = None) -> list[dict]:
@@ -65,26 +97,34 @@ def load_runs(path: str | None = None) -> list[dict]:
 
 
 def delete_run(run_id: str, path: str | None = None) -> int:
-    """Remove the run with this id; return how many remain."""
+    """Remove the run with this id; return how many remain.
+
+    Rewrites via a temp file + atomic replace — a crash mid-delete must not wipe the
+    registry (the only persistent record of every evaluation).
+    """
     src = Path(path or runs_file())
     if not src.exists():
         return 0
     kept = [r for r in _read(src) if r.get("id") != run_id]
-    with src.open("w", encoding="utf-8") as f:
+    tmp = src.with_name(src.name + ".tmp")  # same dir → same filesystem → atomic replace
+    with tmp.open("w", encoding="utf-8") as f:
         for record in kept:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    os.replace(tmp, src)
     return len(kept)
 
 
-def best_per_metric(path: str | None = None, eval_dir: str | None = None) -> dict[str, float]:
+def best_per_metric(path: str | None = None, fingerprint: str | None = None) -> dict[str, float]:
     """The best (max) value seen for each metric — for Δ comparisons.
 
-    Pass ``eval_dir`` to restrict to runs measured on that eval set; scores from
-    different eval sets aren't comparable, so a cross-set "best" would be meaningless.
+    Pass ``fingerprint`` to restrict to runs measured on that exact eval-set content;
+    scores from different eval sets aren't comparable, so a cross-set "best" would be
+    meaningless. (Content hash, not the dir path: regenerating a set reuses the path.)
+    Runs recorded before fingerprints existed never match a fingerprint filter.
     """
     best: dict[str, float] = {}
     for record in load_runs(path):
-        if eval_dir is not None and record.get("eval_dir") != eval_dir:
+        if fingerprint is not None and record.get("eval_fingerprint") != fingerprint:
             continue
         for key, value in record.get("metrics", {}).items():
             if value is not None and (key not in best or value > best[key]):

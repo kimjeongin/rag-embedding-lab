@@ -14,6 +14,7 @@ embed-and-rank step in `retrieval`. See docs/evaluation.md for the full contract
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from collections.abc import Iterable
 from pathlib import Path
@@ -27,6 +28,23 @@ DEFAULT_SPLIT = "test"
 def eval_dir_from_env() -> str:
     """The eval dataset directory (EVAL_DIR), defaulting to data/eval."""
     return os.getenv("EVAL_DIR", DEFAULT_EVAL_DIR)
+
+
+def eval_set_fingerprint(eval_dir: str, split: str = DEFAULT_SPLIT) -> str | None:
+    """A short content hash identifying this eval set's exact corpus+queries+qrels.
+
+    Scores are only comparable between runs measured on the SAME set, and the dir
+    path can't tell sets apart once files are regenerated in place (e.g. with a
+    different distractor count) — the contents can. None if the set is incomplete.
+    """
+    h = hashlib.sha256()
+    for rel in ("corpus.jsonl", "queries.jsonl", f"qrels/{split}.tsv"):
+        path = Path(eval_dir) / rel
+        if not path.exists():
+            return None
+        h.update(path.read_bytes())
+        h.update(b"\x00")  # file boundary, so concatenation ambiguity can't collide
+    return h.hexdigest()[:12]
 
 
 def load_corpus(eval_dir: str) -> dict[str, dict[str, str | None]]:

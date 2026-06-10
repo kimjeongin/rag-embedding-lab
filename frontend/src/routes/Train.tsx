@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Square } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, Play, Square } from "lucide-react";
 
 import { fmt } from "../lib/format";
+import { PATH } from "../lib/nav";
 import { useStatus } from "../lib/queries";
-import { useTrainStream } from "../lib/useTrainStream";
+import { startTraining, stopTraining, useTrainState } from "../lib/trainStore";
 import { LossCurve } from "../components/charts";
 import { Btn, ErrorNote, Field, Input, Panel, Section, SectionLabel, Stat } from "../components/ui";
 
 export default function Train() {
+  const nav = useNavigate();
   const status = useStatus();
-  const train = useTrainStream();
+  const train = useTrainState();
 
   const [base, setBase] = useState("Qwen/Qwen3-Embedding-0.6B");
   const [out, setOut] = useState("outputs/embedding-ft");
@@ -17,17 +20,26 @@ export default function Train() {
   const [batch, setBatch] = useState(16);
   const [lr, setLr] = useState("2e-5");
   const [device, setDevice] = useState("");
+  const [confirmStop, setConfirmStop] = useState(false);
 
   const logRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [train.log.length]);
 
+  // arm the stop button for 3s, then relax back to the plain button
+  useEffect(() => {
+    if (!confirmStop) return;
+    const t = setTimeout(() => setConfirmStop(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmStop]);
+
   const ready = status.data?.training_ready ?? true;
   const running = train.status === "running";
+  const finished = train.status === "done" && train.exitCode === 0 && train.outputDir;
 
   const submit = () =>
-    train.start({
+    startTraining({
       base_model: base.trim(),
       output_dir: out.trim(),
       epochs,
@@ -39,6 +51,7 @@ export default function Train() {
   const lossValues = train.loss.map((p) => p.loss);
   const lossLabel =
     lossValues.length > 1 ? `${lossValues[0].toFixed(3)} → ${lossValues[lossValues.length - 1].toFixed(3)}` : "—";
+  const lastLoss = train.loss[train.loss.length - 1];
 
   return (
     <div className="space-y-9">
@@ -61,10 +74,10 @@ export default function Train() {
           </div>
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Field label="epochs">
-              <Input type="number" value={epochs} onChange={(e) => setEpochs(+e.target.value)} className="mono" disabled={running} />
+              <Input type="number" min={1} value={epochs} onChange={(e) => setEpochs(+e.target.value)} className="mono" disabled={running} />
             </Field>
             <Field label="batch size">
-              <Input type="number" value={batch} onChange={(e) => setBatch(+e.target.value)} className="mono" disabled={running} />
+              <Input type="number" min={1} value={batch} onChange={(e) => setBatch(+e.target.value)} className="mono" disabled={running} />
             </Field>
             <Field label="learning rate">
               <Input value={lr} onChange={(e) => setLr(e.target.value)} className="mono" disabled={running} />
@@ -75,9 +88,23 @@ export default function Train() {
           </div>
           <div className="mt-5">
             {running ? (
-              <Btn variant="ghost" icon={<Square size={14} />} onClick={train.stop}>
-                중단
-              </Btn>
+              confirmStop ? (
+                <Btn
+                  variant="ghost"
+                  icon={<Square size={14} />}
+                  className="border-danger/40 text-danger"
+                  onClick={() => {
+                    setConfirmStop(false);
+                    stopTraining();
+                  }}
+                >
+                  정말 중단할까요? — 진행분은 저장되지 않습니다
+                </Btn>
+              ) : (
+                <Btn variant="ghost" icon={<Square size={14} />} onClick={() => setConfirmStop(true)}>
+                  중단
+                </Btn>
+              )
             ) : (
               <Btn icon={<Play size={15} />} onClick={submit}>
                 학습 시작
@@ -87,9 +114,38 @@ export default function Train() {
         </Panel>
       </Section>
 
+      {finished && (
+        <Section>
+          <Panel className="flex flex-wrap items-center justify-between gap-3 border-signal/25 bg-signal/[0.06] p-5">
+            <div>
+              <div className="text-[14px] font-semibold text-fg">학습 완료</div>
+              <div className="mono mt-1 text-[12px] text-mut">
+                새 모델: {train.outputDir} — 평가셋으로 실측해야 진짜 점수를 알 수 있어요
+              </div>
+            </div>
+            <Btn
+              icon={<ArrowRight size={15} />}
+              onClick={() =>
+                nav(PATH.eval, { state: { backend: "sentence-transformers", model: train.outputDir } })
+              }
+            >
+              이 모델 평가하기
+            </Btn>
+          </Panel>
+        </Section>
+      )}
+
       {(train.status !== "idle" || train.log.length > 0) && (
         <Section delay={70}>
-          <SectionLabel hint={running ? "실시간 스트리밍 중…" : "loss가 내려가면 정상"}>진행 상황</SectionLabel>
+          <SectionLabel
+            hint={
+              running
+                ? `실시간 스트리밍 중…${lastLoss ? ` · epoch ${lastLoss.epoch} · step ${lastLoss.step}` : ""}`
+                : "loss가 내려가면 정상"
+            }
+          >
+            진행 상황
+          </SectionLabel>
           <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
             <Panel className="p-5">
               <div className="mb-3 flex items-center justify-between">
@@ -119,6 +175,7 @@ export default function Train() {
             <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-wider text-faint">
               로그
               {train.status === "done" && <span className="mono text-signal2">· exit {train.exitCode}</span>}
+              {train.status === "stopped" && <span className="mono text-amber">· 중단됨</span>}
               {train.status === "error" && <span className="mono text-danger">· 오류</span>}
             </div>
             <div

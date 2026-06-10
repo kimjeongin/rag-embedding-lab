@@ -18,9 +18,12 @@ def main() -> None:
     settings = Settings.from_env()
     eval_dir = eval_dir_from_env()
 
-    metrics = asyncio.run(evaluate(settings, eval_dir))
+    report = asyncio.run(evaluate(settings, eval_dir))
     print(f"[eval] embedder={settings.embedder} model={settings.active_model} dir={eval_dir}")
-    if not metrics:
+    if not report.metrics:
         print("  (no judged queries found — check qrels/test.tsv)")
-    for key, value in metrics.items():
-        print(f"  {key} = {value:.4f}")
+        return
+    print(f"  n = {len(report.per_query)} judged queries")
+    for key, value in report.metrics.items():
+        lo, hi = report.ci95[key]
+        print(f"  {key} = {value:.4f}   (95% CI {lo:.4f}–{hi:.4f})")

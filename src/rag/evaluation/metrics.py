@@ -14,6 +14,7 @@ trivially unit-testable and reusable by any retriever, not just this one.
 from __future__ import annotations
 
 import math
+import random
 from collections.abc import Mapping, Sequence
 
 # Reported cutoffs. recall@{1,3,5,10} shows *where* the relevant docs land; nDCG@10
@@ -55,6 +56,41 @@ def ndcg_at_k(ranked: Sequence[str], gains: Mapping[str, float], k: int) -> floa
     return actual / ideal if ideal > 0 else 0.0
 
 
+def per_query_metrics(
+    rankings: Mapping[str, Sequence[str]],
+    qrels: Mapping[str, Mapping[str, float]],
+) -> dict[str, dict[str, float]]:
+    """``{query_id: {metric: score}}`` for every judged query.
+
+    The raw scores behind ``evaluate_rankings``' averages — keep them: they are what
+    confidence intervals and paired run-vs-run comparisons need. Queries without
+    qrels are skipped (you can't score them).
+    """
+    out: dict[str, dict[str, float]] = {}
+    for query_id, ranked in rankings.items():
+        judgments = qrels.get(query_id)
+        if not judgments:
+            continue
+        relevant = set(judgments)
+        row = {f"recall@{k}": recall_at_k(ranked, relevant, k) for k in RECALL_KS}
+        row[f"mrr@{MRR_K}"] = reciprocal_rank(ranked, relevant, MRR_K)
+        row[f"ndcg@{NDCG_K}"] = ndcg_at_k(ranked, judgments, NDCG_K)
+        out[query_id] = row
+    return out
+
+
+def mean_metrics(per_query: Mapping[str, Mapping[str, float]]) -> dict[str, float]:
+    """Per-metric mean over the per-query scores ({} when nothing was judged).
+
+    Insertion-ordered: recall@1, recall@3, recall@5, recall@10, mrr@10, ndcg@10.
+    """
+    n = len(per_query)
+    if n == 0:
+        return {}
+    keys = [f"recall@{k}" for k in RECALL_KS] + [f"mrr@{MRR_K}", f"ndcg@{NDCG_K}"]
+    return {key: sum(row[key] for row in per_query.values()) / n for key in keys}
+
+
 def evaluate_rankings(
     rankings: Mapping[str, Sequence[str]],
     qrels: Mapping[str, Mapping[str, float]],
@@ -64,20 +100,47 @@ def evaluate_rankings(
     Queries without qrels are skipped (you can't score them). Returns an
     insertion-ordered dict: recall@1, recall@3, recall@5, recall@10, mrr@10, ndcg@10.
     """
-    query_ids = [q for q in rankings if qrels.get(q)]
-    n = len(query_ids)
+    return mean_metrics(per_query_metrics(rankings, qrels))
+
+
+def bootstrap_ci(
+    per_query: Mapping[str, Mapping[str, float]],
+    n_resamples: int = 1000,
+    confidence: float = 0.95,
+    seed: int = 0,
+) -> dict[str, tuple[float, float]]:
+    """Percentile-bootstrap confidence interval of each metric's mean: {metric: (lo, hi)}.
+
+    Resamples queries with replacement — on a deterministic full-corpus ranking the
+    ONLY noise in an average is which queries the eval set happens to contain, so
+    this is exactly the uncertainty a small set needs quantified (on ~50 queries one
+    query swings recall@1 by ~2 points). Seeded → reproducible.
+    """
+    rows = list(per_query.values())
+    n = len(rows)
     if n == 0:
         return {}
-
-    out: dict[str, float] = {}
-    for k in RECALL_KS:
-        out[f"recall@{k}"] = (
-            sum(recall_at_k(rankings[q], set(qrels[q]), k) for q in query_ids) / n
-        )
-    out[f"mrr@{MRR_K}"] = (
-        sum(reciprocal_rank(rankings[q], set(qrels[q]), MRR_K) for q in query_ids) / n
-    )
-    out[f"ndcg@{NDCG_K}"] = (
-        sum(ndcg_at_k(rankings[q], qrels[q], NDCG_K) for q in query_ids) / n
-    )
+    keys = list(rows[0])
+    rng = random.Random(seed)
+    samples: dict[str, list[float]] = {key: [] for key in keys}
+    for _ in range(n_resamples):
+        resample = rng.choices(rows, k=n)
+        for key in keys:
+            samples[key].append(sum(row[key] for row in resample) / n)
+    alpha = (1.0 - confidence) / 2.0
+    out: dict[str, tuple[float, float]] = {}
+    for key, values in samples.items():
+        values.sort()
+        out[key] = (_quantile(values, alpha), _quantile(values, 1.0 - alpha))
     return out
+
+
+def _quantile(sorted_values: Sequence[float], q: float) -> float:
+    """Linear-interpolated quantile of an already-sorted list (numpy's default method)."""
+    pos = q * (len(sorted_values) - 1)
+    lo = math.floor(pos)
+    hi = math.ceil(pos)
+    if lo == hi:
+        return sorted_values[lo]
+    frac = pos - lo
+    return sorted_values[lo] * (1.0 - frac) + sorted_values[hi] * frac

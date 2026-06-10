@@ -29,9 +29,14 @@ class _FakeStdout:
 class _FakeProc:
     def __init__(self, lines):
         self.stdout = _FakeStdout(lines)
+        self.returncode = None          # like asyncio's Process: None until wait()
 
     async def wait(self):
+        self.returncode = 0
         return 0
+
+    def kill(self):                     # the route kills on client disconnect
+        self.returncode = -9
 
 
 _LINES = [
@@ -71,3 +76,19 @@ def test_train_streams_start_loss_metrics_done(monkeypatch):
     assert '"before": 0.8' in body and '"after": 0.92' in body
     assert '"exit_code": 0' in body
     assert body.index("event: start") < body.index("event: loss") < body.index("event: done")
+
+
+def test_train_rejects_concurrent_run_with_409(monkeypatch):
+    """Two trainers saving the same output_dir would corrupt the artifact — while one
+    run holds the lock, a second POST must be refused."""
+    from rag.api.routes.lab import train as train_route
+
+    app = _build_app(monkeypatch)
+    with TestClient(app) as client:
+        asyncio.run(train_route._run_lock.acquire())   # simulate an in-flight run
+        try:
+            resp = client.post("/api/train", json={})
+            assert resp.status_code == 409
+            assert "이미 실행 중" in resp.json()["detail"]
+        finally:
+            train_route._run_lock.release()
