@@ -43,12 +43,17 @@ Qwen3-Embedding treats documents and queries differently:
 | Side | What we embed | `Embedder` method |
 |------|---------------|-------------------|
 | Document | `"{title}\n\n{content}"` (title prepended; no instruction prefix) | `embed_documents` (input built by `format_document`) |
-| Query | `Instruct: {task}\nQuery: {query}` | `embed_query` |
+| Query | `Instruct: {task}\nQuery: {query}` | `embed_queries` |
 
 The asymmetry is defined once in [`core/formatting.py`](src/rag/core/formatting.py)
 (`format_query` / `format_document`) and applied by the embedder adapters, so it can't be
 mixed up — and **training, evaluation, and inference all reuse the same module** (parity).
 The `{task}` comes from `QUERY_INSTRUCTION`.
+
+> **Serving the fine-tuned model in your own stack (Elasticsearch, a hybrid + rerank
+> pipeline, …)?** Your serving pipeline must embed text with this **exact same formatting**,
+> or the fine-tune won't transfer (lab score up, production flat/down — the #1 prod
+> disappointment). See **[docs/serving-parity.md](docs/serving-parity.md)**.
 
 ### The loop
 1. **Generate** training pairs (`{query, positive[, negatives]}`) and a BEIR eval set
@@ -210,7 +215,8 @@ EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eva
 (anchor, positive, negative) triplet on top of in-batch negatives. Bring your own data in
 this format (point `TRAIN_FILE`/`TRAIN_EVAL_FILE` at it) or put documents in
 `data/corpus.jsonl` and run `rag-gen-synthetic`. Key env: `TRAIN_BASE_MODEL`,
-`TRAIN_EPOCHS`, `TRAIN_BATCH_SIZE`, `TRAIN_DEVICE`, `GEN_MODEL`, `HARD_NEGATIVES`.
+`TRAIN_EPOCHS`, `TRAIN_BATCH_SIZE`, `TRAIN_DEVICE`, `TRAIN_METHOD` (`full` or `lora` —
+LoRA adapters are merged into the base on save), `GEN_MODEL`, `HARD_NEGATIVES`.
 
 ## Architecture
 

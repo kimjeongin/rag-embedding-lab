@@ -106,6 +106,11 @@ training, so the numbers reflect production behaviour:
 - **Query** → `Instruct: {QUERY_INSTRUCTION}\nQuery: {text}`
 - **Document** → `{title}\n\n{text}` (title prepended; ids/urls excluded)
 
+> ⚠️ **This parity must extend to *your own* serving stack** (Elasticsearch, hybrid +
+> rerank, …). If your production pipeline embeds text differently than the lab, these
+> numbers won't transfer to prod — the most common way a fine-tune disappoints. See
+> **[serving-parity.md](serving-parity.md)**.
+
 ### 4. Cosine over normalized embeddings, in-memory
 Every doc and query is embedded, L2-normalized, and scored by dot product (= cosine).
 The ranking runs **in-process with numpy**, and with the Ollama backend no torch is
@@ -122,6 +127,49 @@ comparable (cosine is computed within each run).
 If a query id has no `qrels` row, it can't be scored and is dropped from the averages.
 
 ---
+
+## Why dense-only is the right measurement (even with a hybrid + rerank stack)
+
+In production you may search with **BM25 + dense + a reranker**. So why does this lab score
+the **dense embedder alone**? Because that's the only component you're changing.
+
+### Variable isolation
+A fine-tune changes exactly one thing — the dense embedder. To measure *its* effect you
+hold everything else constant and measure that one variable. Dense-only retrieval over the
+corpus does exactly that. Measure end-to-end (BM25 + dense + rerank) instead and:
+
+- the BM25 leg and the reranker **mask or mix in** the embedder's change — you can't
+  *attribute* a delta to the embedder;
+- a small embedder gain is often **absorbed by the reranker**, so it never shows up in the
+  end-to-end number.
+
+So dense-only isn't a shortcut or a limitation — it's the **correct experimental design**
+for this change.
+
+### Two evals, two questions
+| Question | How to measure | Use |
+|----------|----------------|-----|
+| *Did the embedder get better?* | this lab's dense-only eval | fast, attributable — **iteration / tuning** |
+| *Did end-to-end search get better?* | your hybrid + rerank **A/B** in production | slow — **final ship decision** |
+
+While fine-tuning, the first is the one to watch; the second is the last gate before you
+ship. A lab gain is **necessary** (no lab gain → don't expect an end-to-end gain) but **not
+sufficient** — confirm with the A/B.
+
+### What makes it *meaningful* (3 conditions)
+The method is correct; meaningfulness depends on what you feed it:
+1. **A real domain eval set** — real queries + their relevant docs + your **real corpus as
+   the haystack**, not the toy sample. (Skip this and you're "measuring nothing, correctly.")
+2. **`recall@k` at your reranker's candidate depth** — with a reranker downstream, the
+   embedder's job is *recall* (get the gold doc into the top-k the reranker then reorders),
+   not final precision. Watch `recall@50/100`, not `nDCG@10`.
+3. **Formatting parity with serving** — the lab's input formatting must match your ES
+   index/query pipeline or the numbers won't transfer (see [serving-parity.md](serving-parity.md)).
+
+**Bottom line:** dense-only isolation is the textbook way to answer "did the embedder
+improve?" — exactly the question you're asking while fine-tuning. Fill in a real domain
+eval set and measure `recall@(rerank depth)`, and the number is trustworthy; then confirm
+the production win with an end-to-end A/B.
 
 ## Metrics
 
