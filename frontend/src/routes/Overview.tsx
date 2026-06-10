@@ -6,7 +6,7 @@ import { PATH } from "../lib/nav";
 import { useRuns } from "../lib/queries";
 import type { RunRecord } from "../lib/types";
 import { Sparkline } from "../components/charts";
-import { ActionCard, Btn, ErrorNote, Loading, Metric, Panel, Section, SectionLabel, Tag } from "../components/ui";
+import { ActionCard, Btn, ErrorNote, Info, Loading, Metric, Panel, Section, SectionLabel, Tag } from "../components/ui";
 
 const ndcg = (r: RunRecord) => r.metrics["ndcg@10"] ?? 0;
 
@@ -184,7 +184,14 @@ export default function Overview() {
         <SectionLabel
           hint={`nDCG@10 순 · Δ는 ${base.label} 대비 · 현재 평가셋${stale > 0 ? ` (다른 평가셋 ${stale}개 제외)` : ""}`}
         >
-          리더보드
+          <span className="inline-flex items-center gap-1.5">
+            리더보드
+            <Info title="리더보드 읽는 법" align="left">
+              <b className="text-fg">nDCG@10</b> 높은 순 정렬. <b className="text-fg">Δ</b>는 기준 모델(
+              <span className="mono">{base.label}</span>) 대비 변화입니다. 점수는 <b className="text-fg">같은 평가셋</b>
+              끼리만 비교 가능해서, 다른 평가셋의 run은 리더보드에서 제외됩니다.
+            </Info>
+          </span>
         </SectionLabel>
         <Panel className="overflow-hidden">
           <table className="w-full text-left text-[13px]">

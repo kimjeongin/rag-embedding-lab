@@ -9,7 +9,7 @@ import { keys, useCorpus, useDataOverview, useGenEval, useGenPairs, usePairs } f
 import { startSynthetic, useSyntheticState } from "../lib/syntheticStore";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
-import { Btn, ErrorNote, Field, Input, Loading, Panel, Section, SectionLabel, Seg, Stat, Tag } from "../components/ui";
+import { Btn, ErrorNote, Field, Info, Input, Loading, Panel, Section, SectionLabel, Seg, Stat, Tag } from "../components/ui";
 
 type Method = "toy" | "synthetic";
 
@@ -66,7 +66,17 @@ export default function Data() {
   return (
     <div className="space-y-9">
       <Section>
-        <SectionLabel hint="각 파일의 레코드 수 · 다음 단계로 흘러갑니다">보유 데이터</SectionLabel>
+        <SectionLabel hint="각 파일의 레코드 수 · 다음 단계로 흘러갑니다">
+          <span className="inline-flex items-center gap-1.5">
+            보유 데이터
+            <Info title="두 종류 데이터" align="left">
+              <b className="text-fg">학습 데이터</b>(training pairs: query↔정답 + hard negative)는 모델이{" "}
+              <i>배우는</i> 것, <b className="text-fg">평가셋</b>(eval set: corpus / queries / qrels)은{" "}
+              <i>채점하는</i> 것입니다. 둘의 query는 겹치면 안 됩니다 — 학습한 질문으로 평가하면 일반화가 아니라 암기를
+              재게 되니까요(leakage).
+            </Info>
+          </span>
+        </SectionLabel>
         {overview.isLoading ? (
           <Loading />
         ) : overview.error ? (

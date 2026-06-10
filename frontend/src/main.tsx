@@ -11,6 +11,7 @@ import Data from "./routes/Data";
 import Train from "./routes/Train";
 import Eval from "./routes/Eval";
 import Compare from "./routes/Compare";
+import About from "./routes/About";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: false } },
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
       { path: "train", element: <Train /> },
       { path: "eval", element: <Eval /> },
       { path: "compare", element: <Compare /> },
+      { path: "about", element: <About /> },
     ],
   },
 ]);

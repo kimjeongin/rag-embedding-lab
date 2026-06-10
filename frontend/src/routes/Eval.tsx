@@ -4,7 +4,7 @@ import { Play } from "lucide-react";
 
 import { useModels, useRunEval } from "../lib/queries";
 import type { Embedder } from "../lib/types";
-import { Btn, ErrorNote, Field, Input, Metric, Panel, Section, SectionLabel, Seg } from "../components/ui";
+import { Btn, ErrorNote, Field, Info, Input, Metric, Panel, Section, SectionLabel, Seg } from "../components/ui";
 
 const KPIS = ["recall@1", "recall@3", "mrr@10", "ndcg@10"] as const;
 
@@ -92,7 +92,12 @@ export default function Eval() {
           <SectionLabel
             hint={`${hasPrior ? "▲▼ 같은 평가셋 기존 best 대비" : "이 평가셋의 첫 기록 — 다음부터 Δ 표시"} · 쿼리 ${result.n_queries}개`}
           >
-            결과 · {result.model} <span className="mono text-faint">(dim {result.embed_dim})</span>
+            결과 · {result.model} <span className="mono text-faint">(dim {result.embed_dim})</span>{" "}
+            <Info title="지표 · Δ 읽는 법" align="left">
+              <b className="text-fg">recall@k</b> 정답이 상위 k에 들 확률 · <b className="text-fg">MRR@10</b> 첫 정답의
+              순위 · <b className="text-fg">nDCG@10</b> 상위 정렬 품질. ▲▼는 <b className="text-fg">같은 평가셋</b>의 기존
+              best 대비입니다. 뒤에 reranker가 있으면 <span className="mono">recall@(후보 깊이)</span>를 더 중시하세요.
+            </Info>
           </SectionLabel>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {KPIS.map((k) => {

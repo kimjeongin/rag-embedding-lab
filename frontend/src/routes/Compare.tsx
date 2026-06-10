@@ -8,7 +8,7 @@ import { PATH } from "../lib/nav";
 import { useDeleteRun, useRuns } from "../lib/queries";
 import { METRICS, type RunRecord } from "../lib/types";
 import { BarChart } from "../components/charts";
-import { Btn, ErrorNote, Loading, Panel, Section, SectionLabel, Tag } from "../components/ui";
+import { Btn, ErrorNote, Info, Loading, Panel, Section, SectionLabel, Tag } from "../components/ui";
 
 /** Two-click delete: first click arms ("삭제?") for 3s, second click commits — an
  * eval run is expensive to reproduce, one stray click must not erase it. */
@@ -82,7 +82,16 @@ export default function Compare() {
   return (
     <div className="space-y-9">
       <Section>
-        <SectionLabel hint={`현재 평가셋 ${chartRuns.length} runs · y축 데이터 범위로 확대`}>지표 비교</SectionLabel>
+        <SectionLabel hint={`현재 평가셋 ${chartRuns.length} runs · y축 데이터 범위로 확대`}>
+          <span className="inline-flex items-center gap-1.5">
+            지표 비교
+            <Info title="지표 읽는 법" align="left">
+              <b className="text-fg">recall@k</b> 정답이 상위 k에 들었나 · <b className="text-fg">MRR@10</b> 첫 정답의
+              순위 · <b className="text-fg">nDCG@10</b> 상위에 얼마나 높게(BEIR 대표 지표). 점수는{" "}
+              <b className="text-fg">같은 평가셋끼리만</b> 비교 가능해서 현재 평가셋의 run만 차트에 올립니다.
+            </Info>
+          </span>
+        </SectionLabel>
         <Panel className="p-5">
           {chartRuns.length > 0 ? (
             <>

@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 import { useNavigate } from "react-router-dom";
-import { BarChart3, Database, FlaskConical, Gauge, LayoutDashboard, Search } from "lucide-react";
+import { BarChart3, BookOpen, Database, FlaskConical, Gauge, LayoutDashboard, Search } from "lucide-react";
 
 import { PATH } from "../lib/nav";
 
@@ -11,6 +11,7 @@ const ITEMS = [
   { icon: FlaskConical, label: "학습", hint: "fine-tune", to: PATH.train },
   { icon: Gauge, label: "평가", hint: "recall · nDCG", to: PATH.eval },
   { icon: BarChart3, label: "실험", hint: "모델 비교", to: PATH.compare },
+  { icon: BookOpen, label: "소개", hint: "프로젝트 안내 · 동작 원리", to: PATH.about },
 ];
 
 /** ⌘K palette — jump between screens. Radix Dialog (focus trap, ESC) + cmdk (fuzzy match). */
