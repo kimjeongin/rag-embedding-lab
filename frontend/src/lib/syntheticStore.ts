@@ -8,6 +8,7 @@
 // which cancels the server-side generator on its next yield.
 import { useSyncExternalStore } from "react";
 
+import { readSSE } from "./sse";
 import type { GenPairsRequest } from "./types";
 
 export type SynthStatus = "idle" | "running" | "done" | "error";
@@ -78,16 +79,6 @@ function reduce(s: SynthState, event: string, p: Record<string, unknown>): Synth
   }
 }
 
-function parseFrame(frame: string): { event: string; data: string } {
-  let event = "message";
-  let data = "";
-  for (const line of frame.split("\n")) {
-    if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) data += line.slice(5).trim();
-  }
-  return { event, data };
-}
-
 export async function startSynthetic(body: GenPairsRequest) {
   // Snapshot for the guard — narrowing the module `state` here would blind TS to
   // emit() reassigning it during the stream below (same as trainStore).
@@ -99,45 +90,9 @@ export async function startSynthetic(body: GenPairsRequest) {
   emit({ ...INITIAL, status: "running" });
 
   try {
-    const res = await fetch("/api/data/pairs/stream", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-      signal: ac.signal,
-    });
-    if (!res.ok || !res.body) {
-      let detail = `HTTP ${res.status}`;
-      try {
-        const j = await res.json();
-        if (j?.detail) detail = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
-      } catch {
-        // non-JSON error body — keep the status line
-      }
-      throw new Error(detail);
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let sep: number;
-      while ((sep = buffer.indexOf("\n\n")) >= 0) {
-        const frame = buffer.slice(0, sep);
-        buffer = buffer.slice(sep + 2);
-        const { event, data } = parseFrame(frame);
-        if (!data) continue;
-        let payload: Record<string, unknown>;
-        try {
-          payload = JSON.parse(data) as Record<string, unknown>;
-        } catch {
-          continue;
-        }
-        emit(reduce(state, event, payload));
-      }
-    }
+    await readSSE("/api/data/pairs/stream", body, ac.signal, (event, payload) =>
+      emit(reduce(state, event, payload)),
+    );
     // stream closed without an explicit done/error
     if (state.status === "running") emit({ ...state, status: "done" });
   } catch (e) {

@@ -8,6 +8,7 @@
 // the server takes as "stop": it kills the training subprocess.
 import { useSyncExternalStore } from "react";
 
+import { readSSE } from "./sse";
 import type { LossPoint, TrainMetrics, TrainRequest } from "./types";
 
 export type TrainStatus = "idle" | "running" | "done" | "stopped" | "error";
@@ -65,16 +66,6 @@ function reduce(s: TrainState, event: string, payload: Record<string, unknown>):
   }
 }
 
-function parseFrame(frame: string): { event: string; data: string } {
-  let event = "message";
-  let data = "";
-  for (const line of frame.split("\n")) {
-    if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) data += line.slice(5).trim();
-  }
-  return { event, data };
-}
-
 export async function startTraining(body: TrainRequest) {
   // Snapshot for the guard — narrowing the module `state` here would blind TS to
   // emit() reassigning it during the stream below.
@@ -87,36 +78,7 @@ export async function startTraining(body: TrainRequest) {
   emit({ ...INITIAL, status: "running" });
 
   try {
-    const res = await fetch("/api/train", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-      signal: ac.signal,
-    });
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status} — 학습을 시작할 수 없습니다`);
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let sep: number;
-      while ((sep = buffer.indexOf("\n\n")) >= 0) {
-        const frame = buffer.slice(0, sep);
-        buffer = buffer.slice(sep + 2);
-        const { event, data } = parseFrame(frame);
-        if (!data) continue;
-        let payload: Record<string, unknown>;
-        try {
-          payload = JSON.parse(data) as Record<string, unknown>;
-        } catch {
-          continue;
-        }
-        emit(reduce(state, event, payload));
-      }
-    }
+    await readSSE("/api/train", body, ac.signal, (event, payload) => emit(reduce(state, event, payload)));
     // stream closed without an explicit done event
     if (state.status === "running") emit({ ...state, status: "done" });
   } catch (e) {

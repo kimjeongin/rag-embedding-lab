@@ -7,7 +7,6 @@ LLM-synthesised set) and the BEIR-format eval set. All of it delegates to
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -27,6 +26,7 @@ from rag.api.schemas.lab import (
     PairItem,
     PairsResponse,
 )
+from rag.api.sse import sse_event
 from rag.config import Settings
 from rag.datagen.dummy import generate_dataset
 from rag.datagen.eval_corpus import generate as generate_eval_set
@@ -129,10 +129,6 @@ async def gen_pairs(req: GenPairsRequest) -> GenPairsResponse:
     )
 
 
-def _sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-
 @router.post("/data/pairs/stream")
 async def gen_pairs_stream(req: GenPairsRequest) -> StreamingResponse:
     """Synthetic training-pair generation, streamed over SSE (start/doc/mining/done/error).
@@ -153,20 +149,20 @@ async def gen_pairs_stream(req: GenPairsRequest) -> StreamingResponse:
                 req.corpus_file, req.gen_model or "", req.n_queries, req.hard_negatives, Settings.from_env()
             ):
                 if ev["event"] != "done":
-                    yield _sse(ev["event"], {k: v for k, v in ev.items() if k != "event"})
+                    yield sse_event(ev["event"], {k: v for k, v in ev.items() if k != "event"})
                     continue
                 train, test = ev["train"], ev["test"]
                 write_jsonl(train_file, train)
                 write_jsonl(test_file, test)
                 _, preview = _pair_items(train_file, 8, with_content=False)
-                yield _sse("done", {
+                yield sse_event("done", {
                     "message": f"학습쌍 저장: {train_file} ({len(train)}) + {test_file} ({len(test)})",
                     "train": {"file": train_file, "count": len(train)},
                     "test": {"file": test_file, "count": len(test)},
                     "preview": [p.model_dump() for p in preview],
                 })
         except Exception as exc:  # noqa: BLE001 — surface upstream (Ollama) failures into the stream
-            yield _sse("error", {
+            yield sse_event("error", {
                 "detail": f"{type(exc).__name__}: {exc} (Ollama 실행 중인가요? '{req.gen_model}' 모델을 받으셨나요?)"
             })
 

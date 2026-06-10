@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import os
 import sys
 
@@ -27,6 +26,7 @@ from fastapi.responses import StreamingResponse
 
 from rag import trainlog
 from rag.api.schemas.lab import TrainRequest
+from rag.api.sse import sse_event
 
 router = APIRouter()
 
@@ -36,10 +36,6 @@ _ARGV = [sys.executable, "-u", "-c", "from rag.cli.train import main; main()"]
 # One training run at a time: two trainers saving into the same output_dir would corrupt
 # the model artifact. Held for the whole stream; the route checks it for a clean 409.
 _run_lock = asyncio.Lock()
-
-
-def _sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 def _train_env(req: TrainRequest) -> dict[str, str]:
@@ -61,7 +57,7 @@ def _train_env(req: TrainRequest) -> dict[str, str]:
 
 async def _stream(req: TrainRequest):
     if _run_lock.locked():  # raced past the route check — refuse inside the stream too
-        yield _sse("error", {"detail": "학습이 이미 실행 중입니다 — 중단하거나 완료된 뒤 다시 시작하세요"})
+        yield sse_event("error", {"detail": "학습이 이미 실행 중입니다 — 중단하거나 완료된 뒤 다시 시작하세요"})
         return
 
     async with _run_lock:
@@ -70,7 +66,7 @@ async def _stream(req: TrainRequest):
             f"rag-train method={req.method}{lora} base={req.base_model} epochs={req.epochs} "
             f"batch={req.batch_size} lr={req.learning_rate} device={req.device or 'auto'} → {req.output_dir}"
         )
-        yield _sse("start", {"cmd": cmd})
+        yield sse_event("start", {"cmd": cmd})
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -81,7 +77,7 @@ async def _stream(req: TrainRequest):
                 limit=1024 * 1024,  # tolerate a long tqdm line before its newline
             )
         except Exception as exc:  # noqa: BLE001 — report a failed spawn instead of 500ing
-            yield _sse("error", {"detail": f"{type(exc).__name__}: {exc}"})
+            yield sse_event("error", {"detail": f"{type(exc).__name__}: {exc}"})
             return
 
         try:
@@ -92,20 +88,20 @@ async def _stream(req: TrainRequest):
             async for raw in proc.stdout:
                 line = raw.decode("utf-8", errors="replace")
                 accumulated.append(line)
-                yield _sse("log", {"line": trainlog.clean_tqdm(line).rstrip("\n")})
+                yield sse_event("log", {"line": trainlog.clean_tqdm(line).rstrip("\n")})
 
                 text = trainlog.clean_tqdm("".join(accumulated))
                 points = trainlog.parse_loss_points(text)
                 while emitted_loss < len(points):       # emit only newly-seen loss points
-                    yield _sse("loss", points[emitted_loss])
+                    yield sse_event("loss", points[emitted_loss])
                     emitted_loss += 1
                 metrics = trainlog.parse_eval_ndcg(text)
                 if metrics != last_metrics:
                     last_metrics = metrics
-                    yield _sse("metrics", {"before": metrics[0], "after": metrics[1]})
+                    yield sse_event("metrics", {"before": metrics[0], "after": metrics[1]})
 
             exit_code = await proc.wait()
-            yield _sse("done", {"exit_code": exit_code, "output_dir": req.output_dir})
+            yield sse_event("done", {"exit_code": exit_code, "output_dir": req.output_dir})
         finally:
             # A client disconnect (stop button, closed tab) cancels this generator;
             # without the kill the orphaned trainer blocks forever once its stdout
