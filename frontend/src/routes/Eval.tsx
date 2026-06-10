@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
-import { Play } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { BarChart3, Play } from "lucide-react";
 
+import { PATH } from "../lib/nav";
 import { useModels, useRunEval } from "../lib/queries";
 import type { Embedder } from "../lib/types";
 import { Btn, ErrorNote, Field, Info, Input, Metric, Panel, Section, SectionLabel, Seg } from "../components/ui";
@@ -15,6 +16,7 @@ interface EvalPreset {
 }
 
 export default function Eval() {
+  const nav = useNavigate();
   const preset = (useLocation().state ?? {}) as EvalPreset;
   const [backend, setBackend] = useState<Embedder>(preset.backend ?? "ollama");
   const [override, setOverride] = useState(preset.model ?? ""); // user-typed model ("" = use the query's default)
@@ -115,6 +117,12 @@ export default function Eval() {
                 </div>
               );
             })}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+            <Btn variant="ghost" icon={<BarChart3 size={15} />} onClick={() => nav(PATH.compare)}>
+              실험 비교 보기
+            </Btn>
+            <span className="text-[12px] text-faint">평가할수록 같은 평가셋끼리 리더보드에 쌓입니다</span>
           </div>
         </Section>
       )}

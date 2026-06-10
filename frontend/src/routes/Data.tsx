@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Database, FileText, Gauge, Sparkles } from "lucide-react";
+import { Database, FileText, FlaskConical, Gauge, Sparkles } from "lucide-react";
 
 import { api } from "../lib/api";
 import { short } from "../lib/format";
+import { PATH } from "../lib/nav";
 import { keys, useCorpus, useDataOverview, useGenEval, useGenPairs, usePairs } from "../lib/queries";
 import { startSynthetic, useSyntheticState } from "../lib/syntheticStore";
 import { DataTable } from "../components/DataTable";
@@ -21,6 +23,7 @@ export default function Data() {
   const genEval = useGenEval();
   const synth = useSyntheticState();
   const qc = useQueryClient();
+  const nav = useNavigate();
 
   const [method, setMethod] = useState<Method>("toy");
   const [corpusFile, setCorpusFile] = useState("data/corpus.jsonl");
@@ -242,6 +245,23 @@ export default function Data() {
           </Panel>
         </div>
       </Section>
+
+      {(inv?.train.count ?? 0) > 0 && (
+        <Section delay={120}>
+          <Panel className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div>
+              <div className="text-[14px] font-semibold text-fg">데이터 준비 완료 — 다음은 학습</div>
+              <p className="mt-1 text-[12.5px] text-mut">
+                학습쌍 {inv?.train.count}개{(inv?.eval.corpus ?? 0) > 0 ? ` · 평가셋 ${inv?.eval.corpus} docs` : ""} 준비됨.
+                base 모델을 이 데이터로 fine-tune 해보세요.
+              </p>
+            </div>
+            <Btn icon={<FlaskConical size={15} />} onClick={() => nav(PATH.train)}>
+              학습하러 가기
+            </Btn>
+          </Panel>
+        </Section>
+      )}
 
       <Modal open={modal === "pairs"} onClose={() => setModal(null)} title={`학습 데이터 — 전체 ${fullPairs.data ? `(${fullPairs.data.total})` : ""}`}>
         {fullPairs.isLoading ? (
