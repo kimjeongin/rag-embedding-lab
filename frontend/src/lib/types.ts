@@ -150,6 +150,10 @@ export interface TrainRequest {
   batch_size: number;
   learning_rate: number;
   device: string;
+  method?: "full" | "lora";
+  lora_r?: number;
+  lora_alpha?: number;
+  lora_dropout?: number;
 }
 
 // SSE event payloads

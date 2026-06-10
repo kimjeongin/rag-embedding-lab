@@ -7,7 +7,7 @@ import { PATH } from "../lib/nav";
 import { useStatus } from "../lib/queries";
 import { startTraining, stopTraining, useTrainState } from "../lib/trainStore";
 import { LossCurve } from "../components/charts";
-import { Btn, ErrorNote, Field, Input, Panel, Section, SectionLabel, Stat } from "../components/ui";
+import { Btn, ErrorNote, Field, Info, Input, Panel, Section, SectionLabel, Seg, Stat } from "../components/ui";
 
 export default function Train() {
   const nav = useNavigate();
@@ -20,6 +20,9 @@ export default function Train() {
   const [batch, setBatch] = useState(16);
   const [lr, setLr] = useState("2e-5");
   const [device, setDevice] = useState("");
+  const [method, setMethod] = useState<"full" | "lora">("full");
+  const [loraR, setLoraR] = useState(16);
+  const [loraAlpha, setLoraAlpha] = useState(32);
   const [confirmStop, setConfirmStop] = useState(false);
 
   const logRef = useRef<HTMLDivElement>(null);
@@ -38,6 +41,13 @@ export default function Train() {
   const running = train.status === "running";
   const finished = train.status === "done" && train.exitCode === 0 && train.outputDir;
 
+  const changeMethod = (m: "full" | "lora") => {
+    setMethod(m);
+    // suggest a method-specific output dir so full/LoRA runs don't overwrite each other
+    if (m === "lora" && out.trim() === "outputs/embedding-ft") setOut("outputs/embedding-ft-lora");
+    if (m === "full" && out.trim() === "outputs/embedding-ft-lora") setOut("outputs/embedding-ft");
+  };
+
   const submit = () =>
     startTraining({
       base_model: base.trim(),
@@ -46,6 +56,10 @@ export default function Train() {
       batch_size: batch,
       learning_rate: parseFloat(lr) || 2e-5,
       device: device.trim(),
+      method,
+      lora_r: loraR,
+      lora_alpha: loraAlpha,
+      lora_dropout: 0.05,
     });
 
   const lossValues = train.loss.map((p) => p.loss);
@@ -71,6 +85,36 @@ export default function Train() {
             <Field label="저장 폴더">
               <Input value={out} onChange={(e) => setOut(e.target.value)} disabled={running} />
             </Field>
+          </div>
+          <div className="mt-4">
+            <Field label="학습 방법">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Seg
+                  options={[
+                    { value: "full", label: "전체 (full)" },
+                    { value: "lora", label: "LoRA" },
+                  ]}
+                  value={method}
+                  onChange={changeMethod}
+                />
+                <Info title="full vs LoRA" align="left">
+                  <b className="text-fg">전체(full)</b> = 모든 parameter 학습(천장이 보통 약간 높지만 무거움).{" "}
+                  <b className="text-fg">LoRA</b> = 작은 adapter만 학습(메모리·속도 유리, 과적합 내성↑)하고 저장 시 base에{" "}
+                  <b className="text-fg">병합</b>되어 결과물은 똑같이 일반 모델입니다. 같은 데이터로 둘을 학습→평가해{" "}
+                  <span className="mono">실험</span> 탭에서 비교해 보세요.
+                </Info>
+              </div>
+            </Field>
+            {method === "lora" && (
+              <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-line bg-ink-925/60 p-3.5 sm:max-w-sm">
+                <Field label="LoRA rank (r)" hint="클수록 표현력↑·무거움">
+                  <Input type="number" min={1} value={loraR} onChange={(e) => setLoraR(+e.target.value)} className="mono" disabled={running} />
+                </Field>
+                <Field label="LoRA alpha" hint="스케일 (보통 2×r)">
+                  <Input type="number" min={1} value={loraAlpha} onChange={(e) => setLoraAlpha(+e.target.value)} className="mono" disabled={running} />
+                </Field>
+              </div>
+            )}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Field label="epochs">
@@ -149,7 +193,15 @@ export default function Train() {
           <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
             <Panel className="p-5">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-[13px] font-medium text-mut">training loss</span>
+                <span className="flex items-center gap-1.5 text-[13px] font-medium text-mut">
+                  training loss
+                  <Info title="loss가 들쭉날쭉한 건 정상입니다" align="left">
+                    스텝별 <span className="mono">contrastive loss</span>는 batch마다 in-batch negative가 달라 원래
+                    출렁입니다(batch가 작거나 epoch 끝 자투리 batch일수록 더). 봐야 할 건 매끄러움이 아니라{" "}
+                    <b className="text-fg">추세</b> — 오른쪽 <span className="mono">{lossLabel}</span>(처음→끝)이
+                    내려가면 정상이고, 매 스텝의 위아래 진동은 신경 쓰지 않아도 됩니다.
+                  </Info>
+                </span>
                 <span className="mono text-[12px] text-signal2">{lossLabel}</span>
               </div>
               <LossCurve points={lossValues} />

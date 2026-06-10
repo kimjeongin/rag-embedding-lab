@@ -176,3 +176,9 @@ class TrainRequest(BaseModel):
     batch_size: int = Field(default=16, ge=1, le=1024)
     learning_rate: float = Field(default=2e-5, gt=0)
     device: str = ""                                 # "" = auto (cuda → mps → cpu)
+    # Fine-tuning method: "full" (all weights) or "lora" (low-rank adapters, merged on
+    # save). lora_* are ignored when method="full".
+    method: Literal["full", "lora"] = "full"
+    lora_r: int = Field(default=16, ge=1, le=256)
+    lora_alpha: int = Field(default=32, ge=1, le=512)
+    lora_dropout: float = Field(default=0.05, ge=0, le=0.9)

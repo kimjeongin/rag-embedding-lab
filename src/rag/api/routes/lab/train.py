@@ -52,6 +52,10 @@ def _train_env(req: TrainRequest) -> dict[str, str]:
         "TRAIN_BATCH_SIZE": str(req.batch_size),
         "TRAIN_LR": str(req.learning_rate),
         "TRAIN_DEVICE": req.device,
+        "TRAIN_METHOD": req.method,
+        "TRAIN_LORA_R": str(req.lora_r),
+        "TRAIN_LORA_ALPHA": str(req.lora_alpha),
+        "TRAIN_LORA_DROPOUT": str(req.lora_dropout),
     }
 
 
@@ -61,9 +65,10 @@ async def _stream(req: TrainRequest):
         return
 
     async with _run_lock:
+        lora = f" r={req.lora_r} alpha={req.lora_alpha}" if req.method == "lora" else ""
         cmd = (
-            f"rag-train base={req.base_model} epochs={req.epochs} batch={req.batch_size} "
-            f"lr={req.learning_rate} device={req.device or 'auto'} → {req.output_dir}"
+            f"rag-train method={req.method}{lora} base={req.base_model} epochs={req.epochs} "
+            f"batch={req.batch_size} lr={req.learning_rate} device={req.device or 'auto'} → {req.output_dir}"
         )
         yield _sse("start", {"cmd": cmd})
 

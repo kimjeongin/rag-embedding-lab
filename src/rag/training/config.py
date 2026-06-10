@@ -19,6 +19,10 @@ _DEFAULT_OUTPUT_DIR = "outputs/embedding-ft"
 _DEFAULT_EPOCHS = 1
 _DEFAULT_BATCH_SIZE = 16
 _DEFAULT_LR = 2e-5
+_DEFAULT_METHOD = "full"                         # "full" (all params) | "lora" (adapters)
+_DEFAULT_LORA_R = 16
+_DEFAULT_LORA_ALPHA = 32
+_DEFAULT_LORA_DROPOUT = 0.05
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +36,14 @@ class TrainingConfig:
     learning_rate: float = _DEFAULT_LR
     device: str = ""                             # "" = auto (cuda → mps → cpu)
     query_instruction: str = DEFAULT_QUERY_INSTRUCTION
+
+    # Fine-tuning method. "full" updates every weight; "lora" trains small low-rank
+    # adapters (faster, less memory) that are merged back into the base on save, so the
+    # output is a normal model either way (serving doesn't need to know which was used).
+    method: str = _DEFAULT_METHOD
+    lora_r: int = _DEFAULT_LORA_R                # adapter rank (lora-only)
+    lora_alpha: int = _DEFAULT_LORA_ALPHA        # adapter scaling (lora-only)
+    lora_dropout: float = _DEFAULT_LORA_DROPOUT  # adapter dropout (lora-only)
 
     @classmethod
     def from_env(cls) -> "TrainingConfig":
@@ -47,4 +59,8 @@ class TrainingConfig:
             learning_rate=float(os.getenv("TRAIN_LR", str(_DEFAULT_LR))),
             device=os.getenv("TRAIN_DEVICE", ""),
             query_instruction=os.getenv("QUERY_INSTRUCTION", DEFAULT_QUERY_INSTRUCTION),
+            method=os.getenv("TRAIN_METHOD", _DEFAULT_METHOD),
+            lora_r=int(os.getenv("TRAIN_LORA_R", str(_DEFAULT_LORA_R))),
+            lora_alpha=int(os.getenv("TRAIN_LORA_ALPHA", str(_DEFAULT_LORA_ALPHA))),
+            lora_dropout=float(os.getenv("TRAIN_LORA_DROPOUT", str(_DEFAULT_LORA_DROPOUT))),
         )

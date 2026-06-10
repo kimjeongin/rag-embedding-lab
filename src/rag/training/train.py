@@ -27,9 +27,27 @@ def train(cfg: TrainingConfig) -> dict:
     from sentence_transformers.sentence_transformer.training_args import BatchSamplers
 
     device = pick_device(cfg.device)
-    print(f"[train] device={device}  base_model={cfg.base_model}")
+    print(f"[train] method={cfg.method}  device={device}  base_model={cfg.base_model}")
 
     model = load_base_model(cfg)
+    if cfg.method == "lora":
+        from peft import LoraConfig, TaskType, get_peft_model
+
+        # `Transformer.auto_model` is a read-only property over `.model`, so wrap `.model`.
+        transformer = model[0]
+        transformer.model = get_peft_model(
+            transformer.model,
+            LoraConfig(
+                task_type=TaskType.FEATURE_EXTRACTION,
+                r=cfg.lora_r,
+                lora_alpha=cfg.lora_alpha,
+                lora_dropout=cfg.lora_dropout,
+                target_modules="all-linear",  # architecture-agnostic (Qwen / BERT / …)
+            ),
+        )
+        model.to(device)  # land the freshly-added adapter params on the train device
+        print(f"[train] LoRA enabled — r={cfg.lora_r} alpha={cfg.lora_alpha} dropout={cfg.lora_dropout}")
+        transformer.model.print_trainable_parameters()
     train_dataset = to_training_dataset(cfg.train_file, cfg.query_instruction)
     print(f"[train] {len(train_dataset)} training pairs from {cfg.train_file}")
 
@@ -74,6 +92,12 @@ def train(cfg: TrainingConfig) -> dict:
         loss=loss, evaluator=evaluator,
     )
     trainer.train()
+
+    if cfg.method == "lora":
+        # Merge the adapter into the base weights so the saved model is a plain
+        # SentenceTransformer — serving (ES, etc.) never needs to know LoRA was used.
+        model[0].model = model[0].model.merge_and_unload()
+        print("[train] merged LoRA adapter into base weights (standalone model)")
 
     model.save_pretrained(cfg.output_dir)
     print(f"[train] saved fine-tuned model to {cfg.output_dir}")

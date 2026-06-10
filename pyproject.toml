@@ -28,7 +28,7 @@ dev = ["pytest>=8", "pytest-asyncio>=0.24"]
 # Training-only stack — NOT required to run the server. Install with:
 #   uv sync --group training
 # Cross-platform: torch comes as a platform wheel (MPS on macOS, CUDA/CPU on Linux).
-training = ["sentence-transformers", "datasets", "accelerate"]
+training = ["sentence-transformers", "datasets", "accelerate", "peft"]
 
 [build-system]
 requires = ["hatchling"]
