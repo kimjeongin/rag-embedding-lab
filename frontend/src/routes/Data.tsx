@@ -7,13 +7,203 @@ import { Database, FileText, FlaskConical, Gauge, Sparkles } from "lucide-react"
 import { api } from "../lib/api";
 import { short } from "../lib/format";
 import { PATH } from "../lib/nav";
-import { keys, useCorpus, useDataOverview, useGenEval, useGenPairs, usePairs } from "../lib/queries";
+import {
+  keys,
+  useCorpus,
+  useDataOverview,
+  useGenEval,
+  useGenPairs,
+  useImportPairs,
+  useLabelCommit,
+  useModels,
+  usePairs,
+} from "../lib/queries";
 import { startSynthetic, useSyntheticState } from "../lib/syntheticStore";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { Btn, ErrorNote, Field, Info, Input, Loading, Panel, Section, SectionLabel, Seg, Stat, Tag } from "../components/ui";
+import { useMutation } from "@tanstack/react-query";
+import { Search, Upload } from "lucide-react";
+import type { Embedder, LabelDoc } from "../lib/types";
 
 type Method = "toy" | "synthetic";
+
+/** Paste a query/click log → training pairs and/or qrels. The single highest-value
+ * data source for an internal-site search: (쿼리, 클릭한 사이트) = 학습쌍이자 정답 판정. */
+function ImportPanel() {
+  const importPairs = useImportPairs();
+  const [content, setContent] = useState("");
+  const [target, setTarget] = useState<"train" | "qrels" | "both">("both");
+  const result = importPairs.data;
+
+  return (
+    <Panel className="p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Upload size={16} className="text-signal" />
+        <h3 className="text-[15px] font-semibold text-fg">실데이터 가져오기</h3>
+        <Info title="실로그가 최고의 데이터입니다" align="left">
+          사내 검색의 <b className="text-fg">쿼리 로그·클릭 로그</b>가 이미 최고의 학습/평가 데이터입니다. (쿼리,
+          클릭한 문서) 한 줄이 <b className="text-fg">MNRL 학습쌍</b>이자 <b className="text-fg">정답 판정(qrels)</b> —
+          개별 클릭은 노이즈여도 양으로 이깁니다. 형식: CSV <span className="mono">query,doc_id</span>(헤더 생략
+          가능) 또는 JSONL <span className="mono">{'{"query": …, "doc_id": …}'}</span>. doc_id 대신{" "}
+          <span className="mono">title/content</span>를 주면 학습쌍으로만 들어갑니다.
+        </Info>
+      </div>
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        rows={5}
+        placeholder={"vpn 안됨,site-vpn-guide\n연차 신청,site-hr-portal\n…  (또는 JSONL)"}
+        className="mono w-full rounded-xl border border-line bg-ink-925 px-3.5 py-2.5 text-[12px] text-fg outline-none placeholder:text-faint focus:border-signal/50"
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-2.5">
+        <Seg
+          options={[
+            { value: "both", label: "학습쌍 + qrels" },
+            { value: "train", label: "학습쌍만" },
+            { value: "qrels", label: "qrels만" },
+          ]}
+          value={target}
+          onChange={setTarget}
+        />
+        <Btn
+          icon={<Upload size={14} />}
+          disabled={!content.trim() || importPairs.isPending}
+          onClick={() => importPairs.mutate({ content, target }, { onSuccess: () => setContent("") })}
+        >
+          {importPairs.isPending ? "가져오는 중…" : "가져오기"}
+        </Btn>
+      </div>
+      {result && result.skipped.length > 0 && (
+        <div className="mono mt-3 max-h-24 overflow-auto rounded-lg border border-amber/25 bg-amber/8 p-2.5 text-[11px] text-amber">
+          {result.skipped.map((s, i) => (
+            <div key={i}>· {s}</div>
+          ))}
+        </div>
+      )}
+      {result?.fingerprint_changed && (
+        <p className="mt-2 text-[11.5px] text-amber">
+          평가셋 내용이 바뀌었습니다 — 이전 런들은 "다른 평가셋"으로 표시되며 새 런과 비교되지 않습니다 (의도된 동작).
+        </p>
+      )}
+    </Panel>
+  );
+}
+
+/** The judging loop: type a real query → see what the current model retrieves →
+ * click what's actually relevant → it becomes qrels (+ a training pair). */
+function LabelPanel() {
+  const [backend, setBackend] = useState<Embedder>("sentence-transformers");
+  const models = useModels(backend);
+  const [override, setOverride] = useState("");
+  const model = override || models.data?.default || "";
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [alsoTrain, setAlsoTrain] = useState(true);
+  const commit = useLabelCommit();
+  const search = useMutation({
+    mutationFn: () => api.labelSearch({ query: query.trim(), embedder: backend, model }),
+    onError: (e) => toast.error((e as Error).message),
+    onSuccess: () => setPicked(new Set()),
+  });
+  const results: LabelDoc[] = search.data?.results ?? [];
+
+  const togglePick = (id: string) =>
+    setPicked((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  return (
+    <Panel className="p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Search size={16} className="text-cyan" />
+        <h3 className="text-[15px] font-semibold text-fg">라벨링 — 정답 판정으로 평가셋 키우기</h3>
+        <Info title="판정 루프" align="left">
+          실제 쿼리를 넣으면 <b className="text-fg">현재 모델의 top-10</b>이 나옵니다. 정답인 문서를 클릭해 저장하면{" "}
+          <b className="text-fg">qrels(+학습쌍)</b>가 됩니다. 하루 10개씩만 판정해도 평가셋이 점점 "진짜"가 돼요 —
+          평가셋의 신뢰가 모든 비교의 전제입니다.
+        </Info>
+      </div>
+      <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
+        <Field label="실제 사용자 쿼리" hint="짧고 거친 실쿼리일수록 좋아요">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && query.trim() && model && search.mutate()}
+            placeholder="예: vpn 안됨"
+          />
+        </Field>
+        <Btn icon={<Search size={14} />} disabled={!query.trim() || !model || search.isPending} onClick={() => search.mutate()}>
+          {search.isPending ? "검색 중…" : "검색"}
+        </Btn>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Seg
+          options={[
+            { value: "sentence-transformers", label: "학습 모델" },
+            { value: "ollama", label: "Ollama" },
+          ]}
+          value={backend}
+          onChange={(b) => {
+            setBackend(b);
+            setOverride("");
+          }}
+        />
+        <Input value={model} onChange={(e) => setOverride(e.target.value)} list="label-models" className="mono max-w-xs !w-auto flex-1 text-[12px]" placeholder="모델" />
+        <datalist id="label-models">
+          {(models.data?.models ?? []).map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
+      </div>
+
+      {results.length > 0 && (
+        <>
+          <div className="mt-4 max-h-60 space-y-1 overflow-auto">
+            {results.map((d, i) => (
+              <button
+                key={d.id}
+                onClick={() => togglePick(d.id)}
+                className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors ${
+                  picked.has(d.id) ? "border-signal/50 bg-signal/8" : "border-line bg-ink-925/50 hover:border-line2"
+                }`}
+              >
+                <span className="mono pt-0.5 text-[10.5px] text-faint">{i + 1}</span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate text-[12.5px] ${picked.has(d.id) ? "font-medium text-signal" : "text-fg"}`}>
+                    {d.title ?? d.id}
+                  </span>
+                  <span className="block truncate text-[11px] text-faint">{d.text}</span>
+                </span>
+                {picked.has(d.id) && <span className="mono pt-0.5 text-[10.5px] text-signal">정답 ✓</span>}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Btn
+              disabled={picked.size === 0 || commit.isPending}
+              onClick={() =>
+                commit.mutate(
+                  { query: query.trim(), doc_ids: [...picked], also_train: alsoTrain },
+                  { onSuccess: () => { setPicked(new Set()); setQuery(""); search.reset(); } },
+                )
+              }
+            >
+              {commit.isPending ? "저장 중…" : `정답 ${picked.size}개 저장`}
+            </Btn>
+            <label className="flex cursor-pointer items-center gap-2 text-[12px] text-mut">
+              <input type="checkbox" checked={alsoTrain} onChange={(e) => setAlsoTrain(e.target.checked)} className="h-3.5 w-3.5 accent-[#c6f24a]" />
+              학습쌍에도 추가
+            </label>
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
 
 export default function Data() {
   const overview = useDataOverview();
@@ -243,6 +433,16 @@ export default function Data() {
               )}
             </div>
           </Panel>
+        </div>
+      </Section>
+
+      <Section delay={100}>
+        <SectionLabel hint="합성 데이터는 시작점 — 실로그가 쌓일수록 평가가 진짜가 됩니다">
+          실데이터 (검색 로그 · 판정)
+        </SectionLabel>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <ImportPanel />
+          <LabelPanel />
         </div>
       </Section>
 
