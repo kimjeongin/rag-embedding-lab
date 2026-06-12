@@ -56,13 +56,28 @@ The `{task}` comes from `QUERY_INSTRUCTION`.
 > disappointment). See **[docs/serving-parity.md](docs/serving-parity.md)**.
 
 ### The loop
-1. **Generate** training pairs (`{query, positive[, negatives]}`) and a BEIR eval set
-   (`corpus` + `queries` + `qrels`).
-2. **Train** — contrastive fine-tuning (MultipleNegativesRankingLoss; in-batch + mined
-   hard negatives) on macOS/Linux/CPU.
-3. **Evaluate** — embed the whole eval corpus + queries with the **same** formatting, rank
-   by cosine in-memory (numpy), score against the qrels.
-4. **Compare** — every eval is recorded; the UI stacks runs and highlights the winner.
+1. **Data** — generate training pairs (`{query, positive[, negatives]}`) and a BEIR eval
+   set (qrels split into **dev** for tuning and **final** for one-shot confirmation), or
+   import real query/click logs (`POST /api/data/import`) and grow qrels with the
+   built-in judging UI.
+2. **Train** — server-owned **jobs** (a refresh never kills a run): single runs or
+   **sweeps** (one axis × values × seeds, sequential, auto-evaluated as each run
+   finishes — a live leaderboard). Selectable loss (MNRL / cached MNRL / GIST /
+   triplet), backbone dropout, LoRA knobs, per-epoch validation with early stopping;
+   the **best** epoch's weights are saved and the name says so (`…-mnrl-e7`); the full
+   recipe + data fingerprints land in `train_meta.json`.
+3. **Evaluate** — embed the whole eval corpus + queries with the **same** formatting,
+   rank by cosine in-memory (numpy), score against the qrels. `recall@50` is the
+   headline (in a hybrid+rerank pipeline the dense model is a candidate generator);
+   `EVAL_TOP_K` aligns it to your production fusion depth.
+4. **Compare** — every eval is recorded; pick two runs for a **paired per-query diff**
+   (win/loss, sign-flip permutation p-value, topic slices, retrieved docs side by
+   side). Import production BM25 as a TREC run to measure complementarity. Confirm the
+   winner once on the held-out **final** split.
+5. **Hand off** — the Models page packages the winner for the serving team
+   (`HANDOFF.md` + `handoff.json`: embedding contract, parity sample vectors,
+   reindex checklist). The lab does not deploy; production swaps the dense model
+   inside its existing hybrid + rerank pipeline.
 
 ## Quick start
 
@@ -215,8 +230,13 @@ EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eva
 (anchor, positive, negative) triplet on top of in-batch negatives. Bring your own data in
 this format (point `TRAIN_FILE`/`TRAIN_EVAL_FILE` at it) or put documents in
 `data/corpus.jsonl` and run `rag-gen-synthetic`. Key env: `TRAIN_BASE_MODEL`,
-`TRAIN_EPOCHS`, `TRAIN_BATCH_SIZE`, `TRAIN_DEVICE`, `TRAIN_METHOD` (`full` or `lora` —
-LoRA adapters are merged into the base on save), `GEN_MODEL`, `HARD_NEGATIVES`.
+`TRAIN_EPOCHS` (a *ceiling* — early stopping ends sooner), `TRAIN_PATIENCE` /
+`TRAIN_MONITOR` (`ndcg` or `loss`; the best epoch's weights are what gets saved),
+`TRAIN_LOSS` (`mnrl` / `cached_mnrl` / `gist` / `triplet`), `TRAIN_DROPOUT`,
+`TRAIN_SEED`, `TRAIN_NOTE`, `TRAIN_BATCH_SIZE`, `TRAIN_DEVICE`, `TRAIN_METHOD`
+(`full` or `lora` — adapters are merged into the base on save;
+`TRAIN_LORA_R/ALPHA/DROPOUT/TARGET` tune them), `EVAL_TOP_K` (ranking depth —
+match your production fusion depth), `GEN_MODEL`, `HARD_NEGATIVES`.
 
 ## Architecture
 
