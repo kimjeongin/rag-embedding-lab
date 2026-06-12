@@ -21,6 +21,7 @@ export default function Eval() {
   const [backend, setBackend] = useState<Embedder>(preset.backend ?? "ollama");
   const [override, setOverride] = useState(preset.model ?? ""); // user-typed model ("" = use the query's default)
   const [label, setLabel] = useState("");
+  const [note, setNote] = useState("");
   const models = useModels(backend);
   const runEval = useRunEval();
 
@@ -34,7 +35,7 @@ export default function Eval() {
   const submit = () => {
     const m = model.trim();
     if (!m) return;
-    runEval.mutate({ embedder: backend, model: m, label: label.trim() });
+    runEval.mutate({ embedder: backend, model: m, label: label.trim(), note: note.trim() });
   };
 
   const result = runEval.data;
@@ -75,9 +76,12 @@ export default function Eval() {
               {runEval.isPending ? "평가 중…" : "평가 실행"}
             </Btn>
           </div>
-          <div className="mt-4 max-w-xs">
+          <div className="mt-4 grid max-w-2xl gap-4 sm:grid-cols-2">
             <Field label="라벨" hint="비우면 모델명 사용">
               <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: base, ft·3ep" />
+            </Field>
+            <Field label="가설 메모" hint="비교 탭에 함께 표시">
+              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 베이스라인 측정" />
             </Field>
           </div>
         </Panel>

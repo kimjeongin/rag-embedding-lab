@@ -112,6 +112,16 @@ def infer_dim(embedder: str, model: str, ollama_url: str) -> int:
         resp = httpx.post(f"{ollama_url}/api/embed", json={"model": model, "input": "x"}, timeout=30)
         resp.raise_for_status()
         return len(resp.json()["embeddings"][0])
+
+    # Local ST dirs record the dim in the pooling config — read it instead of loading
+    # the full model (which evaluate() will load again right after anyway).
+    pooling_cfg = Path(model) / "1_Pooling" / "config.json"
+    if pooling_cfg.exists():
+        try:
+            dim = json.loads(pooling_cfg.read_text(encoding="utf-8"))["embedding_dimension"]
+            return int(dim)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            pass  # malformed config — fall back to loading the model
     from sentence_transformers import SentenceTransformer
 
     return int(SentenceTransformer(model).get_sentence_embedding_dimension())

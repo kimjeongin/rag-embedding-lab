@@ -59,12 +59,15 @@ def ndcg_at_k(ranked: Sequence[str], gains: Mapping[str, float], k: int) -> floa
 def per_query_metrics(
     rankings: Mapping[str, Sequence[str]],
     qrels: Mapping[str, Mapping[str, float]],
+    recall_ks: Sequence[int] = RECALL_KS,
 ) -> dict[str, dict[str, float]]:
     """``{query_id: {metric: score}}`` for every judged query.
 
     The raw scores behind ``evaluate_rankings``' averages — keep them: they are what
     confidence intervals and paired run-vs-run comparisons need. Queries without
-    qrels are skipped (you can't score them).
+    qrels are skipped (you can't score them). ``recall_ks`` lets the caller extend the
+    cutoffs — e.g. recall@50 when the model's production job is candidate generation
+    for a reranker (the ranking must be at least that deep).
     """
     out: dict[str, dict[str, float]] = {}
     for query_id, ranked in rankings.items():
@@ -72,7 +75,7 @@ def per_query_metrics(
         if not judgments:
             continue
         relevant = set(judgments)
-        row = {f"recall@{k}": recall_at_k(ranked, relevant, k) for k in RECALL_KS}
+        row = {f"recall@{k}": recall_at_k(ranked, relevant, k) for k in recall_ks}
         row[f"mrr@{MRR_K}"] = reciprocal_rank(ranked, relevant, MRR_K)
         row[f"ndcg@{NDCG_K}"] = ndcg_at_k(ranked, judgments, NDCG_K)
         out[query_id] = row
@@ -82,25 +85,26 @@ def per_query_metrics(
 def mean_metrics(per_query: Mapping[str, Mapping[str, float]]) -> dict[str, float]:
     """Per-metric mean over the per-query scores ({} when nothing was judged).
 
-    Insertion-ordered: recall@1, recall@3, recall@5, recall@10, mrr@10, ndcg@10.
+    Keys come from the per-query rows (insertion-ordered): recall@k…, mrr@10, ndcg@10.
     """
     n = len(per_query)
     if n == 0:
         return {}
-    keys = [f"recall@{k}" for k in RECALL_KS] + [f"mrr@{MRR_K}", f"ndcg@{NDCG_K}"]
+    keys = list(next(iter(per_query.values())))
     return {key: sum(row[key] for row in per_query.values()) / n for key in keys}
 
 
 def evaluate_rankings(
     rankings: Mapping[str, Sequence[str]],
     qrels: Mapping[str, Mapping[str, float]],
+    recall_ks: Sequence[int] = RECALL_KS,
 ) -> dict[str, float]:
     """Average recall@k / MRR@10 / nDCG@10 over every query that has judgments.
 
     Queries without qrels are skipped (you can't score them). Returns an
-    insertion-ordered dict: recall@1, recall@3, recall@5, recall@10, mrr@10, ndcg@10.
+    insertion-ordered dict: recall@1, recall@3, recall@5, recall@10, …, mrr@10, ndcg@10.
     """
-    return mean_metrics(per_query_metrics(rankings, qrels))
+    return mean_metrics(per_query_metrics(rankings, qrels, recall_ks))
 
 
 def bootstrap_ci(

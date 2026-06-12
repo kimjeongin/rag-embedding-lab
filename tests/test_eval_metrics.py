@@ -90,3 +90,17 @@ def test_bootstrap_ci_brackets_the_mean_and_is_seeded():
     assert 0.0 < lo < hi < 1.0           # and is non-degenerate on a mixed sample
     assert bootstrap_ci(per_query) == ci  # seeded → reproducible
     assert bootstrap_ci({}) == {}
+
+
+def test_per_query_metrics_accepts_extended_recall_cutoffs():
+    from rag.evaluation.metrics import mean_metrics, per_query_metrics
+
+    rankings = {"q1": [f"d{i}" for i in range(60)]}
+    qrels = {"q1": {"d40": 1.0}}                  # relevant doc sits at rank 41
+    per_query = per_query_metrics(rankings, qrels, recall_ks=(1, 3, 5, 10, 50))
+
+    assert per_query["q1"]["recall@10"] == 0.0    # missed at shallow depth…
+    assert per_query["q1"]["recall@50"] == 1.0    # …caught at candidate-generation depth
+
+    means = mean_metrics(per_query)
+    assert list(means) == ["recall@1", "recall@3", "recall@5", "recall@10", "recall@50", "mrr@10", "ndcg@10"]
