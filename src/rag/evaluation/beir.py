@@ -22,12 +22,42 @@ from pathlib import Path
 from rag.dataset import load_jsonl, write_jsonl
 
 DEFAULT_EVAL_DIR = "data/eval"
-DEFAULT_SPLIT = "test"
+DEFAULT_SPLIT = "test"   # legacy single-split layout (pre dev/final separation)
+DEV_SPLIT = "dev"        # tuning split — sweeps and day-to-day comparisons run here
+FINAL_SPLIT = "final"    # held-out confirmation split — touched once, for the winner
 
 
 def eval_dir_from_env() -> str:
     """The eval dataset directory (EVAL_DIR), defaulting to data/eval."""
     return os.getenv("EVAL_DIR", DEFAULT_EVAL_DIR)
+
+
+def resolve_split(eval_dir: str, split: str = DEV_SPLIT) -> str:
+    """Map a logical split to the qrels file that actually exists.
+
+    Picking the best of N sweep runs on one query set overfits that set — so queries
+    are split: "dev" for selection, "final" for a one-shot confirmation of the winner.
+    "dev" falls back to the legacy single "test" split (sets generated before the
+    separation). "final" never falls back — silently confirming on the tuning set
+    would defeat its purpose.
+    """
+    if split == FINAL_SPLIT:
+        if not (Path(eval_dir) / "qrels" / f"{FINAL_SPLIT}.tsv").exists():
+            raise FileNotFoundError(
+                "qrels/final.tsv가 없습니다 — 데이터 탭에서 평가셋을 재생성하면 dev/final로 분리됩니다"
+            )
+        return FINAL_SPLIT
+    if (Path(eval_dir) / "qrels" / f"{DEV_SPLIT}.tsv").exists():
+        return DEV_SPLIT
+    return DEFAULT_SPLIT
+
+
+def available_splits(eval_dir: str) -> list[str]:
+    """Which qrels splits exist in this eval dir (display/UI helper)."""
+    qrels_dir = Path(eval_dir) / "qrels"
+    if not qrels_dir.exists():
+        return []
+    return sorted(p.stem for p in qrels_dir.glob("*.tsv"))
 
 
 def eval_set_fingerprint(eval_dir: str, split: str = DEFAULT_SPLIT) -> str | None:
@@ -86,6 +116,16 @@ def load_qrels(eval_dir: str, split: str = DEFAULT_SPLIT) -> dict[str, dict[str,
     return qrels
 
 
+def write_qrels(eval_dir: str, qrels_rows: Iterable[tuple[str, str, int]], split: str) -> None:
+    """Write qrels/<split>.tsv (overwrites; header row included)."""
+    qrels_path = Path(eval_dir) / "qrels" / f"{split}.tsv"
+    qrels_path.parent.mkdir(parents=True, exist_ok=True)
+    with qrels_path.open("w", encoding="utf-8") as f:
+        f.write("query-id\tcorpus-id\tscore\n")
+        for query_id, doc_id, score in qrels_rows:
+            f.write(f"{query_id}\t{doc_id}\t{score}\n")
+
+
 def write_beir_dataset(
     eval_dir: str,
     corpus: Iterable[dict],
@@ -97,10 +137,4 @@ def write_beir_dataset(
     base = Path(eval_dir)
     write_jsonl(str(base / "corpus.jsonl"), corpus)
     write_jsonl(str(base / "queries.jsonl"), queries)
-
-    qrels_path = base / "qrels" / f"{split}.tsv"
-    qrels_path.parent.mkdir(parents=True, exist_ok=True)
-    with qrels_path.open("w", encoding="utf-8") as f:
-        f.write("query-id\tcorpus-id\tscore\n")
-        for query_id, doc_id, score in qrels_rows:
-            f.write(f"{query_id}\t{doc_id}\t{score}\n")
+    write_qrels(eval_dir, qrels_rows, split)

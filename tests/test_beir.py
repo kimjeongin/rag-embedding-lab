@@ -98,3 +98,53 @@ async def test_evaluate_end_to_end_reports_per_query_and_ci(tmp_path, monkeypatc
     assert set(report.per_query) == {"q1", "q2"}
     lo, hi = report.ci95["ndcg@10"]
     assert lo <= report.metrics["ndcg@10"] <= hi
+
+
+def test_resolve_split_prefers_dev_and_falls_back_to_legacy_test(tmp_path):
+    from rag.evaluation.beir import resolve_split, write_qrels
+
+    _write_sample(tmp_path)                       # legacy layout: qrels/test.tsv only
+    assert resolve_split(str(tmp_path)) == "test"
+
+    write_qrels(str(tmp_path), [("q1", "d1", 1)], "dev")
+    assert resolve_split(str(tmp_path)) == "dev"  # dev exists → preferred
+
+
+def test_resolve_split_final_never_falls_back(tmp_path):
+    import pytest
+
+    from rag.evaluation.beir import resolve_split, write_qrels
+
+    _write_sample(tmp_path)
+    with pytest.raises(FileNotFoundError):
+        resolve_split(str(tmp_path), "final")     # confirming on the tuning set is forbidden
+
+    write_qrels(str(tmp_path), [("q2", "d3", 1)], "final")
+    assert resolve_split(str(tmp_path), "final") == "final"
+
+
+def test_available_splits_lists_qrels_files(tmp_path):
+    from rag.evaluation.beir import available_splits, write_qrels
+
+    assert available_splits(str(tmp_path)) == []
+    _write_sample(tmp_path)
+    write_qrels(str(tmp_path), [("q1", "d1", 1)], "dev")
+    assert available_splits(str(tmp_path)) == ["dev", "test"]
+
+
+async def test_evaluate_reports_rankings_and_split(tmp_path, monkeypatch):
+    import rag.embeddings as embeddings
+    from rag.config import Settings
+
+    @contextlib.asynccontextmanager
+    async def fake_build(_settings):
+        yield _KeywordEmbedder()
+
+    monkeypatch.setattr(embeddings, "build_embedder", fake_build)
+    _write_sample(tmp_path)
+
+    report = await evaluate(Settings.from_env(), str(tmp_path))
+
+    assert report.split == "test"                  # legacy fallback resolved + recorded
+    assert report.rankings["q1"][0] == "d1"        # what was retrieved survives into the report
+    assert all(len(r) <= 10 for r in report.rankings.values())

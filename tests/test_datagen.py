@@ -65,3 +65,31 @@ def test_synthetic_split_holds_out_whole_docs():
     one = [{"query": f"q{i}", "_doc": 0} for i in range(4)]
     train1, test1 = _split_by_doc(one, 0.25, 13)
     assert len(train1) == 4 and test1 == []
+
+
+def test_split_qrels_holds_out_queries_per_doc():
+    from rag.datagen.eval_corpus import split_qrels
+
+    qrels = [(f"q-{t}-{j}", f"gold-{t}", 1) for t in range(4) for j in range(3)]
+    dev, final = split_qrels(qrels, final_fraction=0.3, seed=13)
+
+    dev_q = {q for q, _, _ in dev}
+    final_q = {q for q, _, _ in final}
+    assert dev_q.isdisjoint(final_q)              # split BY QUERY — no leakage
+    assert len(dev) + len(final) == len(qrels)
+    for t in range(4):                            # stratified: every doc keeps dev queries
+        assert any(q.startswith(f"q-{t}-") for q in dev_q)
+        assert any(q.startswith(f"q-{t}-") for q in final_q)
+    assert split_qrels(qrels, seed=13) == (dev, final)   # deterministic
+
+
+def test_file_fingerprint_tracks_content(tmp_path):
+    from rag.dataset import file_fingerprint
+
+    path = tmp_path / "train.jsonl"
+    path.write_text('{"a": 1}\n')
+    fp = file_fingerprint(str(path))
+    assert fp and len(fp) == 12
+    path.write_text('{"a": 2}\n')
+    assert file_fingerprint(str(path)) != fp      # regenerated in place → new hash
+    assert file_fingerprint(str(tmp_path / "missing.jsonl")) is None

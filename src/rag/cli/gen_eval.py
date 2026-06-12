@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import os
 
-from rag.datagen.eval_corpus import generate
-from rag.evaluation.beir import eval_dir_from_env, write_beir_dataset
+from rag.datagen.eval_corpus import generate, split_qrels
+from rag.evaluation.beir import DEV_SPLIT, FINAL_SPLIT, eval_dir_from_env, write_beir_dataset, write_qrels
 
 
 def main() -> None:
@@ -20,8 +20,13 @@ def main() -> None:
     n_distractors = int(raw) if raw else None
 
     corpus, queries, qrels = generate(n_distractors=n_distractors)
-    write_beir_dataset(eval_dir, corpus, queries, qrels)
+    # dev = tuning split (sweeps/comparisons), final = held-out one-shot confirmation
+    # for the chosen winner — selection on one set + confirmation on another is what
+    # keeps "best of 20 runs" from overfitting the eval set itself.
+    dev_rows, final_rows = split_qrels(qrels)
+    write_beir_dataset(eval_dir, corpus, queries, dev_rows, split=DEV_SPLIT)
+    write_qrels(eval_dir, final_rows, FINAL_SPLIT)
     print(
-        f"[gen-eval] wrote {eval_dir}: "
-        f"{len(corpus)} corpus docs, {len(queries)} queries, {len(qrels)} qrels"
+        f"[gen-eval] wrote {eval_dir}: {len(corpus)} corpus docs, {len(queries)} queries, "
+        f"qrels dev={len(dev_rows)} final={len(final_rows)}"
     )

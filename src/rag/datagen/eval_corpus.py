@@ -92,3 +92,38 @@ def generate(
 
     rng.shuffle(corpus)  # don't leave all the gold docs at the front of the file
     return corpus, queries, qrels
+
+
+def split_qrels(
+    qrels: list[tuple[str, str, int]],
+    final_fraction: float = 0.3,
+    seed: int = 13,
+) -> tuple[list[tuple[str, str, int]], list[tuple[str, str, int]]]:
+    """(dev_rows, final_rows) — split BY QUERY, stratified per gold doc.
+
+    Selecting the best of many sweep runs on one query set overfits that set, so a
+    slice of queries is held out as the one-shot "final" confirmation. Splitting by
+    query (all of a query's judgments stay together) and stratifying per doc (every
+    doc keeps queries in both splits) keeps the two splits comparable in difficulty.
+    Deterministic given `seed`.
+    """
+    rng = random.Random(seed)
+    by_doc: dict[str, list[str]] = {}
+    rows_by_query: dict[str, list[tuple[str, str, int]]] = {}
+    for query_id, doc_id, score in qrels:
+        rows_by_query.setdefault(query_id, []).append((query_id, doc_id, score))
+        if query_id not in by_doc.setdefault(doc_id, []):
+            by_doc[doc_id].append(query_id)
+
+    final_queries: set[str] = set()
+    for doc_id in sorted(by_doc):
+        query_ids = sorted(by_doc[doc_id])
+        rng.shuffle(query_ids)
+        n_final = max(1, round(len(query_ids) * final_fraction)) if len(query_ids) > 1 else 0
+        final_queries.update(query_ids[:n_final])
+
+    dev_rows: list[tuple[str, str, int]] = []
+    final_rows: list[tuple[str, str, int]] = []
+    for query_id, doc_id, score in qrels:
+        (final_rows if query_id in final_queries else dev_rows).append((query_id, doc_id, score))
+    return dev_rows, final_rows
