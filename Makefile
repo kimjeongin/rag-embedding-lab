@@ -5,7 +5,7 @@ FRONTEND := frontend
 # Vite proxies /api → API_PORT (see frontend/vite.config.ts), so keep them in sync.
 API_PORT ?= 8800
 
-.PHONY: help install run dev build stop clean test lint
+.PHONY: help install run dev build stop clean reset test lint
 
 help:  ## List available commands
 	@grep -hE '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) \
@@ -39,6 +39,12 @@ clean:  ## Remove build artifacts (frontend/dist + Python caches) — keeps deps
 	rm -rf $(FRONTEND)/dist .pytest_cache .ruff_cache
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@echo "✓ cleaned build artifacts (deps untouched — 'make install' if needed)"
+
+reset: clean  ## Remove ALL lab results: trained models (outputs/), eval runs (runs/), and restore data/ to last commit
+	rm -rf outputs runs checkpoints
+	git checkout HEAD -- data/
+	git clean -fdq data/
+	@echo "✓ reset: models + eval runs deleted, data/ restored to last commit"
 
 test:  ## Run the backend tests (pytest)
 	uv run pytest -q
