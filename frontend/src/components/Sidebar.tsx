@@ -1,13 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Boxes, Search } from "lucide-react";
+import { Boxes } from "lucide-react";
 
 import { cx } from "../lib/format";
 import { NAV_GROUPS, PATH, STEP_ICON } from "../lib/nav";
-import { useTrainStatus } from "../lib/trainStore";
-import { Kbd } from "./ui";
+import { useJobs } from "../lib/queries";
 
-/** Pulsing dot on the 학습 nav item while a fine-tune is streaming — the run keeps
- * going when you leave the screen, so the app must say so somewhere global. */
+/** Pulsing dot on the 학습 nav item while a job runs — jobs are server-owned (they
+ * survive tab closes and refreshes), so the app must say so somewhere global. */
 function TrainingDot() {
   return (
     <span className="relative flex h-2 w-2 shrink-0" title="학습 진행 중">
@@ -17,8 +16,8 @@ function TrainingDot() {
   );
 }
 
-export default function Sidebar({ onSearch }: { onSearch?: () => void }) {
-  const training = useTrainStatus() === "running";
+export default function Sidebar() {
+  const training = !!useJobs().data?.active;
   return (
     <aside className="sticky top-0 z-30 flex h-screen w-[244px] shrink-0 flex-col border-r border-line bg-ink-925/80 backdrop-blur-xl">
       <div className="flex items-center gap-2.5 px-6 pb-4 pt-6">
@@ -33,17 +32,7 @@ export default function Sidebar({ onSearch }: { onSearch?: () => void }) {
         </div>
       </div>
 
-      <button
-        onClick={onSearch}
-        className="mx-3 mb-2 flex items-center gap-2 rounded-xl border border-line bg-ink-900 px-3 py-2 text-[13px] text-faint transition-colors hover:border-line2 hover:text-mut"
-      >
-        <Search size={14} /> 검색
-        <span className="ml-auto">
-          <Kbd>⌘K</Kbd>
-        </span>
-      </button>
-
-      <nav className="flex-1 overflow-y-auto px-3 py-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-2">
         {NAV_GROUPS.map((grp, gi) => (
           <div key={gi} className="mb-1">
             {grp.label && (
