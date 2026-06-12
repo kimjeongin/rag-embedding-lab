@@ -3,7 +3,9 @@
 import type {
   CorpusResponse,
   DataOverviewResponse,
+  DeleteModelResponse,
   DeleteRunResponse,
+  DiffResponse,
   Embedder,
   EvalRequest,
   EvalResponse,
@@ -11,6 +13,19 @@ import type {
   GenEvalResponse,
   GenPairsRequest,
   GenPairsResponse,
+  HandoffResponse,
+  ImportPairsRequest,
+  ImportPairsResponse,
+  ImportTrecRequest,
+  ImportTrecResponse,
+  JobCreateRequest,
+  JobsListResponse,
+  JobState,
+  LabelCommitRequest,
+  LabelCommitResponse,
+  LabelSearchRequest,
+  LabelSearchResponse,
+  ModelsDetailResponse,
   ModelsResponse,
   PairsResponse,
   RunsResponse,
@@ -56,6 +71,10 @@ const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.strin
 export const api = {
   status: () => request<StatusResponse>("/status"),
   models: (embedder: Embedder) => request<ModelsResponse>(`/models?embedder=${encodeURIComponent(embedder)}`),
+  modelsDetail: () => request<ModelsDetailResponse>("/models/detail"),
+  deleteModel: (path: string) =>
+    request<DeleteModelResponse>(`/models?path=${encodeURIComponent(path)}`, { method: "DELETE" }),
+  handoff: (path: string) => request<HandoffResponse>("/models/handoff", json({ path })),
 
   dataOverview: () => request<DataOverviewResponse>("/data/overview"),
   pairs: (limit = 8, content = false) => request<PairsResponse>(`/data/pairs?limit=${limit}&content=${content}`),
@@ -64,8 +83,22 @@ export const api = {
 
   genPairs: (body: GenPairsRequest) => request<GenPairsResponse>("/data/pairs", json(body)),
   genEval: (body: GenEvalRequest) => request<GenEvalResponse>("/data/eval", json(body)),
+  importPairs: (body: ImportPairsRequest) => request<ImportPairsResponse>("/data/import", json(body)),
+  labelSearch: (body: LabelSearchRequest) => request<LabelSearchResponse>("/data/label/search", json(body)),
+  labelCommit: (body: LabelCommitRequest) => request<LabelCommitResponse>("/data/label/commit", json(body)),
 
   runEval: (body: EvalRequest) => request<EvalResponse>("/eval", json(body)),
   runs: () => request<RunsResponse>("/runs"),
   deleteRun: (id: string) => request<DeleteRunResponse>(`/runs/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  diff: (a: string, b: string, metric?: string) =>
+    request<DiffResponse>(
+      `/runs/diff?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}${metric ? `&metric=${encodeURIComponent(metric)}` : ""}`,
+    ),
+  importTrec: (body: ImportTrecRequest) => request<ImportTrecResponse>("/runs/import-trec", json(body)),
+
+  jobs: () => request<JobsListResponse>("/jobs"),
+  job: (id: string) => request<JobState>(`/jobs/${encodeURIComponent(id)}`),
+  createJob: (body: JobCreateRequest) => request<JobState>("/jobs", json(body)),
+  stopJob: (id: string) => request<JobState>(`/jobs/${encodeURIComponent(id)}/stop`, { method: "POST" }),
+  skipRun: (id: string) => request<JobState>(`/jobs/${encodeURIComponent(id)}/skip`, { method: "POST" }),
 };

@@ -26,6 +26,8 @@ class EvalInfo(BaseModel):
     is_sample: bool
     corpus: int
     queries: int
+    fingerprint: str | None = None      # content hash of the tuning (dev) split
+    splits: list[str] = Field(default_factory=list)  # qrels splits present (dev/final/test)
 
 
 # ── GET /api/status ─────────────────────────────────────────────────────────────
@@ -47,6 +49,9 @@ class StatusResponse(BaseModel):
     eval: EvalInfo
     training_ready: bool
     runs: int                   # number of recorded eval runs
+    best_ndcg: float | None = None      # best nDCG@10 on the current eval set (context bar)
+    active_job: str | None = None       # id of the running training job, if any
+    handed_off: dict | None = None      # latest delivery marker {model, at}
 
 
 # ── GET /api/models ─────────────────────────────────────────────────────────────
@@ -58,6 +63,9 @@ class ModelsResponse(BaseModel):
 
 # ── GET /api/data/* ─────────────────────────────────────────────────────────────
 class DataOverviewResponse(BaseModel):
+    # True when EVERY training record carries hard negatives — the Train form uses
+    # this to warn about TripletLoss before the run fails, not after.
+    train_has_negatives: bool = False
     train: FileCount
     test: FileCount
     eval: EvalInfo
@@ -133,18 +141,40 @@ class RunRecord(BaseModel):
     eval_fingerprint: str | None = None
     n_queries: int | None = None                    # how many judged queries the means cover
     ci95: dict[str, list[float]] | None = None      # {metric: [lo, hi]} bootstrap 95% CI
+    split: str | None = None                        # dev (tuning) | final (one-shot confirm) | test (legacy)
+    note: str | None = None                         # experimenter's hypothesis/memo
 
 
 class RunsResponse(BaseModel):
     runs: list[RunRecord]               # newest first
     best: dict[str, float]              # max per metric on the CURRENT eval set (for Δ / highlight)
-    current_fingerprint: str | None = None  # fingerprint of the eval set bound right now
+    current_fingerprint: str | None = None  # fingerprint of the current eval set's dev split
+    final_fingerprint: str | None = None    # fingerprint of its final split (None if absent)
     metric_keys: list[str]              # display order
 
 
 class DeleteRunResponse(BaseModel):
     deleted: str
     remaining: int
+
+
+# ── GET /api/runs/diff — paired run-vs-run comparison ────────────────────────────
+class DiffResponse(BaseModel):
+    a: RunRecord                        # baseline run
+    b: RunRecord                        # candidate run (+delta = b better)
+    metric: str                         # the headline metric the win/loss uses
+    n: int                              # paired queries behind the comparison
+    wins: int
+    losses: int
+    ties: int
+    mean_a: float
+    mean_b: float
+    delta: float
+    p_value: float                      # sign-flip permutation test on per-query deltas
+    queries: list[dict]                 # {query_id, a, b, delta[, text, retrieved_a/b, relevant]}
+    by_metric: dict[str, dict]          # every shared metric's paired summary
+    slices: list[dict]                  # per-topic {topic, n, mean_a, mean_b, delta}
+    texts_available: bool = False       # query texts + doc titles joined from the live eval set
 
 
 # ── POST /api/eval ──────────────────────────────────────────────────────────────
@@ -154,6 +184,10 @@ class EvalRequest(BaseModel):
     ollama_url: str | None = None
     eval_dir: str | None = None         # defaults to EVAL_DIR
     label: str = ""                     # falls back to the model name
+    # dev = tuning split (default, all day-to-day comparisons); final = the held-out
+    # one-shot confirmation for the chosen winner (never used for selection).
+    split: Literal["dev", "final"] = "dev"
+    note: str = ""                      # experimenter's memo, shown alongside the run
 
 
 class EvalResponse(BaseModel):
@@ -164,21 +198,191 @@ class EvalResponse(BaseModel):
     ci95: dict[str, list[float]]        # {metric: [lo, hi]} bootstrap 95% CI of each mean
     run: RunRecord                      # the appended registry record
     prior_best: dict[str, float]        # best *before* this run, same eval set only (for Δ)
+    split: str = "dev"                  # the split that actually scored this (resolved)
 
 
-# ── POST /api/train (Server-Sent Events) ────────────────────────────────────────
-# The response is an SSE stream, not a JSON body — see rag.api.routes.lab.train for the
-# event protocol (start / log / loss / metrics / done / error).
+# ── training config (one run inside a job) ──────────────────────────────────────
 class TrainRequest(BaseModel):
     base_model: str = "Qwen/Qwen3-Embedding-0.6B"   # the HF checkpoint to fine-tune
-    output_dir: str = "outputs/embedding-ft"
-    epochs: int = Field(default=1, ge=1, le=100)
+    output_dir: str = "outputs/embedding-ft"        # name prefix — see auto_name
+    epochs: int = Field(default=12, ge=1, le=100)   # a CEILING — early stopping ends sooner
     batch_size: int = Field(default=16, ge=1, le=1024)
     learning_rate: float = Field(default=2e-5, gt=0)
     device: str = ""                                 # "" = auto (cuda → mps → cpu)
+    # Training loss — all fit the (query, positive[, negatives]) dataset; "triplet"
+    # additionally requires hard negatives on every record.
+    loss: Literal["mnrl", "cached_mnrl", "gist", "triplet"] = "mnrl"
+    # Backbone dropout override; None keeps the model's own defaults. (LoRA adapters
+    # have their separate lora_dropout below.)
+    dropout: float | None = Field(default=None, ge=0, le=0.9)
+    # Early stopping: stop after this many epochs without improvement on the monitored
+    # metric and save the BEST epoch's weights. 0 = off (run all epochs, save the last).
+    early_stop_patience: int = Field(default=3, ge=0, le=20)
+    early_stop_metric: Literal["ndcg", "loss"] = "ndcg"
+    # Append "-{loss}[-r{r}]-e{best_epoch}" to output_dir at save time so the model
+    # name itself says how it was trained.
+    auto_name: bool = True
+    # Fixed seed = reproducible config; sweep the same config over seeds for variance.
+    seed: int = Field(default=42, ge=0)
+    # Experimenter's hypothesis/memo — lands in train_meta.json and next to the run.
+    note: str = ""
     # Fine-tuning method: "full" (all weights) or "lora" (low-rank adapters, merged on
     # save). lora_* are ignored when method="full".
     method: Literal["full", "lora"] = "full"
     lora_r: int = Field(default=16, ge=1, le=256)
     lora_alpha: int = Field(default=32, ge=1, le=512)
     lora_dropout: float = Field(default=0.05, ge=0, le=0.9)
+    lora_target: Literal["all-linear", "attention"] = "all-linear"
+
+
+# ── /api/jobs — server-owned training jobs (single run or sweep) ─────────────────
+class JobRunSpec(BaseModel):
+    label: str = ""                     # what varied vs the base config, e.g. "lr=1e-4"
+    config: TrainRequest
+
+
+class JobCreateRequest(BaseModel):
+    # One run = a normal training; several = a sweep, executed sequentially (one
+    # device). The client expands axes/seeds into this explicit list — what you see
+    # in the preview is exactly what runs.
+    runs: list[JobRunSpec] = Field(min_length=1, max_length=64)
+    auto_eval: bool = True              # evaluate each run on the dev split as it finishes
+    # After the sweep: keep only the top-k models' folders (~1GB each); the losing
+    # runs keep their eval records, just not their weights.
+    keep_top_k: int | None = Field(default=None, ge=1)
+
+
+class JobRunState(BaseModel):
+    idx: int
+    label: str = ""
+    status: str                          # pending|running|trained|evaluated|failed|skipped|stopped|interrupted
+    config: dict
+    loss: list[dict] = Field(default_factory=list)    # per-step {step, epoch, loss}
+    epochs: list[dict] = Field(default_factory=list)  # per-epoch {epoch, eval_loss, ndcg, best_epoch, elapsed}
+    result: dict | None = None           # {output_dir, best_epoch, ran, early_stopped, ndcg_before/after}
+    eval: dict | None = None             # {run_id, metrics, n_queries, split} from auto-eval
+    error: str | None = None
+    hint: str | None = None              # actionable next step for a failure
+    started_at: str | None = None
+    finished_at: str | None = None
+    model_deleted: bool = False          # pruned by keep_top_k
+
+
+class JobState(BaseModel):
+    id: str
+    kind: str                            # train | sweep
+    status: str                          # pending|running|done|stopped|failed|interrupted
+    created_at: str
+    auto_eval: bool = True
+    keep_top_k: int | None = None
+    current: int | None = None           # idx of the run training right now
+    error: str | None = None
+    runs: list[JobRunState]
+
+
+class JobSummary(BaseModel):
+    id: str
+    kind: str
+    status: str
+    created_at: str
+    n_runs: int
+    n_finished: int                      # runs in a terminal state
+    labels: list[str] = Field(default_factory=list)  # first few run labels (list display)
+
+
+class JobsListResponse(BaseModel):
+    jobs: list[JobSummary]               # newest first
+    active: str | None = None            # id of the running job, if any
+
+
+# ── /api/models — saved-model shelf (detail / delete / handoff) ──────────────────
+class ModelDetail(BaseModel):
+    path: str
+    size_bytes: int = 0
+    dim: int | None = None
+    created_at: str | None = None
+    meta: dict | None = None             # train_meta.json (recipe, history, fingerprints)
+    eval_dev: dict | None = None         # best dev-split run for this model
+    eval_final: dict | None = None       # latest final-split (one-shot confirm) run
+    handed_off: bool = False             # a HANDOFF.md exists in the dir
+
+
+class ModelsDetailResponse(BaseModel):
+    models: list[ModelDetail]
+    disk_total_bytes: int = 0
+
+
+class DeleteModelResponse(BaseModel):
+    deleted: str
+    models: list[ModelDetail]
+    disk_total_bytes: int = 0
+
+
+class HandoffRequest(BaseModel):
+    path: str
+
+
+class HandoffResponse(BaseModel):
+    path: str
+    markdown: str                        # HANDOFF.md content (also written into the dir)
+    handoff: dict                        # handoff.json content
+
+
+# ── POST /api/data/import — real query/click logs → pairs and/or qrels ──────────
+class ImportPairsRequest(BaseModel):
+    content: str                         # pasted JSONL or CSV (auto-detected)
+    target: Literal["train", "qrels", "both"] = "train"
+
+
+class ImportPairsResponse(BaseModel):
+    parsed: int
+    added_train: int = 0
+    added_qrels: int = 0
+    skipped: list[str] = Field(default_factory=list)
+    fingerprint_changed: bool = False    # qrels/queries touched → prior runs incomparable
+    message: str
+
+
+# ── /api/data/label — judge queries against the corpus to grow qrels ────────────
+class LabelSearchRequest(BaseModel):
+    query: str
+    embedder: Embedder = "sentence-transformers"
+    model: str
+
+
+class LabelDoc(BaseModel):
+    id: str
+    title: str | None = None
+    text: str
+
+
+class LabelSearchResponse(BaseModel):
+    query: str
+    results: list[LabelDoc]              # current model's top-k over the eval corpus
+
+
+class LabelCommitRequest(BaseModel):
+    query: str
+    doc_ids: list[str] = Field(min_length=1)
+    also_train: bool = True              # clicked docs also become training pairs
+
+
+class LabelCommitResponse(BaseModel):
+    query_id: str
+    added_qrels: int
+    added_train: int = 0
+    message: str
+
+
+# ── POST /api/runs/import-trec — an external retriever's ranking as a run ───────
+class ImportTrecRequest(BaseModel):
+    label: str = ""                      # e.g. "BM25 (production)"
+    content: str                         # TREC run lines: qid Q0 docid rank score tag
+
+
+class ImportTrecResponse(BaseModel):
+    run: RunRecord
+    metrics: dict[str, float]
+    n_queries: int
+    errors: list[str] = Field(default_factory=list)
+    message: str
