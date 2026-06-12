@@ -1,10 +1,12 @@
 """Parse a training run's stdout into structured progress — framework-free.
 
 ``rag-train`` (a subprocess) streams the HF Trainer's logs: per-step ``{'loss': …,
-'epoch': …}`` dicts and a baseline/after ``ndcg@10 = …`` line on either side of the
-fine-tune. The HTTP API's SSE stream turns that text into points and numbers for the
-live Train screen, so the regex lives here once — stdlib ``re`` only, framework-free
-and unit-testable.
+'epoch': …}`` dicts, a per-epoch ``[epoch] n/max eval_loss=… ndcg@10=… best=…``
+validation line, a baseline/after ``ndcg@10 = …`` line on either side of the
+fine-tune, and a final ``[train] summary``/``saved fine-tuned model to`` pair. The
+HTTP API's SSE stream turns that text into points and numbers for the live Train
+screen, so the regex lives here once — stdlib ``re`` only, framework-free and
+unit-testable.
 
 Tolerant of transformers' quoted (``'loss': '0.39'``) and unquoted (``'loss': 0.39``)
 forms, and of tqdm's ``\\r`` progress redraws.
@@ -16,6 +18,12 @@ import re
 _LOSS_RE = re.compile(r"'loss':\s*'?([0-9.eE+-]+)")
 _EPOCH_RE = re.compile(r"'epoch':\s*'?([0-9.eE+-]+)")
 _NDCG_RE = re.compile(r"ndcg@10\s*=\s*([0-9.]+)")
+# [epoch] 3/12 eval_loss=0.4123 ndcg@10=0.9312 best=3   ('-' = metric missing)
+_EPOCH_LINE_RE = re.compile(
+    r"\[epoch\]\s+(\d+)/(\d+)\s+eval_loss=([0-9.eE+-]+)\s+ndcg@10=([0-9.eE+-]+)\s+best=(\d+)"
+)
+_SAVED_RE = re.compile(r"saved fine-tuned model to (.+?)\s*$")
+_SUMMARY_RE = re.compile(r"\[train\] summary best_epoch=(\d+) ran=(\d+) early_stopped=(yes|no)")
 
 
 def clean_tqdm(text: str) -> str:
@@ -39,6 +47,61 @@ def parse_loss_points(text: str) -> list[dict]:
                 }
             )
     return points
+
+
+def _opt_float(raw: str) -> float | None:
+    """A metric printed as '-' means it was missing that epoch."""
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def parse_epoch_points(text: str) -> list[dict]:
+    """Every per-epoch validation line as ``{epoch, max_epochs, eval_loss, ndcg,
+    best_epoch}`` — the trainer prints one ``[epoch] n/max …`` line after each epoch's
+    eval, and ``best`` is the best epoch seen so far (what early stopping will keep)."""
+    points: list[dict] = []
+    for line in text.split("\n"):
+        match = _EPOCH_LINE_RE.search(line)
+        if match:
+            points.append(
+                {
+                    "epoch": int(match.group(1)),
+                    "max_epochs": int(match.group(2)),
+                    "eval_loss": _opt_float(match.group(3)),
+                    "ndcg": _opt_float(match.group(4)),
+                    "best_epoch": int(match.group(5)),
+                }
+            )
+    return points
+
+
+def parse_saved_path(text: str) -> str | None:
+    """The directory the model was actually saved to. With auto-naming the final path
+    (…-mnrl-e7) is only known at the end of training, so the SSE ``done`` event reads
+    it from this line instead of echoing the requested output_dir."""
+    saved = None
+    for line in text.split("\n"):
+        match = _SAVED_RE.search(line)
+        if match:
+            saved = match.group(1)
+    return saved
+
+
+def parse_summary(text: str) -> dict | None:
+    """``{best_epoch, ran, early_stopped}`` from the trainer's one-line summary —
+    best_epoch is the epoch whose weights were saved."""
+    match = None
+    for line in text.split("\n"):
+        match = _SUMMARY_RE.search(line) or match
+    if not match:
+        return None
+    return {
+        "best_epoch": int(match.group(1)),
+        "ran": int(match.group(2)),
+        "early_stopped": match.group(3) == "yes",
+    }
 
 
 def parse_eval_ndcg(text: str) -> tuple[float | None, float | None]:

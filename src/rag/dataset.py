@@ -14,6 +14,7 @@ Pure stdlib.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from collections.abc import Iterable, Iterator
@@ -38,6 +39,19 @@ def load_jsonl(path: str) -> Iterator[dict]:
             line = line.strip()
             if line:
                 yield json.loads(line)
+
+
+def file_fingerprint(path: str) -> str | None:
+    """Short content hash of a dataset file (None if missing).
+
+    Training data gets regenerated in place, so "which data trained this model?" can
+    only be answered by a content hash recorded at train time (train_meta.json) — the
+    same move eval sets already make with eval_set_fingerprint.
+    """
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:12]
+    except OSError:
+        return None
 
 
 def write_jsonl(path: str, records: Iterable[dict]) -> None:
