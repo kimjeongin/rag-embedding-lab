@@ -276,11 +276,47 @@ adjacent. Cap the haystack while iterating with `N_DISTRACTORS=100 uv run rag-ge
 
 ---
 
+## The corpus mode (`EVAL_SOURCE=corpus`)
+
+Once a real corpus exists (`rag-crawl`, or your own pages in `data/corpus.jsonl`), stop
+synthesising distractors:
+
+```bash
+EVAL_SOURCE=corpus uv run rag-gen-eval
+```
+
+builds the eval set from reality instead — **every page of the site becomes the
+haystack**, the held-out test split (`data/test.jsonl`) becomes the queries, and each
+query's source page is its gold doc. Train-split pages sit in the corpus as natural
+distractors, exactly like the production index, where every page is always retrievable.
+The qrels are split into **dev** (tuning — sweeps and comparisons select here) and
+**final** (one-shot confirmation of the chosen winner), same as the sample mode.
+
+Two properties to know:
+
+- **The test split is deliberately NOT round-trip-filtered.** `rag-gen-synthetic`
+  filters the *train* split with the base embedder (a query must retrieve its own page
+  into the top-k to survive); applying that filter to the eval queries would keep only
+  the queries that embedder already gets right — every metric saturates at 1.0 and a
+  fine-tune can only go *down*. Unfiltered eval queries carry some label noise, but the
+  noise hits every compared model equally, so the **deltas stay valid**.
+- **Regenerate in order.** The eval set joins test pairs back to pages by exact
+  (title, content), so after a re-crawl the old pairs no longer match — re-run
+  `rag-gen-synthetic`, then `rag-gen-eval` (the tools warn/refuse rather than silently
+  shrinking the query set).
+
+Observed with the base `qwen3-embedding:0.6b` on a 300-page Korean corpus (224 dev
+queries): `recall@1 ≈ 0.87`, `recall@5 ≈ 0.97`, `nDCG@10 ≈ 0.93` — discriminative
+headroom the sample set can't give you.
+
+---
+
 ## Scaling notes
 
 - **In-memory** ranking is comfortable to ~tens of thousands of docs. Each query keeps
   only its top-10, so memory is bounded by the corpus matrix (`#docs × dim × 4 bytes`).
-- **Ollama** embeds the whole corpus in one HTTP call. For a very large corpus prefer the
+- **Ollama** embeds the corpus in slices of 64 inputs per HTTP call (so one giant request
+  can't hit the client timeout). For a very large corpus prefer the
   **sentence-transformers** backend (on-device, batched) or split the corpus.
 - **Millions of docs?** Back the ranking with a vector database or ANN index instead of
   numpy — the `metrics` module is independent of how the ranking is produced, so only the

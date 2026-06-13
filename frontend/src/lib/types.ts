@@ -107,6 +107,8 @@ export interface GenPairsRequest {
   gen_model?: string | null;
   n_queries?: number;
   hard_negatives?: number;
+  round_trip_k?: number; // consistency filter, TRAIN split only (0 = off)
+  neg_margin?: number; // false-negative guard for hard-negative mining (0 = off)
 }
 export interface GenPairsResponse {
   message: string;
@@ -117,7 +119,16 @@ export interface GenPairsResponse {
 
 // POST /api/data/eval
 export interface GenEvalRequest {
-  n_distractors?: number | null;
+  source?: "sample" | "corpus"; // corpus = the crawled site is the haystack
+  n_distractors?: number | null; // sample-only
+  corpus_file?: string; // corpus-only
+}
+
+// POST /api/data/crawl/stream (SSE — see crawlStore)
+export interface CrawlRequest {
+  url: string; // site root, or a sitemap.xml directly
+  max_pages?: number;
+  corpus_file?: string;
 }
 export interface GenEvalResponse {
   message: string;

@@ -254,14 +254,16 @@ export default function Train() {
     prevStatus.current = s;
   }, [job?.status, qc]);
 
-  // which run's detail is open (default: the one training now, else the last with data)
+  // which run's detail is open (default: the one training now, else the last with data).
+  // Plain derivation — a find over a handful of runs; the React Compiler memoizes it.
   const [detailIdx, setDetailIdx] = useState<number | null>(null);
-  const detailRun = useMemo(() => {
-    if (!job) return null;
-    if (detailIdx != null) return job.runs.find((r) => r.idx === detailIdx) ?? null;
-    if (job.current != null) return job.runs.find((r) => r.idx === job.current) ?? null;
-    return [...job.runs].reverse().find((r) => r.loss.length > 0 || r.epochs.length > 0) ?? job.runs[0] ?? null;
-  }, [job, detailIdx]);
+  const detailRun = !job
+    ? null
+    : detailIdx != null
+      ? (job.runs.find((r) => r.idx === detailIdx) ?? null)
+      : job.current != null
+        ? (job.runs.find((r) => r.idx === job.current) ?? null)
+        : ([...job.runs].reverse().find((r) => r.loss.length > 0 || r.epochs.length > 0) ?? job.runs[0] ?? null);
 
   const ready = status.data?.training_ready ?? true;
 

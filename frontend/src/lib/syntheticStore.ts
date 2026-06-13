@@ -23,7 +23,8 @@ export interface SynthState {
   done: number; // docs finished
   thinkingDisabled: boolean; // reasoning model? we turned thinking off for speed
   docs: SynthDoc[]; // finished docs, in completion order
-  mining: boolean; // hard-negative mining phase
+  mining: boolean; // similarity pass (round-trip filter + hard-negative mining)
+  filtered: { kept: number; dropped: number; k: number } | null; // round-trip result (train split only)
   result: { message: string; train: number; test: number } | null;
   error: string | null;
 }
@@ -35,6 +36,7 @@ const INITIAL: SynthState = {
   thinkingDisabled: false,
   docs: [],
   mining: false,
+  filtered: null,
   result: null,
   error: null,
 };
@@ -61,6 +63,8 @@ function reduce(s: SynthState, event: string, p: Record<string, unknown>): Synth
       };
     case "mining":
       return { ...s, mining: true };
+    case "filtered":
+      return { ...s, filtered: { kept: Number(p.kept ?? 0), dropped: Number(p.dropped ?? 0), k: Number(p.k ?? 0) } };
     case "done":
       return {
         ...s,

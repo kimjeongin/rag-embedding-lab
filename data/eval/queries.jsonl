@@ -1,48 +1,299 @@
-{"_id": "q-0-0", "text": "single-threaded concurrency model in python"}
-{"_id": "q-0-1", "text": "schedule coroutines for network calls"}
-{"_id": "q-0-2", "text": "non-blocking i/o using async def"}
-{"_id": "q-1-0", "text": "catch bugs before runtime with annotations"}
-{"_id": "q-1-1", "text": "annotate function signatures in python"}
-{"_id": "q-1-2", "text": "tool that verifies variable types"}
-{"_id": "q-2-0", "text": "avoid a full table scan in postgres"}
-{"_id": "q-2-1", "text": "why is my postgres join slow"}
-{"_id": "q-2-2", "text": "find rows without reading the whole table"}
-{"_id": "q-3-0", "text": "rank documents by relevance in postgres"}
-{"_id": "q-3-1", "text": "query prose stored in a postgres column"}
-{"_id": "q-3-2", "text": "keyword search over text with tsquery"}
-{"_id": "q-4-0", "text": "handle many concurrent requests in fastapi"}
-{"_id": "q-4-1", "text": "improve io-bound api throughput"}
-{"_id": "q-4-2", "text": "event-loop backed web endpoints"}
-{"_id": "q-5-0", "text": "immutable filesystem snapshot vs running instance"}
-{"_id": "q-5-1", "text": "start a container from an image"}
-{"_id": "q-5-2", "text": "what is a docker image made of"}
-{"_id": "q-6-0", "text": "record an integration with a merge commit"}
-{"_id": "q-6-1", "text": "develop a feature without touching main"}
-{"_id": "q-6-2", "text": "combine two branches back together"}
-{"_id": "q-7-0", "text": "what does a 5xx response indicate"}
-{"_id": "q-7-1", "text": "how are http response codes grouped"}
-{"_id": "q-7-2", "text": "signal a redirect with a status code"}
-{"_id": "q-8-0", "text": "model resources as urls"}
-{"_id": "q-8-1", "text": "stateless operations over http verbs"}
-{"_id": "q-8-2", "text": "use get post put delete on a resource"}
-{"_id": "q-9-0", "text": "in-memory key-value store for hot data"}
-{"_id": "q-9-1", "text": "cut read latency to under a millisecond"}
-{"_id": "q-9-2", "text": "cache layer in front of a database"}
-{"_id": "q-10-0", "text": "keep all left-side rows in a join"}
-{"_id": "q-10-1", "text": "match rows across tables on a column"}
-{"_id": "q-10-2", "text": "inner join versus outer join behaviour"}
-{"_id": "q-11-0", "text": "character classes and quantifiers in regex"}
-{"_id": "q-11-1", "text": "capture groups in a pattern"}
-{"_id": "q-11-2", "text": "validate a string against a pattern"}
-{"_id": "q-12-0", "text": "encode data as objects and arrays"}
-{"_id": "q-12-1", "text": "text format with strings numbers and null"}
-{"_id": "q-12-2", "text": "serialize a nested structure to text"}
-{"_id": "q-13-0", "text": "rwx triplets for owner group and others"}
-{"_id": "q-13-1", "text": "grant execute permission to a file"}
-{"_id": "q-13-2", "text": "who can read or write a linux file"}
-{"_id": "q-14-0", "text": "log in over ssh without a password"}
-{"_id": "q-14-1", "text": "where the public key lives on the server"}
-{"_id": "q-14-2", "text": "keep the private key on the client"}
-{"_id": "q-15-0", "text": "containers that share storage and network"}
-{"_id": "q-15-1", "text": "smallest thing you can deploy in k8s"}
-{"_id": "q-15-2", "text": "wrap multiple containers as one unit"}
+{"_id": "q-test-0", "text": "주택용 에너지캐시백 확대 시행"}
+{"_id": "q-test-1", "text": "전기 사용량 기준 1%로 완화"}
+{"_id": "q-test-2", "text": "에너지캐시백 11월 지원"}
+{"_id": "q-test-3", "text": "박덕열 기후부 에너지안전효율과"}
+{"_id": "q-test-4", "text": "AI 건설로봇 혁신센터 설립"}
+{"_id": "q-test-5", "text": "전북전주한국건설기술연구원 AI 혁신센터 협약"}
+{"_id": "q-test-6", "text": "국토교통부 AI 건설로봇 혁신센터 업무협약 체결"}
+{"_id": "q-test-7", "text": "AI 건설로봇 혁신센터 성공 출범 방안"}
+{"_id": "q-test-8", "text": "일본군 위안부 피해자법 시행"}
+{"_id": "q-test-9", "text": "허위사실 유포 처벌 기준"}
+{"_id": "q-test-10", "text": "성평등가족부 장관 원민경 발언"}
+{"_id": "q-test-11", "text": "위안부 피해자법 개정 11일 시행"}
+{"_id": "q-test-12", "text": "울산 체납관리단 발대식"}
+{"_id": "q-test-13", "text": "지방세납 체납관리단 첫 운영"}
+{"_id": "q-test-14", "text": "체납 징수 복지 연계"}
+{"_id": "q-test-15", "text": "울산 광역 지자체 체납관리단"}
+{"_id": "q-test-16", "text": "2026 년 디지털서비스 개방"}
+{"_id": "q-test-17", "text": "국가유공자 자격 조회 민간 앱"}
+{"_id": "q-test-18", "text": "행안부 2026 년 신규 서비스 21 종"}
+{"_id": "q-test-19", "text": "고용 산재보험료 부과내역 발급"}
+{"_id": "q-test-20", "text": "물순환 촉진구역 지정 지역"}
+{"_id": "q-test-21", "text": "물순환 촉진구역 첫 지정"}
+{"_id": "q-test-22", "text": "기후부, 물순환 촉진구역 지정"}
+{"_id": "q-test-23", "text": "군산 제천 증평 천안 물순환 촉진구역"}
+{"_id": "q-test-24", "text": "청년·지역인재 채용 우수기업 정책자금 대출 금리 우대"}
+{"_id": "q-test-25", "text": "청년 일자리 지원 재정 인센티브 강화 방안"}
+{"_id": "q-test-26", "text": "정부 청년정책 관계장관회의 일자리 창출기업 지원 발표"}
+{"_id": "q-test-27", "text": "청년·지방인재 채용 성과 우수기업 보조금 대출금리 혜택"}
+{"_id": "q-test-28", "text": "중소벤처기업부 모두의 창업 프로젝트 1기 최종 선발자"}
+{"_id": "q-test-29", "text": "13세부터 78세까지 선정 창업자"}
+{"_id": "q-test-30", "text": "모두의 창업 프로젝트 1기 5000명 최종 선발"}
+{"_id": "q-test-31", "text": "청년 창업자 재도전 기회 멘토링 프로그램"}
+{"_id": "q-test-32", "text": "김정관 장관 카자흐스탄 방문 일정"}
+{"_id": "q-test-33", "text": "산업통상부 장관 카자흐스탄 중동 체코 연중"}
+{"_id": "q-test-34", "text": "한카자흐스탄 CEPA 체결 추진 방안 논의"}
+{"_id": "q-test-35", "text": "김 장관 카라차가낙 가스처리 플랜트 사업 지원"}
+{"_id": "q-test-36", "text": "대통령 4대 국정목표"}
+{"_id": "q-test-37", "text": "올해 대체 불가 대한민국 꿈 시작"}
+{"_id": "q-test-38", "text": "초격차 산업 강국 글로벌 초격차 성장동력"}
+{"_id": "q-test-39", "text": "국민 모두가 합의한 규범과 규칙이 지켜지는 정상사회"}
+{"_id": "q-test-40", "text": "상속증여세 오해 진실 가이드라인"}
+{"_id": "q-test-41", "text": "상속증여세 오해 그리고 진실"}
+{"_id": "q-test-42", "text": "상속증여세 오해 10 가지 주제"}
+{"_id": "q-test-43", "text": "생활비 용돈 계좌이체 증여세 과세"}
+{"_id": "q-test-44", "text": "산업통상부 문차관 사우디 아람코 면담"}
+{"_id": "q-test-45", "text": "한·사우디 원유 공급 협력 강화"}
+{"_id": "q-test-46", "text": "문신학 차관 아람코 DOWNSTREAM 면담 내용"}
+{"_id": "q-test-47", "text": "문 차관 아람코 플랜트 협력 확대 논의"}
+{"_id": "q-test-48", "text": "AI 민생 10대 프로젝트 본격 가동"}
+{"_id": "q-test-49", "text": "과기정통부 AI 민생 10대 프로젝트"}
+{"_id": "q-test-50", "text": "AI 민생 10대 프로젝트 올해 서비스"}
+{"_id": "q-test-51", "text": "AI 민생 10대 프로젝트 합동보고회"}
+{"_id": "q-test-52", "text": "버질 올드먼 영화"}
+{"_id": "q-test-53", "text": "버질과 클레어의 사랑 스토리"}
+{"_id": "q-test-54", "text": "완고하고 고독한 중년남과 세상에 처음 나온 외톨이 소녀의 아름다운 사랑"}
+{"_id": "q-test-55", "text": "위조된 사랑 영화"}
+{"_id": "q-test-56", "text": "2026 년 관광두레 신규 주민사업체 48 곳 선정 발표"}
+{"_id": "q-test-57", "text": "2026 년 관광두레 사업체 선정 지역별 분포"}
+{"_id": "q-test-58", "text": "관광두레 2026 년 신규 사업체 지원 조건과 항목"}
+{"_id": "q-test-59", "text": "청년관광두레 플러스 사업 공모 일정과 지원금"}
+{"_id": "q-test-60", "text": "건강보험 기획조사 재개"}
+{"_id": "q-test-61", "text": "가짜 진료 가짜 환자 집중 단속"}
+{"_id": "q-test-62", "text": "보건복지부 거짓청구 조사 시작"}
+{"_id": "q-test-63", "text": "왜 건강보험 기획조사가 재개되는지"}
+{"_id": "q-test-64", "text": "국토교통부 자동차 안전기준 개정안"}
+{"_id": "q-test-65", "text": "전조등 후미등 자동 점등 의무화"}
+{"_id": "q-test-66", "text": "스텔스 자동차 막기 정부 조치"}
+{"_id": "q-test-67", "text": "자동차 및 자동차부품의 성능과 기준에 관한 규칙 일부개정규정"}
+{"_id": "q-test-68", "text": "팀코리아 미국 루이지애나 FLNG 수주"}
+{"_id": "q-test-69", "text": "팀코리아, 루이지애나 4조 프로젝트"}
+{"_id": "q-test-70", "text": "팀코리아, 28 억 달러 FLNG 수주"}
+{"_id": "q-test-71", "text": "팀코리아, 미국 해양플랜트 1 호기 수주"}
+{"_id": "q-test-72", "text": "2026년 해외 초 중등학교 한국어교재 개발 및 보급 계획"}
+{"_id": "q-test-73", "text": "BTS 한국어 보조교재 초급 1 단계 스마트 디지털교재"}
+{"_id": "q-test-74", "text": "2026 년 해외 초 중등학교 한국어교재 개발 및 보급 계획 발표"}
+{"_id": "q-test-75", "text": "해외 학생들 BTS K 드라마로 한국어 배우는 교재"}
+{"_id": "q-test-76", "text": "제 2 차 서해 5 도 종합발전계획 확정"}
+{"_id": "q-test-77", "text": "서해 5 도 정주지원금 인상 20 만 원"}
+{"_id": "q-test-78", "text": "백령공항 건설과 서해 5 도 발전 계획"}
+{"_id": "q-test-79", "text": "제 2 차 서해 5 도 종합발전계획 2026 2035"}
+{"_id": "q-test-80", "text": "국토교통부 건설공사 행정절차 간소화"}
+{"_id": "q-test-81", "text": "국토교통부 재해 복구 계획"}
+{"_id": "q-test-82", "text": "국토교통부 자연재해대책법 건설공사"}
+{"_id": "q-test-83", "text": "자연재해대책법 재해복구계획 건설공사"}
+{"_id": "q-test-84", "text": "배달 종사자 보험 가입 의무화 시행일"}
+{"_id": "q-test-85", "text": "무보험 배달 차단 조치"}
+{"_id": "q-test-86", "text": "국토교통부 배달 종사자 보험 시행령 개정"}
+{"_id": "q-test-87", "text": "배달 종사자 보험 가입 의무 시행 3 일"}
+{"_id": "q-test-88", "text": "출처의 명시에 관한 저작권법 제37조"}
+{"_id": "q-test-89", "text": "출처 명시 의무 위반 시 벌금"}
+{"_id": "q-test-90", "text": "저작권법 제37조 출처 명시"}
+{"_id": "q-test-91", "text": "제37조 출처의 명시"}
+{"_id": "q-test-92", "text": "첨단재생의료 문턱 낮추기"}
+{"_id": "q-test-93", "text": "K-바이오 규제혁신 1 년"}
+{"_id": "q-test-94", "text": "첨단재생의료 치료 범위 확대"}
+{"_id": "q-test-95", "text": "생체 내 유전자치료 도입 허용"}
+{"_id": "q-test-96", "text": "인테크 재생원료 종량제봉투"}
+{"_id": "q-test-97", "text": "재생원료 100% 종량제봉투 기술"}
+{"_id": "q-test-98", "text": "종량제봉투 원료 폐비닐 나프타 대안"}
+{"_id": "q-test-99", "text": "인테크 대표 이영상 폐비닐 재활용 기술"}
+{"_id": "q-test-100", "text": "레이저대공무기 천광 국산화"}
+{"_id": "q-test-101", "text": "천광 레이저발진기 국산화 완료"}
+{"_id": "q-test-102", "text": "천광 레이저대공무기 국산화"}
+{"_id": "q-test-103", "text": "천광 레이저발진기 국산화 성공"}
+{"_id": "q-test-104", "text": "제 9 회 전국동시지방선거 사전투표"}
+{"_id": "q-test-105", "text": "지방선거 사전투표 기간"}
+{"_id": "q-test-106", "text": "윤호중 장관 사전투표"}
+{"_id": "q-test-107", "text": "29~30 일 사전투표"}
+{"_id": "q-test-108", "text": "공공부문 비정규직 처우개선 가이드라인 개정안"}
+{"_id": "q-test-109", "text": "공공부문 비정규직 채용사전심사제 운영방안"}
+{"_id": "q-test-110", "text": "내년부터 적용되는 공정수당 지급 방법과 대상"}
+{"_id": "q-test-111", "text": "공공부문 비정규직 처우개선 대책 후속 조치"}
+{"_id": "q-test-112", "text": "특별한 희생에 특별한 보상"}
+{"_id": "q-test-113", "text": "독립유공자 사망 시점 손자녀 보상 확대"}
+{"_id": "q-test-114", "text": "보훈대상자 의료서비스 강화 조치"}
+{"_id": "q-test-115", "text": "보훈회관 점심지원 사업 실시"}
+{"_id": "q-test-116", "text": "이 대통령 서소문 사고 진상규명 발언"}
+{"_id": "q-test-117", "text": "이 대통령 안전 투자 강조"}
+{"_id": "q-test-118", "text": "이 대통령 골목상권 전통시장 활성화"}
+{"_id": "q-test-119", "text": "이 대통령 서소문 사고·GTX 철근누락 진상규명…엄정 책임 물어야"}
+{"_id": "q-test-120", "text": "국세청 법인 슈퍼카 사적 사용 세무조사"}
+{"_id": "q-test-121", "text": "법인차량 연두색 번호판 탈세 유형 19개사"}
+{"_id": "q-test-122", "text": "국세청 고가 법인차량 사적 운용 조사"}
+{"_id": "q-test-123", "text": "법인차량 무상 이전 조작 혐의 세무대상"}
+{"_id": "q-test-124", "text": "정부 부산 BTS 공연 바가지요금 근절"}
+{"_id": "q-test-125", "text": "부산대형콘서트 숙박업 특별점검"}
+{"_id": "q-test-126", "text": "바가지요금 근절 TF회의 내용"}
+{"_id": "q-test-127", "text": "부산 공연대체숙박시설 1300여개"}
+{"_id": "q-test-128", "text": "외교부 이재명정부 1주년 성과"}
+{"_id": "q-test-129", "text": "실용외교 5개 국정과제"}
+{"_id": "q-test-130", "text": "재외국민 보호 K-이니셔티브"}
+{"_id": "q-test-131", "text": "한미정상회담 한중관계 복원"}
+{"_id": "q-test-132", "text": "대통령 세종집무실 국회세종의사당 건립"}
+{"_id": "q-test-133", "text": "행복청 행정수도 특별법안 5건"}
+{"_id": "q-test-134", "text": "행정중심복합도시건설청 마스터플랜 국제공모 당선작 발표"}
+{"_id": "q-test-135", "text": "대통령 세종집무실 건축설계공모 당선작 언제 발표할까"}
+{"_id": "q-test-136", "text": "보건의료 분야 소확신 과제 5건"}
+{"_id": "q-test-137", "text": "복지부 생활밀착 혁신과제 5건 선정"}
+{"_id": "q-test-138", "text": "건보료 분할납부 기준 낮아지니"}
+{"_id": "q-test-139", "text": "장애인 건강관리 의뢰 기관 확대"}
+{"_id": "q-test-140", "text": "국가정상화 프로젝트 164개 확정"}
+{"_id": "q-test-141", "text": "국가정상화 TF 1 차 과제 발표"}
+{"_id": "q-test-142", "text": "스쿨존 속도규제 합리화 포함 과제"}
+{"_id": "q-test-143", "text": "국가정상화 프로젝트 1 차 과제 최종 확정"}
+{"_id": "q-test-144", "text": "공공소각시설 사업기간 단축"}
+{"_id": "q-test-145", "text": "공공소각시설 준공시기 앞당긴다"}
+{"_id": "q-test-146", "text": "공공소각시설 조기 확충방안"}
+{"_id": "q-test-147", "text": "20 개 공공소각시설 설치사업 면제"}
+{"_id": "q-test-148", "text": "민간건축물 그린리모델링 컨설팅 지원사업 접수"}
+{"_id": "q-test-149", "text": "건축물 10 년 이상 에너지 절감 컨설팅"}
+{"_id": "q-test-150", "text": "22 일부터 그린리모델링 컨설팅 신청"}
+{"_id": "q-test-151", "text": "내 건물 냉난방비 줄일 컨설팅 지원"}
+{"_id": "q-test-152", "text": "소아·임산부 필수약 공백 없앤다…수급불안정 의약품 7종 생산 지원"}
+{"_id": "q-test-153", "text": "세파졸린주 생산량 확대 계획 종근당"}
+{"_id": "q-test-154", "text": "로라제팜 주사제 공급 공백 대응 추진"}
+{"_id": "q-test-155", "text": "응급의약품 공급 공백 대응…신규 허가·생산 추진"}
+{"_id": "q-test-156", "text": "농어촌 기본소득 시범사업 효과"}
+{"_id": "q-test-157", "text": "K-푸드 수출 역대 최대 136억 달러"}
+{"_id": "q-test-158", "text": "국민주권정부 농식품 국정성과"}
+{"_id": "q-test-159", "text": "먹거리 돌봄 5 종 세트 지원"}
+{"_id": "q-test-160", "text": "기후부 하천법 시행령 개정안 입법예고"}
+{"_id": "q-test-161", "text": "기후부 하천 불법점용 대응 강화 내용"}
+{"_id": "q-test-162", "text": "기후부 하천법 일부개정안 주요 내용"}
+{"_id": "q-test-163", "text": "기후부 하천 불법점용 이행강제금 기준"}
+{"_id": "q-test-164", "text": "한일 원유 LNG 협력 강화"}
+{"_id": "q-test-165", "text": "다카이치 사나 이재명 대통령 정상회담"}
+{"_id": "q-test-166", "text": "이 대통령 일본 총리 협력 분야"}
+{"_id": "q-test-167", "text": "한일 공동언론발표 에너지 협력"}
+{"_id": "q-test-168", "text": "중소기업 근로자 점심값 20% 지원 사업"}
+{"_id": "q-test-169", "text": "직장인 든든한 점심밥 사업"}
+{"_id": "q-test-170", "text": "중소기업 근로자 점심비 할인 어떻게 받나요"}
+{"_id": "q-test-171", "text": "농림축산식품부 점심비 20% 지원 대상"}
+{"_id": "q-test-172", "text": "고속도로 착오진출 요금 감면 시행 계획"}
+{"_id": "q-test-173", "text": "고속도로 진출부 착각 기본요금 면제"}
+{"_id": "q-test-174", "text": "15 분 내 재진입면 기본요금 감면"}
+{"_id": "q-test-175", "text": "국토교통부 고속도로 요금 감면 제도"}
+{"_id": "q-test-176", "text": "모두의 창업 프로젝트 신청자 수"}
+{"_id": "q-test-177", "text": "모두의 창업 프로젝트 6 만 2 천 명"}
+{"_id": "q-test-178", "text": "모두의 창업 프로젝트는 어떤가요"}
+{"_id": "q-test-179", "text": "220 곳 거점 연계형 돌봄기관 운영"}
+{"_id": "q-test-180", "text": "거점형·연계형 돌봄기관 220 곳 전문가 84 명 지원"}
+{"_id": "q-test-181", "text": "교육부 거점형 돌봄기관 협의회 19 일 유네스코"}
+{"_id": "q-test-182", "text": "유아교육 보육 전문지원단 84 명 활동 시작"}
+{"_id": "q-test-183", "text": "민관 합작 K-AI 휴머노이드 개발 착수"}
+{"_id": "q-test-184", "text": "과기정통부, 2030년 휴머노이드 개발 사업"}
+{"_id": "q-test-185", "text": "K-AI 휴머노이드 플랫폼 착수회의 내용"}
+{"_id": "q-test-186", "text": "KIST LG전자 휴머노이드 개발 사업 2026~2030"}
+{"_id": "q-test-187", "text": "제 3기 산업성장펀드 출범 소식"}
+{"_id": "q-test-188", "text": "산업성장펀드 초대 출자 규모"}
+{"_id": "q-test-189", "text": "M.AX 혁신펀드 조성 계획"}
+{"_id": "q-test-190", "text": "R&D 혁신기업 우대금융 프로그램"}
+{"_id": "q-test-191", "text": "문화체육관광부 글로벌관광특구 공모"}
+{"_id": "q-test-192", "text": "지역거점 글로벌관광특구 2곳 키운다"}
+{"_id": "q-test-193", "text": "미래융합형 지역자생형 관광특구 선정 기준"}
+{"_id": "q-test-194", "text": "지역 관광자원 특화로 지역 경제 성장 견인"}
+{"_id": "q-test-195", "text": "한국 주도 원전 해체 국제표준"}
+{"_id": "q-test-196", "text": "K-원전 해체 표준 제정"}
+{"_id": "q-test-197", "text": "국표원 원전 해체 표준 승인"}
+{"_id": "q-test-198", "text": "원전 해체 세계 최초 국제표준"}
+{"_id": "q-test-199", "text": "몽골 벼 재배 성공 사례"}
+{"_id": "q-test-200", "text": "한국 품종 진부올벼 몽골 결실"}
+{"_id": "q-test-201", "text": "KOPIA 몽골센터 벼 재배 사업"}
+{"_id": "q-test-202", "text": "몽골에서 벼가 어떻게 자라나"}
+{"_id": "q-test-203", "text": "서울 도심 공공주택 복합사업 후보지 공모"}
+{"_id": "q-test-204", "text": "도심 공공주택 복합사업 주민 제안 44곳"}
+{"_id": "q-test-205", "text": "서울 노후 도심 새 아파트 공급 사업 후보지"}
+{"_id": "q-test-206", "text": "서울 도심 공공주택 복합사업 제안자 44곳"}
+{"_id": "q-test-207", "text": "5·18 민주화운동 기념식 오후 2시"}
+{"_id": "q-test-208", "text": "5·18 민주화운동 상징 옛 전남도청 개관"}
+{"_id": "q-test-209", "text": "5·18 민주화운동 기념식' 이후 언제 개관할지"}
+{"_id": "q-test-210", "text": "옛 전남도청 정식 개관 날짜는 언제인가"}
+{"_id": "q-test-211", "text": "BTS 2.0 뮤직비디오 연출 이한결 감독"}
+{"_id": "q-test-212", "text": "BTS 2.0 올드보이 오마주 장면 분석"}
+{"_id": "q-test-213", "text": "뮤직비디오의 시대적 변화에 대한 이한결 감독의 설명"}
+{"_id": "q-test-214", "text": "이한결 감독이 연출한 BTS 2.0 뮤직비디오는 어떤 작품인가"}
+{"_id": "q-test-215", "text": "원전수출전략협의회"}
+{"_id": "q-test-216", "text": "원전수출진흥법 입법 추진"}
+{"_id": "q-test-217", "text": "원전 수출체계 효율화 방안"}
+{"_id": "q-test-218", "text": "원전 수출, 정부 주도"}
+{"_id": "q-test-219", "text": "내년부터 500 명 이상 사업장 퇴직예정자 재취업 지원 의무화"}
+{"_id": "q-test-220", "text": "내년부터 500 명 이상 기업 재취업지원서비스 의무화"}
+{"_id": "q-test-221", "text": "내년부터 재취업지원서비스 의무사업장 기준 500 명"}
+{"_id": "q-test-222", "text": "내년부터 500 명 이상 기업 경력지원서비스 의무화"}
+{"_id": "q-test-223", "text": "보건복지부 소아전문응급의료센터 추가 지정"}
+{"_id": "q-test-224", "text": "가톨릭대학교 성빈센트병원 소아응급의료센터 지정"}
+{"_id": "q-test-225", "text": "중증 소아 응급환자 진료받을 곳 어디에 가나요"}
+{"_id": "q-test-226", "text": "2024 년 소아전문응급의료센터 14 곳 확대"}
+{"_id": "q-test-227", "text": "문화체육관광부 크루즈 관광 정책"}
+{"_id": "q-test-228", "text": "크루즈 관광 회복세 기항지 관광"}
+{"_id": "q-test-229", "text": "방한 크루즈 관광객 증가 효과"}
+{"_id": "q-test-230", "text": "부산항 크루즈 선원 K 뷰티 서비스"}
+{"_id": "q-test-231", "text": "김 총리 물가 안정화 대책 지시"}
+{"_id": "q-test-232", "text": "김민석 총리 고유가 피해지원금"}
+{"_id": "q-test-233", "text": "물가 상승압력 대비 가격 안정화 방안"}
+{"_id": "q-test-234", "text": "14 차 비상경제본부 회의 물가 관리"}
+{"_id": "q-test-235", "text": "이재명 대통령 조선 산업 생태계 구축"}
+{"_id": "q-test-236", "text": "왜 정부 역할이 중요한지"}
+{"_id": "q-test-237", "text": "조선 산업 생태계 구축 필요성"}
+{"_id": "q-test-238", "text": "K-조선 미래비전 간담회 이재명 대통령"}
+{"_id": "q-test-239", "text": "청년뉴딜 1호 아카데미 개설 일정"}
+{"_id": "q-test-240", "text": "청년뉴딜 집행 준비 현황"}
+{"_id": "q-test-241", "text": "K-뉴딜 아카데미 6월 운영"}
+{"_id": "q-test-242", "text": "청년취업지원 프로그램 내달 시작"}
+{"_id": "q-test-243", "text": "사회적 고립 예방 협의회 개최"}
+{"_id": "q-test-244", "text": "사회적 고립 예방법 개정 방안"}
+{"_id": "q-test-245", "text": "사회적 고립 예방 위원회 확대 개편"}
+{"_id": "q-test-246", "text": "2026년 고독사 예방 시행계획"}
+{"_id": "q-test-247", "text": "지역장애아동지원센터 울산 개소"}
+{"_id": "q-test-248", "text": "울산장애인복지법 지역장애아동지원센터"}
+{"_id": "q-test-249", "text": "지역장애아동지원센터 울산광역시 개소식"}
+{"_id": "q-test-250", "text": "지역장애아동지원센터 설치 계획 17 시도"}
+{"_id": "q-test-251", "text": "국민체육진흥법 개정안 시행"}
+{"_id": "q-test-252", "text": "학대 범죄 체육지도자 자격 제한"}
+{"_id": "q-test-253", "text": "체육지도자 결격사유 조회 근거"}
+{"_id": "q-test-254", "text": "국민체육진흥법 아동 학대 범죄 규정"}
+{"_id": "q-test-255", "text": "도시침수예보 서울 강남역 신대방역"}
+{"_id": "q-test-256", "text": "도시침수예보 첫 실시"}
+{"_id": "q-test-257", "text": "숨은 물그릇 홍수조절 용량"}
+{"_id": "q-test-258", "text": "홍수대책 여름철 기후부"}
+{"_id": "q-test-259", "text": "정부 여름철 풍수해 폭염 대응체계"}
+{"_id": "q-test-260", "text": "여름철 자연재난 대책기간 24 시간 상황관리"}
+{"_id": "q-test-261", "text": "2024 폭염중대경보 체감온도 38 도 기준"}
+{"_id": "q-test-262", "text": "정부 인명피해 최소화 범정부 총력 대응"}
+{"_id": "q-test-263", "text": "공익신고장려기금"}
+{"_id": "q-test-264", "text": "공익신고 포상금 재원 통합 관리 기금"}
+{"_id": "q-test-265", "text": "공익신고 장려기금 신설"}
+{"_id": "q-test-266", "text": "공익신고장려기금 법안 제정"}
+{"_id": "q-test-267", "text": "경유 유가연동보조금 지급한도 상향"}
+{"_id": "q-test-268", "text": "화물차 유류비 부담 완화 정책"}
+{"_id": "q-test-269", "text": "보조금 리터당 280원 확대"}
+{"_id": "q-test-270", "text": "버스 화물 운송업계 지원 규정"}
+{"_id": "q-test-271", "text": "실거주 유예 확대"}
+{"_id": "q-test-272", "text": "토지거래허가구역 실거주 유예"}
+{"_id": "q-test-273", "text": "세입자 있는 주택 실거주 유예"}
+{"_id": "q-test-274", "text": "실거주 유예 확대 관련 Q&A"}
+{"_id": "q-test-275", "text": "체구가 작은 청년 목수 김연서"}
+{"_id": "q-test-276", "text": "2030 청년 소통 공감 토크콘서트 이재명"}
+{"_id": "q-test-277", "text": "방충망 수리 목수로 전향한 청년"}
+{"_id": "q-test-278", "text": "157cm 여성 목수 김연서"}
+{"_id": "q-test-279", "text": "부양가족 실거주 여부 조사"}
+{"_id": "q-test-280", "text": "부정청약 전수조사 결과"}
+{"_id": "q-test-281", "text": "부양가족 위장 전입 단속"}
+{"_id": "q-test-282", "text": "부동산감독추진단 전수조사"}
+{"_id": "q-test-283", "text": "AI 데이터센터 인허가 절차 대폭 단축"}
+{"_id": "q-test-284", "text": "AI 데이터센터 특별법 국회 통과"}
+{"_id": "q-test-285", "text": "AI 데이터센터 인허가 타임아웃제 도입"}
+{"_id": "q-test-286", "text": "AI 데이터센터 전력 영향평가 면제 규정"}
+{"_id": "q-test-287", "text": "산업통상부 최고가격 동결"}
+{"_id": "q-test-288", "text": "휘발유 1934원 경유 1923원"}
+{"_id": "q-test-289", "text": "최고가격제 동결 발표"}
+{"_id": "q-test-290", "text": "석유가격 리터당 1934원 1923원"}
+{"_id": "q-test-291", "text": "이 대통령 어버이날 축사"}
+{"_id": "q-test-292", "text": "어버이날 기념식 참석 내용"}
+{"_id": "q-test-293", "text": "재이명 대통령 어버이날 카네이션"}
+{"_id": "q-test-294", "text": "국민주권정부 노인 일자리 제도"}
+{"_id": "q-test-295", "text": "청소년 도박 예방주간 행사"}
+{"_id": "q-test-296", "text": "도박을 멈춰 슬로건"}
+{"_id": "q-test-297", "text": "청소년 도박 예방주간 운영 내용"}
+{"_id": "q-test-298", "text": "청소년 도박 예방교육 의무 실시"}

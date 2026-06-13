@@ -114,17 +114,7 @@
   animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* command palette (cmdk) group heading */
-[cmdk-group-heading] {
-  padding: 10px 12px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-faint);
-}
-
-/* Radix dialog entrance — overlay fade + content rise (used by Modal + CommandPalette) */
+/* Radix dialog entrance — overlay fade + content rise (used by Modal) */
 @keyframes dlg-overlay-in {
   from {
     opacity: 0;

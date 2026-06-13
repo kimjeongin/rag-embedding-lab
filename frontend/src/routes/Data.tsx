@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Database, FileText, FlaskConical, Gauge, Sparkles } from "lucide-react";
+import { Database, FileText, FlaskConical, Gauge, Globe, Sparkles } from "lucide-react";
 
 import { api } from "../lib/api";
 import { short } from "../lib/format";
@@ -18,6 +18,7 @@ import {
   useModels,
   usePairs,
 } from "../lib/queries";
+import { startCrawl, useCrawlState } from "../lib/crawlStore";
 import { startSynthetic, useSyntheticState } from "../lib/syntheticStore";
 import { DataTable } from "../components/DataTable";
 import { Modal } from "../components/Modal";
@@ -27,6 +28,79 @@ import { Search, Upload } from "lucide-react";
 import type { Embedder, LabelDoc } from "../lib/types";
 
 type Method = "toy" | "synthetic";
+
+/** Crawl a public site into data/corpus.jsonl — the PoC stand-in for the internal
+ * site. Page = retrieval unit; the synthetic generator reads this file next. */
+function CrawlPanel({ corpusFile, onCorpusFile }: { corpusFile: string; onCorpusFile: (v: string) => void }) {
+  const crawl = useCrawlState();
+  const [url, setUrl] = useState("https://www.korea.kr/sitemap_policy.xml");
+  const [maxPages, setMaxPages] = useState(300);
+  const running = crawl.status === "running";
+
+  return (
+    <Panel className="p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Globe size={16} className="text-signal" />
+        <h3 className="text-[15px] font-semibold text-fg">코퍼스 수집 — 사이트 크롤</h3>
+        <Info title="사내사이트의 공개 프록시" align="left">
+          사이트 루트나 <span className="mono">sitemap.xml</span>을 주면 <b className="text-fg">페이지 단위</b>로
+          본문을 추출해 corpus를 만듭니다 (robots.txt 준수 · 순차 요청). 페이지 텍스트는{" "}
+          <b className="text-fg">title + 본문 앞부분</b>(FirstP) — 웹 페이지는 핵심이 앞에 옵니다. 이 corpus가
+          학습쌍 생성과 corpus 평가셋의 입력이 됩니다.
+        </Info>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+        <Field label="시작 URL" hint="사이트 루트 또는 sitemap.xml">
+          <Input value={url} onChange={(e) => setUrl(e.target.value)} className="mono" placeholder="https://…/sitemap.xml" />
+        </Field>
+        <Field label="최대 페이지">
+          <Input type="number" value={maxPages} onChange={(e) => setMaxPages(+e.target.value)} className="mono w-24" />
+        </Field>
+        <Field label="저장 파일" hint="학습쌍 생성의 corpus 파일과 동일">
+          <Input value={corpusFile} onChange={(e) => onCorpusFile(e.target.value)} className="mono w-44" />
+        </Field>
+      </div>
+      <div className="mt-4">
+        <Btn icon={<Globe size={15} />} disabled={!url.trim() || running} onClick={() => startCrawl({ url: url.trim(), max_pages: maxPages, corpus_file: corpusFile })}>
+          {running ? `크롤 중… ${crawl.done}/${crawl.total || "?"}` : "크롤 시작"}
+        </Btn>
+      </div>
+
+      {crawl.status !== "idle" && (
+        <div className="mt-4 rounded-xl border border-line bg-ink-925/60 p-4">
+          <div className="mb-2 flex items-center justify-between text-[12px]">
+            <span className="font-medium text-mut">
+              {crawl.status === "error"
+                ? "오류 발생"
+                : crawl.status === "done"
+                  ? `완료 — ${crawl.result?.count ?? 0} 페이지 (fetch ${crawl.result?.fetched ?? 0} · skip ${crawl.result?.skipped ?? 0})`
+                  : `수집 중 · ${crawl.done}/${crawl.total || "?"} 페이지`}
+            </span>
+            {crawl.mode && <Tag tone="cyan">{crawl.mode === "sitemap" ? "sitemap 발견" : "링크 따라가기(BFS)"} · {crawl.discovered} URL</Tag>}
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
+            <div
+              className={`h-full rounded-full transition-all ${crawl.status === "error" ? "bg-danger" : "bg-signal"}`}
+              style={{ width: `${crawl.status === "done" ? 100 : crawl.total ? Math.round((crawl.done / crawl.total) * 100) : 8}%` }}
+            />
+          </div>
+          {crawl.pages.length > 0 && crawl.status === "running" && (
+            <div className="mono mt-3 max-h-32 overflow-auto rounded-lg border border-line bg-ink-950 p-3 text-[11px] leading-relaxed">
+              {crawl.pages.slice(-6).map((p, i) => (
+                <div key={i} className="truncate text-mut">▸ {p.title || p.url}</div>
+              ))}
+            </div>
+          )}
+          {crawl.status === "error" && crawl.error && (
+            <div className="mt-3">
+              <ErrorNote>{crawl.error}</ErrorNote>
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
 
 /** Paste a query/click log → training pairs and/or qrels. The single highest-value
  * data source for an internal-site search: (쿼리, 클릭한 사이트) = 학습쌍이자 정답 판정. */
@@ -219,6 +293,10 @@ export default function Data() {
   const [corpusFile, setCorpusFile] = useState("data/corpus.jsonl");
   const [genModel, setGenModel] = useState("qwen3.5:2b");
   const [nQueries, setNQueries] = useState(5);
+  const [hardNegatives, setHardNegatives] = useState(4);
+  const [roundTripK, setRoundTripK] = useState(1);
+  const [negMargin, setNegMargin] = useState(0.05);
+  const [evalSource, setEvalSource] = useState<"sample" | "corpus">("sample");
   const [ndist, setNdist] = useState(448);
   const [modal, setModal] = useState<null | "pairs" | "corpus">(null);
 
@@ -250,7 +328,15 @@ export default function Data() {
     if (method === "toy") {
       genPairs.mutate({ method: "toy" });
     } else {
-      startSynthetic({ method: "synthetic", corpus_file: corpusFile, gen_model: genModel, n_queries: nQueries, hard_negatives: 4 });
+      startSynthetic({
+        method: "synthetic",
+        corpus_file: corpusFile,
+        gen_model: genModel,
+        n_queries: nQueries,
+        hard_negatives: hardNegatives,
+        round_trip_k: roundTripK,
+        neg_margin: negMargin,
+      });
     }
   };
 
@@ -284,6 +370,13 @@ export default function Data() {
         ) : null}
       </Section>
 
+      <Section delay={50}>
+        <SectionLabel hint="공개 사이트 = 사내사이트의 PoC 프록시 · 여기서 만든 corpus가 아래 두 카드의 입력입니다">
+          0단계 — 코퍼스
+        </SectionLabel>
+        <CrawlPanel corpusFile={corpusFile} onCorpusFile={setCorpusFile} />
+      </Section>
+
       <Section delay={70}>
         <div className="grid gap-5 lg:grid-cols-2">
           {/* training pairs */}
@@ -314,7 +407,16 @@ export default function Data() {
                   <Input value={genModel} onChange={(e) => setGenModel(e.target.value)} className="mono" />
                 </Field>
                 <Field label="문서당 질문 수">
-                  <Input type="number" value={nQueries} onChange={(e) => setNQueries(+e.target.value)} className="mono" />
+                  <Input type="number" min={1} value={nQueries} onChange={(e) => setNQueries(+e.target.value)} className="mono" />
+                </Field>
+                <Field label="hard negative 수" hint="쌍마다 채굴할 유사 오답">
+                  <Input type="number" min={0} max={10} value={hardNegatives} onChange={(e) => setHardNegatives(+e.target.value)} className="mono" />
+                </Field>
+                <Field label="라운드트립 필터 k" hint="쿼리가 자기 문서를 top-k에 못 올리면 버림 · train만 · 0=off">
+                  <Input type="number" min={0} max={10} value={roundTripK} onChange={(e) => setRoundTripK(+e.target.value)} className="mono" />
+                </Field>
+                <Field label="오답 margin" hint="정답 점수의 (1−m)배 넘는 후보는 가짜 오답으로 제외 · 0=off">
+                  <Input type="number" min={0} max={0.5} step={0.01} value={negMargin} onChange={(e) => setNegMargin(+e.target.value)} className="mono" />
                 </Field>
               </div>
             )}
@@ -356,6 +458,11 @@ export default function Data() {
                     }}
                   />
                 </div>
+                {synth.filtered && (
+                  <div className="mono mt-2 text-[11px] text-amber">
+                    라운드트립 필터(train 스플릿만): {synth.filtered.kept} 통과 · {synth.filtered.dropped} 탈락 (top-{synth.filtered.k} 기준)
+                  </div>
+                )}
                 {synth.docs.length > 0 && (
                   <div className="mono mt-3 max-h-44 overflow-auto rounded-lg border border-line bg-ink-950 p-3 text-[11px] leading-relaxed">
                     {synth.docs.slice(-6).map((d, i) => (
@@ -398,22 +505,50 @@ export default function Data() {
               <h3 className="text-[15px] font-semibold text-fg">평가 데이터</h3>
               <Tag tone="cyan">→ 평가</Tag>
             </div>
-            <Field label="distractor 수" hint="많을수록 난이도 ↑ · 모델 차이가 잘 드러남">
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min={16}
-                  max={448}
-                  step={16}
-                  value={ndist}
-                  onChange={(e) => setNdist(+e.target.value)}
-                  className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-ink-700 accent-signal"
-                />
-                <span className="mono w-12 text-right text-[15px] font-semibold text-fg">{ndist}</span>
+            <Seg
+              options={[
+                { value: "sample", label: "샘플 (합성 distractor)" },
+                { value: "corpus", label: "크롤 corpus (사이트 전체)" },
+              ]}
+              value={evalSource}
+              onChange={setEvalSource}
+            />
+            {evalSource === "sample" ? (
+              <div className="mt-3">
+                <Field label="distractor 수" hint="많을수록 난이도 ↑ · 모델 차이가 잘 드러남">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={16}
+                      max={448}
+                      step={16}
+                      value={ndist}
+                      onChange={(e) => setNdist(+e.target.value)}
+                      className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-ink-700 accent-signal"
+                    />
+                    <span className="mono w-12 text-right text-[15px] font-semibold text-fg">{ndist}</span>
+                  </div>
+                </Field>
               </div>
-            </Field>
+            ) : (
+              <p className="mt-3 text-[12.5px] leading-relaxed text-mut">
+                크롤한 <span className="mono">{corpusFile}</span>의 <b className="text-fg">사이트 전체가 건초더미</b>가
+                되고, 학습에서 제외해 둔 test 스플릿 쿼리가 평가 쿼리가 됩니다 (dev/final 자동 분리). test 스플릿은
+                라운드트립 필터를 <b className="text-fg">안 거친</b> 쿼리라 베이스 모델 점수가 포화되지 않습니다.
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap gap-2.5">
-              <Btn icon={<Sparkles size={15} />} onClick={() => genEval.mutate({ n_distractors: ndist })} disabled={genEval.isPending}>
+              <Btn
+                icon={<Sparkles size={15} />}
+                onClick={() =>
+                  genEval.mutate(
+                    evalSource === "sample"
+                      ? { source: "sample", n_distractors: ndist }
+                      : { source: "corpus", corpus_file: corpusFile },
+                  )
+                }
+                disabled={genEval.isPending}
+              >
                 {genEval.isPending ? "생성 중…" : "평가 데이터 생성"}
               </Btn>
               <Btn variant="ghost" icon={<FileText size={15} />} onClick={() => setModal("corpus")}>

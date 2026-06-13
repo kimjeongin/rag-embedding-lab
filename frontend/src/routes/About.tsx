@@ -126,7 +126,7 @@ const FLOW = [
     icon: Database,
     to: PATH.data,
     title: "데이터",
-    what: "(쿼리, 정답 문서) 학습쌍을 만들고 — 실사용 로그 가져오기 · LLM 합성 · 직접 라벨링 — 채점용 평가셋(corpus / queries / qrels)을 따로 준비합니다.",
+    what: "사이트를 크롤해 페이지 corpus를 만들고, (쿼리, 정답 문서) 학습쌍을 채웁니다 — 실사용 로그 가져오기 · LLM 합성(검색창 스타일 쿼리 + 라운드트립 필터 + 마진 가드 오답 채굴) · 직접 라벨링. 채점용 평가셋(corpus / queries / qrels)은 따로 준비합니다.",
     why: "모델은 데이터만큼만 배웁니다. 그리고 학습에 쓴 쿼리로 시험을 보면 암기를 실력으로 착각하므로, 두 데이터는 절대 겹치면 안 됩니다.",
   },
   {
@@ -140,7 +140,7 @@ const FLOW = [
     icon: Gauge,
     to: PATH.eval,
     title: "평가",
-    what: "학습에 쓰지 않은 평가셋에서 recall@50 · nDCG@10 · MRR@10을 측정합니다. 모든 점수에는 평가셋의 지문(fingerprint)이 함께 박힙니다.",
+    what: "학습에 쓰지 않은 평가셋에서 recall@50 · nDCG@10 · MRR@10을 측정합니다. 크롤 corpus가 있으면 사이트 전체가 건초더미가 되고, 모든 점수에는 평가셋의 지문(fingerprint)이 함께 박힙니다.",
     why: "“좋아진 것 같다”를 “몇 점 좋아졌다”로 바꾸는 단계 — 같은 자로 재야 비교가 성립합니다.",
   },
   {
@@ -439,7 +439,9 @@ export default function About() {
  "positive": {"title": "...", "content": "..."},
  "negatives": [{"title": "...", "content": "..."}]}`}</Code>
             <p className="mt-2.5 text-[12px] leading-relaxed text-faint">
-              negatives(헷갈리는 오답)는 선택 — 있으면 Triplet loss를 쓸 수 있고, MNRL 계열에서도 추가 신호가 됩니다.
+              negatives(헷갈리는 오답)는 선택 — 있으면 Triplet loss를 쓸 수 있고, MNRL 계열은 채굴된 오답을{" "}
+              <b className="text-mut">전부</b> 추가 신호로 씁니다. 채굴 때는 정답 점수에 너무 가까운 후보(가짜 오답일
+              확률 높음)를 margin으로 걸러냅니다 — 진짜 정답을 오답으로 가르치면 모델이 역주행합니다.
             </p>
           </Panel>
           <Panel className="p-5">
@@ -454,13 +456,17 @@ qrels/dev.tsv    query-id  corpus-id  1     # 채점표 (선택용)
 qrels/final.tsv  query-id  corpus-id  1     # 채점표 (확정용)`}</Code>
             <p className="mt-2.5 text-[12px] leading-relaxed text-faint">
               corpus는 정답 + 충분히 많은 distractor로 커야 합니다 — 정답만 있으면 모든 모델이 만점이라 구분이 안 됩니다.
+              크롤 corpus 모드에서는 <b className="text-mut">사이트 전체가 그대로 건초더미</b>가 되어 distractor를 합성할
+              필요가 없습니다 — 프로덕션 인덱스와 같은 상황입니다.
             </p>
           </Panel>
         </div>
         <div className="mt-4">
           <Note tone="amber" title="철칙: 학습 쿼리와 평가 쿼리는 겹치면 안 됩니다 (leakage)">
             학습에서 본 쿼리로 시험을 보면 일반화가 아니라 <i>암기</i>를 재게 됩니다. 점수는 화려한데 실제 사용자 쿼리에서
-            무너지는 모델이 이렇게 만들어집니다. 이 랩의 데이터 생성기는 같은 주제라도 학습용과 평가용 쿼리를 분리합니다.
+            무너지는 모델이 이렇게 만들어집니다. 이 랩의 데이터 생성기는 문서 단위로 train/test를 먼저 가른 뒤, 품질
+            필터(라운드트립)는 <b className="text-fg">train 쪽에만</b> 겁니다 — 평가 쿼리를 평가에 쓸 임베더로 거르면
+            “그 모델이 이미 맞히는 문제”만 남아 모든 지표가 1.0으로 포화되거든요. 이 랩이 실제로 한 번 밟았던 함정입니다.
           </Note>
         </div>
       </Topic>

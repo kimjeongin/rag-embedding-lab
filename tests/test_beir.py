@@ -6,6 +6,7 @@ from rag.evaluation.beir import (
     load_corpus,
     load_qrels,
     load_queries,
+    prune_qrels_splits,
     write_beir_dataset,
 )
 from rag.evaluation.retrieval import evaluate, rank_corpus
@@ -130,6 +131,21 @@ def test_available_splits_lists_qrels_files(tmp_path):
     _write_sample(tmp_path)
     write_qrels(str(tmp_path), [("q1", "d1", 1)], "dev")
     assert available_splits(str(tmp_path)) == ["dev", "test"]
+
+
+def test_prune_qrels_splits_drops_previous_generation_files(tmp_path):
+    """Regenerating the eval set replaces corpus ids — a leftover split file from the
+    old generation would dangle, so the generators prune anything they didn't write."""
+    from rag.evaluation.beir import available_splits, write_qrels
+
+    _write_sample(tmp_path)                              # legacy "test" split
+    write_qrels(str(tmp_path), [("q1", "d1", 1)], "dev")
+    write_qrels(str(tmp_path), [("q2", "d2", 1)], "final")
+
+    removed = prune_qrels_splits(str(tmp_path), keep=("dev", "final"))
+    assert removed == ["test"]
+    assert available_splits(str(tmp_path)) == ["dev", "final"]
+    assert prune_qrels_splits(str(tmp_path / "nope"), keep=("dev",)) == []  # no dir → no-op
 
 
 async def test_evaluate_reports_rankings_and_split(tmp_path, monkeypatch):

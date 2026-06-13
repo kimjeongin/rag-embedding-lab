@@ -15,13 +15,27 @@ from rag.core.formatting import format_document, format_query
 from rag.dataset import load_jsonl
 
 
-def to_training_dataset(path: str, instruction: str):
-    """Build a 🤗 ``datasets.Dataset`` for MultipleNegativesRankingLoss.
+def negative_count(rows: list[dict], cap: int | None) -> int:
+    """How many hard-negative columns the dataset can carry: the LARGEST count every
+    record can supply (records must be uniform — a columnar dataset has no ragged
+    rows), capped by the loss's appetite (TripletLoss digests exactly one; the
+    MNRL/GIST family takes them all). 0 when any record has none.
+    """
+    if not rows:
+        return 0
+    common = min(len(r.get("negatives") or []) for r in rows)
+    return min(common, cap) if cap is not None else common
+
+
+def to_training_dataset(path: str, instruction: str, max_negatives: int | None = None):
+    """Build a 🤗 ``datasets.Dataset`` for the contrastive losses.
 
     Columns are (anchor, positive) — anchor = instruction-prefixed query, positive =
-    title-prepended document, identical to what we embed at serving time. If every
-    record carries a hard negative, a (anchor, positive, negative) triplet is built
-    instead, which trains against that explicit negative on top of in-batch ones.
+    title-prepended document, identical to what we embed at serving time. Mined hard
+    negatives become additional columns (negative, negative_2, …): every column after
+    the first two is treated as a negative by the MNRL/CachedMNRL/GIST family, so ALL
+    mined negatives sharpen the contrast — not just the first. ``max_negatives``
+    caps the columns for losses with a fixed arity (TripletLoss → 1).
     """
     from datasets import Dataset
 
@@ -30,9 +44,10 @@ def to_training_dataset(path: str, instruction: str):
         "anchor": [format_query(r["query"], instruction) for r in rows],
         "positive": [format_document(r["positive"].get("title"), r["positive"]["content"]) for r in rows],
     }
-    if rows and all(r.get("negatives") for r in rows):
-        data["negative"] = [
-            format_document(r["negatives"][0].get("title"), r["negatives"][0]["content"]) for r in rows
+    for k in range(negative_count(rows, max_negatives)):
+        column = "negative" if k == 0 else f"negative_{k + 1}"
+        data[column] = [
+            format_document(r["negatives"][k].get("title"), r["negatives"][k]["content"]) for r in rows
         ]
     return Dataset.from_dict(data)
 

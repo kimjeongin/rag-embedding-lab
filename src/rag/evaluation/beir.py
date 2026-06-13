@@ -138,3 +138,23 @@ def write_beir_dataset(
     write_jsonl(str(base / "corpus.jsonl"), corpus)
     write_jsonl(str(base / "queries.jsonl"), queries)
     write_qrels(eval_dir, qrels_rows, split)
+
+
+def prune_qrels_splits(eval_dir: str, keep: Iterable[str]) -> list[str]:
+    """Delete qrels/<split>.tsv files NOT in `keep`; returns what was removed.
+
+    A regenerated eval set replaces corpus/queries in place — a split file from the
+    previous generation would keep pointing at doc ids that no longer exist, and the
+    UI would offer it as if it were evaluable. Generators call this after writing
+    their splits so the directory is coherent.
+    """
+    qrels_dir = Path(eval_dir) / "qrels"
+    if not qrels_dir.exists():
+        return []
+    keep_set = set(keep)
+    removed = []
+    for path in qrels_dir.glob("*.tsv"):
+        if path.stem not in keep_set:
+            path.unlink()
+            removed.append(path.stem)
+    return sorted(removed)

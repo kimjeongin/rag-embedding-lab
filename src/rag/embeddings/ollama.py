@@ -17,6 +17,12 @@ from rag.core.errors import EmbeddingError
 from rag.core.formatting import format_document, format_query
 
 
+# Per-request input cap. Ollama embeds a list sequentially in one request, so a whole
+# eval corpus (hundreds of ~2k-char docs) in a single call blows the client timeout —
+# the timeout must bound one SLICE, not the whole workload.
+_BATCH = 64
+
+
 class OllamaEmbedder:
     def __init__(self, client: httpx.AsyncClient, settings: Settings) -> None:
         self._client = client
@@ -26,6 +32,12 @@ class OllamaEmbedder:
         self._instruction = settings.query_instruction
 
     async def _embed(self, inputs: list[str]) -> list[list[float]]:
+        rows: list[list[float]] = []
+        for i in range(0, len(inputs), _BATCH):
+            rows.extend(await self._embed_once(inputs[i : i + _BATCH]))
+        return rows
+
+    async def _embed_once(self, inputs: list[str]) -> list[list[float]]:
         try:
             resp = await self._client.post(
                 f"{self._url}/api/embed",
@@ -33,7 +45,8 @@ class OllamaEmbedder:
             )
             resp.raise_for_status()
         except httpx.HTTPError as exc:
-            raise EmbeddingError(f"Ollama request failed: {exc}") from exc
+            # str(ReadTimeout) is empty — the type name is the actual diagnosis.
+            raise EmbeddingError(f"Ollama request failed: {type(exc).__name__}: {exc}") from exc
 
         embeddings = resp.json().get("embeddings")
         if not embeddings:

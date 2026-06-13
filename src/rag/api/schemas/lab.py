@@ -103,6 +103,9 @@ class GenPairsRequest(BaseModel):
     gen_model: str | None = None
     n_queries: int = Field(default=50, ge=1, le=10_000)
     hard_negatives: int = Field(default=4, ge=0, le=50)
+    # quality gates (0 disables): round-trip consistency filter / false-negative margin
+    round_trip_k: int = Field(default=1, ge=0, le=10)
+    neg_margin: float = Field(default=0.05, ge=0.0, le=0.5)
 
 
 class GenPairsResponse(BaseModel):
@@ -112,10 +115,22 @@ class GenPairsResponse(BaseModel):
     preview: list[PairItem]
 
 
+# ── POST /api/data/crawl/stream ─────────────────────────────────────────────────
+class CrawlRequest(BaseModel):
+    url: str = Field(min_length=8)            # site root, or a sitemap.xml directly
+    max_pages: int = Field(default=300, ge=1, le=5_000)
+    corpus_file: str = "data/corpus.jsonl"    # where the pages land
+
+
 # ── POST /api/data/eval ─────────────────────────────────────────────────────────
 class GenEvalRequest(BaseModel):
-    # None → use the generator's full distractor pool.
+    # sample = toy gold docs + synthetic distractors; corpus = the real corpus as the
+    # haystack with the held-out test split as queries (after crawl + synthetic gen).
+    source: Literal["sample", "corpus"] = "sample"
+    # sample-only: None → use the generator's full distractor pool.
     n_distractors: int | None = Field(default=None, ge=0)
+    # corpus-only: where the crawled corpus lives.
+    corpus_file: str = "data/corpus.jsonl"
 
 
 class GenEvalResponse(BaseModel):

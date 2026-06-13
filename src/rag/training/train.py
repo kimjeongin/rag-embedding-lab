@@ -179,10 +179,15 @@ def train(cfg: TrainingConfig) -> dict:
             f"dropout={cfg.lora_dropout} target={cfg.lora_target}"
         )
         transformer.model.print_trainable_parameters()
-    train_dataset = to_training_dataset(cfg.train_file, cfg.query_instruction)
-    print(f"[train] {len(train_dataset)} training pairs from {cfg.train_file}")
+    # TripletLoss takes exactly (anchor, positive, negative); the MNRL/GIST family
+    # treats EVERY extra column as another negative — so give it all mined ones.
+    max_negatives = 1 if cfg.loss == "triplet" else None
+    train_dataset = to_training_dataset(cfg.train_file, cfg.query_instruction, max_negatives)
+    negative_columns = [c for c in train_dataset.column_names if c.startswith("negative")]
+    print(f"[train] {len(train_dataset)} training pairs from {cfg.train_file} "
+          f"(hard negatives per pair: {len(negative_columns)})")
 
-    loss = _build_loss(model, cfg, has_negatives="negative" in train_dataset.column_names)
+    loss = _build_loss(model, cfg, has_negatives=bool(negative_columns))
 
     queries, corpus, relevant = to_ir_eval(cfg.eval_file, cfg.query_instruction)
     evaluator = InformationRetrievalEvaluator(
@@ -218,8 +223,9 @@ def train(cfg: TrainingConfig) -> dict:
         report_to=[],            # no wandb/tensorboard
     )
     # eval_dataset feeds eval_strategy="epoch" (HF requires one even with an
-    # evaluator) and adds a held-out eval_loss next to the evaluator's nDCG.
-    eval_dataset = to_training_dataset(cfg.eval_file, cfg.query_instruction)
+    # evaluator) and adds a held-out eval_loss next to the evaluator's nDCG. Same
+    # negative arity as training, so eval_loss is computed on the same task shape.
+    eval_dataset = to_training_dataset(cfg.eval_file, cfg.query_instruction, max_negatives)
     best_cb = _best_epoch_callback(model, cfg)
     trainer = SentenceTransformerTrainer(
         model=model, args=args, train_dataset=train_dataset, eval_dataset=eval_dataset,

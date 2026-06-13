@@ -25,15 +25,18 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 | Command | What it does |
 |---------|--------------|
 | `uv run rag-serve` | 🟢 serve the lab **API** (`/api/*`) + the built **React UI** (one port) |
+| `uv run rag-crawl <url>` | crawl a public site (or one sitemap) → page-level `data/corpus.jsonl` |
 | `uv run rag-gen-data` | write a toy fine-tuning dataset |
-| `uv run rag-gen-synthetic` | write an LLM-generated **training** dataset (+ hard negatives) |
-| `uv run rag-gen-eval` | write a sample **BEIR-format eval set** (`data/eval`) |
+| `uv run rag-gen-synthetic` | write an LLM-generated **training** dataset (search-box queries, round-trip filtered, + margin-guarded hard negatives) |
+| `uv run rag-gen-eval` | write a **BEIR-format eval set** (`data/eval`) — `EVAL_SOURCE=corpus` uses the crawled site as the haystack |
 | `uv run rag-train` | fine-tune the embedding model |
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
 
 `rag-serve` (API + UI) is a long-running server; the rest are batch tools that run and
 exit. The web UI lives in [`frontend/`](frontend) — see [Web UI](#web-ui). For everyday
-use, a [`Makefile`](#3-run) wraps these (`make run` / `make dev` / `make help`).
+use, a [`Makefile`](#3-run) wraps these (`make run` / `make dev` / `make help`), and the
+PoC data pipeline has one-word targets: `make crawl` / `pairs` / `evalset` / `baseline` /
+`train` — or `make pipeline` for the whole chain.
 
 ## How it works
 
@@ -135,6 +138,11 @@ Configuration is via environment variables (all optional). See [`.env.example`](
 | `ST_MODEL` | `outputs/embedding-ft` | model path/name (`sentence-transformers` backend) |
 | `ST_DEVICE` | `` (auto) | `cuda`/`mps`/`cpu` (`sentence-transformers` backend) |
 
+The offline tools have their own knobs (also in `.env.example`): `CRAWL_MAX_PAGES`/`CRAWL_DELAY`/
+`CRAWL_MIN_CHARS`/`CRAWL_MAX_CHARS` (rag-crawl), `GEN_MODEL`/`N_QUERIES`/`HARD_NEGATIVES`/
+`ROUND_TRIP_K`/`NEG_MARGIN` (rag-gen-synthetic), `EVAL_SOURCE`/`EVAL_DIR`/`N_DISTRACTORS`
+(rag-gen-eval), and the `TRAIN_*` family ([below](#fine-tuning--evaluation-offline--cli)).
+
 ## Web UI
 
 The React app ([`frontend/`](frontend)) wraps the **same `rag.*` offline loop** (generate
@@ -143,13 +151,13 @@ Bring your in-house eval set ([`docs/evaluation.md`](docs/evaluation.md)) and th
 eval/compare screens measure real models.
 
 A single-page studio: an **Overview** dashboard (champion + leaderboard + nDCG trend),
-**Data** (generate/preview training pairs & the BEIR eval set), **Train** (live SSE loss
-curve + before/after nDCG), **Eval** (auto-dim model scoring with Δ-vs-best), and
-**Compare** (grouped metric bars + best-per-metric table). ⌘K command palette, toasts,
-focus-trapped dialogs.
+**Data** (crawl a site into the corpus · generate/preview training pairs & the BEIR eval
+set, both streamed over SSE), **Train** (live SSE loss curve + before/after nDCG),
+**Eval** (auto-dim model scoring with Δ-vs-best), and **Compare** (grouped metric bars +
+best-per-metric table). Toasts, focus-trapped dialogs.
 
 **Stack:** Vite · React + TypeScript · Tailwind v4 · TanStack Query (server state) ·
-React Router · Radix UI + cmdk + Sonner (behaviour) · hand-drawn SVG charts (data-viz).
+React Router · Radix UI + Sonner (behaviour) · hand-drawn SVG charts (data-viz).
 The design system, data layer, and screens live in
 `frontend/src/{components,lib,routes}`. It talks to the **lab API** (`/api/*`); there is no
 vector store — evaluation ranks in-memory, so only Ollama is needed (when you run an eval).
@@ -199,6 +207,23 @@ uv run rag-eval            # baseline recall@k / MRR / nDCG over data/eval/
 uv run rag-train           # fine-tune (default: Qwen/Qwen3-Embedding-0.6B) → in-loop eval + save
 ```
 
+**PoC loop for a real site** (the internal-site-search stand-in — a public site becomes
+the corpus; later, swap the source for the in-house site + click logs and nothing else
+changes):
+```bash
+uv run rag-crawl https://www.korea.kr/sitemap_policy.xml   # pages → data/corpus.jsonl
+GEN_MODEL=qwen3.5:4b N_QUERIES=4 HARD_NEGATIVES=4 uv run rag-gen-synthetic
+                           # search-box-style queries (doc's language) → doc-level
+                           # train/test split → round-trip filter (TRAIN ONLY — filtering
+                           # test with the eval embedder would saturate every metric)
+                           # → margin-guarded hard negatives
+EVAL_SOURCE=corpus uv run rag-gen-eval   # eval set: the WHOLE site as the haystack,
+                                         # held-out test queries as dev/final qrels
+uv run rag-eval && uv run rag-train
+```
+Same thing via make — `make pipeline` runs crawl → pairs → evalset → baseline with these
+defaults (override per-invocation: `make crawl CRAWL_URL=… `, `make pairs GEN_MODEL=…`).
+
 **Two distinct datasets — don't conflate them:**
 - **Training pairs** — `data/train.jsonl` / `test.jsonl`: `{query, positive[, negatives]}`
   records that `rag-train` learns from (`datagen` writes them; format below).
@@ -218,7 +243,8 @@ EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eva
 ```
 > ⚠️ The sample eval set's distractors are deliberately *easy* (so a strong base model
 > scores ~0.98) — it proves the harness, not model quality. Real discrimination comes
-> from your in-house corpus. See [`docs/evaluation.md`](docs/evaluation.md).
+> from a real corpus: crawl one (`rag-crawl` + `EVAL_SOURCE=corpus`) or bring in-house
+> data. See [`docs/evaluation.md`](docs/evaluation.md).
 
 **Training-pair format** (JSONL, one record per line — written by `datagen`, read by
 `training`; the eval set is separate, see [`docs/evaluation.md`](docs/evaluation.md)):
@@ -226,17 +252,18 @@ EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eva
 {"query": "...", "positive": {"title": "...", "content": "..."},
  "negatives": [{"title": "...", "content": "..."}]}
 ```
-`negatives` is optional; when every record has one, training adds it as an explicit
-(anchor, positive, negative) triplet on top of in-batch negatives. Bring your own data in
-this format (point `TRAIN_FILE`/`TRAIN_EVAL_FILE` at it) or put documents in
-`data/corpus.jsonl` and run `rag-gen-synthetic`. Key env: `TRAIN_BASE_MODEL`,
-`TRAIN_EPOCHS` (a *ceiling* — early stopping ends sooner), `TRAIN_PATIENCE` /
-`TRAIN_MONITOR` (`ndcg` or `loss`; the best epoch's weights are what gets saved),
-`TRAIN_LOSS` (`mnrl` / `cached_mnrl` / `gist` / `triplet`), `TRAIN_DROPOUT`,
+`negatives` is optional; when every record has some, the MNRL/GIST losses train against
+**all** of them as extra columns on top of in-batch negatives (TripletLoss takes exactly
+one). Bring your own data in this format (point `TRAIN_FILE`/`TRAIN_EVAL_FILE` at it) or
+put documents in `data/corpus.jsonl` and run `rag-gen-synthetic`. Key env:
+`TRAIN_BASE_MODEL`, `TRAIN_EPOCHS` (a *ceiling* — early stopping ends sooner),
+`TRAIN_PATIENCE` / `TRAIN_MONITOR` (`ndcg` or `loss`; the best epoch's weights are what
+gets saved), `TRAIN_LOSS` (`mnrl` / `cached_mnrl` / `gist` / `triplet`), `TRAIN_DROPOUT`,
 `TRAIN_SEED`, `TRAIN_NOTE`, `TRAIN_BATCH_SIZE`, `TRAIN_DEVICE`, `TRAIN_METHOD`
 (`full` or `lora` — adapters are merged into the base on save;
 `TRAIN_LORA_R/ALPHA/DROPOUT/TARGET` tune them), `EVAL_TOP_K` (ranking depth —
-match your production fusion depth), `GEN_MODEL`, `HARD_NEGATIVES`.
+match your production fusion depth), `GEN_MODEL`, `N_QUERIES`, `HARD_NEGATIVES`,
+`ROUND_TRIP_K`, `NEG_MARGIN`.
 
 ## Architecture
 
@@ -253,13 +280,13 @@ src/rag/
 │   ├── formatting.py format_query / format_document  (asymmetry, one place)
 │   └── errors.py
 ├── embeddings/       Embedder adapters: ollama.py · sentence_transformer.py · factory.py (build_embedder)
-├── datagen/          topics.py (shared 16-topic set) · dummy.py (toy) · synthetic.py (LLM + hard negatives) · eval_corpus.py (BEIR sample)
+├── datagen/          crawl.py (site → corpus) · topics.py (16-topic set) · dummy.py (toy) · synthetic.py (LLM queries + filters + hard negatives) · eval_corpus.py (BEIR sample) · eval_from_corpus.py (BEIR from the real corpus)
 ├── training/         config · data · model · train  (contrastive fine-tuning)
 ├── evaluation/       beir.py (corpus/queries/qrels IO) · retrieval.py (embed + in-memory rank) · metrics.py
 ├── api/              lab HTTP API (FastAPI) + composition root
 │   ├── app.py        create_app(): Settings + lab routes + serve frontend/dist
 │   └── deps.py · errors.py · schemas/lab.py · routes/lab/ (status·models·data·runs·evaluate·train SSE)
-├── cli/              entrypoints (thin): serve · gen_data · gen_synthetic · gen_eval · train · evaluate
+├── cli/              entrypoints (thin): serve · crawl · gen_data · gen_synthetic · gen_eval · train · evaluate
 ├── runs.py           eval-run registry (JSONL) ·  lab.py  env/model introspection ·  trainlog.py  log parsing
 ├── dataset.py        shared training-pair JSONL IO (datagen ↔ training)
 └── config.py         Settings (injected; from_env at the root)

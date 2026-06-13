@@ -213,7 +213,7 @@ def _render_markdown(h: dict) -> str:
         f"- final(최종 확정): {_fmt_metrics(h.get('eval_final'))}",
         "",
         "## 임베딩 계약 (서빙과 글자 단위로 일치해야 함)",
-        f"- 쿼리: `Instruct: {{instruction}}\\nQuery: {{query}}`",
+        "- 쿼리: `Instruct: {instruction}\\nQuery: {query}`",
         f"- instruction: `{h['contract']['instruction']}`",
         "- 문서: `{title}\\n\\n{content}` (제목 없으면 본문만)",
         f"- pooling: {h['contract']['pooling']} · L2 normalize · cosine",

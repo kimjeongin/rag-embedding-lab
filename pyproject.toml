@@ -7,8 +7,9 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "httpx",          # Ollama embedding calls + synthetic data generation
-    "numpy",          # in-memory cosine for datagen hard-negatives + rag-eval ranking
+    "httpx", # Ollama embedding calls + synthetic data generation
+    "numpy", # in-memory cosine for datagen hard-negatives + rag-eval ranking
+    "trafilatura>=2.1.0", # rag-crawl: main-content extraction (title/description/text)
 ]
 
 # Exact versions are pinned in uv.lock (the source of truth for reproducible installs).
@@ -16,6 +17,7 @@ dependencies = [
 
 [project.scripts]                       # every entrypoint lives in rag.cli
 rag-serve = "rag.cli.serve:run"              # serve the API:          uv run rag-serve
+rag-crawl = "rag.cli.crawl:main"             # site → corpus.jsonl:    uv run rag-crawl <url>
 rag-gen-data = "rag.cli.gen_data:main"       # toy train/test data:    uv run rag-gen-data
 rag-gen-synthetic = "rag.cli.gen_synthetic:main"  # LLM-generated data: uv run rag-gen-synthetic
 rag-gen-eval = "rag.cli.gen_eval:main"       # sample BEIR eval set:   uv run rag-gen-eval

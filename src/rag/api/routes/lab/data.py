@@ -16,6 +16,7 @@ from rag import lab
 from rag.api.schemas.lab import (
     CorpusDoc,
     CorpusResponse,
+    CrawlRequest,
     DataOverviewResponse,
     EvalInfo,
     FileCount,
@@ -48,6 +49,7 @@ from rag.evaluation.beir import (
     eval_set_fingerprint,
     load_corpus,
     load_qrels,
+    prune_qrels_splits,
     resolve_split,
     write_beir_dataset,
     write_qrels,
@@ -141,7 +143,8 @@ async def gen_pairs(req: GenPairsRequest) -> GenPairsResponse:
 
         try:
             train, test = await generate(
-                req.corpus_file, req.gen_model or "", req.n_queries, req.hard_negatives, Settings.from_env()
+                req.corpus_file, req.gen_model or "", req.n_queries, req.hard_negatives,
+                Settings.from_env(), round_trip_k=req.round_trip_k, neg_margin=req.neg_margin,
             )
         except Exception as exc:  # noqa: BLE001 — surface upstream (Ollama) failures as 502
             raise HTTPException(
@@ -177,7 +180,8 @@ async def gen_pairs_stream(req: GenPairsRequest) -> StreamingResponse:
 
         try:
             async for ev in generate_stream(
-                req.corpus_file, req.gen_model or "", req.n_queries, req.hard_negatives, Settings.from_env()
+                req.corpus_file, req.gen_model or "", req.n_queries, req.hard_negatives,
+                Settings.from_env(), round_trip_k=req.round_trip_k, neg_margin=req.neg_margin,
             ):
                 if ev["event"] != "done":
                     yield sse_event(ev["event"], {k: v for k, v in ev.items() if k != "event"})
@@ -196,6 +200,46 @@ async def gen_pairs_stream(req: GenPairsRequest) -> StreamingResponse:
             yield sse_event("error", {
                 "detail": f"{type(exc).__name__}: {exc} (Ollama 실행 중인가요? '{req.gen_model}' 모델을 받으셨나요?)"
             })
+
+    return StreamingResponse(
+        _events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/data/crawl/stream")
+async def crawl_corpus_stream(req: CrawlRequest) -> StreamingResponse:
+    """Crawl a public site into the corpus file, streamed over SSE (start/page/done/error).
+
+    The PoC corpus source — same engine as the ``rag-crawl`` CLI. The ``done`` event
+    fires AFTER the corpus file is written, so a client that sees it can refetch
+    counts immediately.
+    """
+    async def _events():
+        from rag.datagen.crawl import crawl_stream
+
+        try:
+            async for ev in crawl_stream(req.url, max_pages=req.max_pages):
+                if ev["event"] != "done":
+                    yield sse_event(ev["event"], {k: v for k, v in ev.items() if k != "event"})
+                    continue
+                pages = ev["pages"]
+                if not pages:
+                    yield sse_event("error", {
+                        "detail": "수집된 페이지가 없습니다 — URL과 robots.txt를 확인하세요"
+                    })
+                    return
+                write_jsonl(req.corpus_file, pages)
+                yield sse_event("done", {
+                    "message": f"corpus 저장: {req.corpus_file} ({len(pages)} pages)",
+                    "file": req.corpus_file,
+                    "count": len(pages),
+                    "fetched": ev["fetched"],
+                    "skipped": ev["skipped"],
+                })
+        except Exception as exc:  # noqa: BLE001 — surface crawl failures into the stream
+            yield sse_event("error", {"detail": f"{type(exc).__name__}: {exc}"})
 
     return StreamingResponse(
         _events(),
@@ -346,16 +390,31 @@ def label_commit(req: LabelCommitRequest) -> LabelCommitResponse:
 @router.post("/data/eval", response_model=GenEvalResponse)
 def gen_eval(req: GenEvalRequest) -> GenEvalResponse:
     eval_dir = eval_dir_from_env()
-    corpus, queries, qrels = generate_eval_set(n_distractors=req.n_distractors)
+    note = ""
+    if req.source == "corpus":
+        # The real corpus is the haystack; the held-out test split is the query set.
+        from rag.datagen.eval_from_corpus import load_and_build
+
+        _, test_file = dataset_paths()
+        try:
+            corpus, queries, qrels, skipped = load_and_build(req.corpus_file, test_file)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if skipped:
+            note = f" · 매칭 안 된 test 쌍 {skipped}건 제외"
+    else:
+        corpus, queries, qrels = generate_eval_set(n_distractors=req.n_distractors)
     # dev (tuning) / final (held-out one-shot confirmation) — see rag.evaluation.beir
     dev_rows, final_rows = split_eval_qrels(qrels)
     write_beir_dataset(eval_dir, corpus, queries, dev_rows, split=DEV_SPLIT)
     write_qrels(eval_dir, final_rows, FINAL_SPLIT)
+    # a split file from the previous generation would point at ids that no longer exist
+    prune_qrels_splits(eval_dir, keep=(DEV_SPLIT, FINAL_SPLIT))
     _, preview = _corpus_items(eval_dir, 8, truncate=120)
     return GenEvalResponse(
         message=(
-            f"평가셋 저장: {eval_dir} ({len(corpus)} docs · {len(queries)} queries · "
-            f"qrels dev {len(dev_rows)} + final {len(final_rows)})"
+            f"평가셋 저장 ({req.source}): {eval_dir} ({len(corpus)} docs · {len(queries)} queries · "
+            f"qrels dev {len(dev_rows)} + final {len(final_rows)}){note}"
         ),
         dir=eval_dir,
         corpus=len(corpus),

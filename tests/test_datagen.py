@@ -67,6 +67,60 @@ def test_synthetic_split_holds_out_whole_docs():
     assert len(train1) == 4 and test1 == []
 
 
+def test_round_trip_filter_keeps_only_self_retrieving_pairs():
+    """Promptagator consistency filter: a pair survives iff its query ranks its own
+    source doc in the top-k — generated queries that retrieve some OTHER page are
+    noise, not supervision."""
+    import numpy as np
+
+    from rag.datagen.synthetic import _round_trip_keep
+
+    sims = np.array([
+        [0.9, 0.2],   # pair0 → doc0: top-1 is doc0 ✓
+        [0.3, 0.8],   # pair1 → doc0: top-1 is doc1 ✗
+        [0.7, 0.6],   # pair2 → doc1: top-1 is doc0 ✗
+    ])
+    assert _round_trip_keep(sims, [0, 0, 1], k=1) == [0]
+    assert _round_trip_keep(sims, [0, 0, 1], k=2) == [0, 1, 2]  # k≥n_docs keeps all
+
+
+def test_attach_negatives_skips_probable_false_negatives():
+    """TopK-PercPos guard: a candidate scoring within the margin of the positive is
+    presumed to be a true answer wearing the wrong label — skipped, not trained on."""
+    import numpy as np
+
+    from rag.datagen.synthetic import _attach_negatives
+
+    docs = [{"title": f"d{i}", "content": f"c{i}"} for i in range(4)]
+    sims = np.array([[0.8, 0.79, 0.5, 0.3]])  # doc1 ≈ the positive → probable false neg
+    pairs = [{"query": "q", "_doc": 0}]
+    _attach_negatives(pairs, sims, docs, n_negatives=2, margin=0.05)
+    assert [n["title"] for n in pairs[0]["negatives"]] == ["d2", "d3"]
+
+    pairs = [{"query": "q", "_doc": 0}]
+    _attach_negatives(pairs, sims, docs, n_negatives=2, margin=0.0)  # guard off
+    assert [n["title"] for n in pairs[0]["negatives"]] == ["d1", "d2"]
+
+
+def test_eval_from_corpus_builds_beir_set_and_skips_stale_pairs():
+    from rag.datagen.eval_from_corpus import build
+
+    docs = [
+        {"url": "u0", "title": "t0", "content": "c0"},
+        {"url": "u1", "title": "t1", "content": "c1"},
+    ]
+    pairs = [
+        {"query": "q-a", "positive": {"title": "t1", "content": "c1"}},
+        {"query": "q-b", "positive": {"title": "tX", "content": "cX"}},  # stale → skipped
+    ]
+    corpus, queries, qrels, skipped = build(docs, pairs)
+    assert [d["_id"] for d in corpus] == ["page-0", "page-1"]   # whole site = haystack
+    assert corpus[1] == {"_id": "page-1", "title": "t1", "text": "c1"}
+    assert queries == [{"_id": "q-test-0", "text": "q-a"}]
+    assert qrels == [("q-test-0", "page-1", 1)]
+    assert skipped == 1
+
+
 def test_split_qrels_holds_out_queries_per_doc():
     from rag.datagen.eval_corpus import split_qrels
 
