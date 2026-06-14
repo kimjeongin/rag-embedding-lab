@@ -43,32 +43,49 @@ def _compose_output_dir(cfg: TrainingConfig, saved_epoch: int) -> str:
     if not cfg.auto_name:
         return cfg.output_dir
     lora = f"-r{cfg.lora_r}" if cfg.method == "lora" else ""
-    base = f"{cfg.output_dir}-{cfg.loss}{lora}-e{saved_epoch}"
+    mrl = "-mrl" if cfg.matryoshka else ""
+    base = f"{cfg.output_dir}-{cfg.loss}{mrl}{lora}-e{saved_epoch}"
     path, n = base, 2
     while Path(path).exists():
         path, n = f"{base}-{n}", n + 1
     return path
 
 
+def matryoshka_dims(requested: tuple[int, ...], model_dim: int) -> list[int]:
+    """The truncation dimensions to train, descending. A request is honoured but
+    clamped to dims the model can actually produce (≤ model_dim); an empty/unusable
+    request falls back to halving from the full dim (d, d/2, d/4, …) down to 64."""
+    if requested:
+        usable = sorted({d for d in requested if 0 < d <= model_dim}, reverse=True)
+        if usable:
+            return usable
+    auto, d = [], model_dim
+    while d >= 64:
+        auto.append(d)
+        d //= 2
+    return auto
+
+
 def _build_loss(model, cfg: TrainingConfig, has_negatives: bool):
-    """The training loss, chosen by ``cfg.loss``. All four read the same dataset
-    columns ((anchor, positive) or (anchor, positive, negative))."""
+    """The training loss, chosen by ``cfg.loss`` — then optionally wrapped in
+    MatryoshkaLoss. All four base losses read the same dataset columns ((anchor,
+    positive) or (anchor, positive, negative))."""
     from sentence_transformers import SentenceTransformer, losses
 
     if cfg.loss == "mnrl":
         # InfoNCE with in-batch negatives — the de-facto standard for retrieval.
-        return losses.MultipleNegativesRankingLoss(model)
-    if cfg.loss == "cached_mnrl":
+        base = losses.MultipleNegativesRankingLoss(model)
+    elif cfg.loss == "cached_mnrl":
         # Same objective as MNRL, but GradCache lets batch_size grow far beyond
         # device memory — and for MNRL, batch size IS the number of negatives.
-        return losses.CachedMultipleNegativesRankingLoss(model)
-    if cfg.loss == "gist":
+        base = losses.CachedMultipleNegativesRankingLoss(model)
+    elif cfg.loss == "gist":
         # MNRL where a guide model vetoes in-batch "negatives" that are actually
         # relevant to the query (false negatives corrupt the contrastive signal).
         print(f"[train] GIST guide model: {cfg.gist_guide}")
         guide = SentenceTransformer(cfg.gist_guide, device=pick_device(cfg.device))
-        return losses.GISTEmbedLoss(model, guide)
-    if cfg.loss == "triplet":
+        base = losses.GISTEmbedLoss(model, guide)
+    elif cfg.loss == "triplet":
         if not has_negatives:
             raise SystemExit(
                 "[train] TripletLoss에는 모든 레코드에 hard negative가 필요합니다 — "
@@ -76,12 +93,22 @@ def _build_loss(model, cfg: TrainingConfig, has_negatives: bool):
             )
         # Embeddings are L2-normalized, so cosine distance with a small margin
         # (the euclidean default margin=5 would never be satisfied on a unit sphere).
-        return losses.TripletLoss(
+        base = losses.TripletLoss(
             model,
             distance_metric=losses.TripletDistanceMetric.COSINE,
             triplet_margin=0.05,
         )
-    raise SystemExit(f"[train] unknown TRAIN_LOSS={cfg.loss!r} — expected one of {LOSSES}")
+    else:
+        raise SystemExit(f"[train] unknown TRAIN_LOSS={cfg.loss!r} — expected one of {LOSSES}")
+
+    if cfg.matryoshka:
+        # Train the loss at several embedding prefixes at once, so a truncated vector
+        # is still well-ordered. Wraps any base loss — the contrastive objective is
+        # unchanged, just applied to [:d] for each d.
+        dims = matryoshka_dims(cfg.matryoshka_dims, model.get_embedding_dimension())
+        print(f"[train] Matryoshka representation learning — dims {dims}")
+        return losses.MatryoshkaLoss(model, base, matryoshka_dims=dims)
+    return base
 
 
 def _best_epoch_callback(model, cfg: TrainingConfig):
@@ -300,6 +327,11 @@ def _write_meta(final_dir: str, cfg: TrainingConfig, history: list[dict],
         }
     if cfg.loss == "gist":
         meta["gist_guide"] = cfg.gist_guide
+    if cfg.matryoshka:
+        # The exact dims are derived at train time from the model's own embedding dim;
+        # record the request — the resolved list is in the training log either way.
+        meta["matryoshka"] = True
+        meta["matryoshka_dims"] = list(cfg.matryoshka_dims)
     Path(final_dir, "train_meta.json").write_text(
         json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )

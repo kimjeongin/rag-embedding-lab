@@ -291,7 +291,7 @@ const GUARANTEES: ReactNode[][] = [
   ],
   [
     "학습은 끊기지 않음",
-    "학습 잡은 서버 소유 — 브라우저를 닫아도 진행되고, 끝나면 자동 평가까지. 스윕은 순차 실행 + 상위 K개만 보관해 디스크도 자동 정리",
+    "학습 잡은 서버 소유 — 브라우저를 닫아도 진행되고, 끝나면 자동 평가까지. 스윕은 순차 실행 + median pruning으로 지는 런 조기 종료 + 상위 K개만 보관해 디스크도 자동 정리",
     "학습 탭",
   ],
 ];
@@ -555,6 +555,13 @@ qrels/final.tsv  query-id  corpus-id  1     # 채점표 (확정용)`}</Code>
               ["hard negative 데이터 보유 + 미세 구분 학습", "Triplet — 헷갈리는 쌍을 정밀 타격"],
             ]}
           />
+          <Note tone="signal" title="Matryoshka — loss를 감싸는 옵션">
+            위 네 loss는 “무엇을 가깝게/멀게 할까”를 정합니다. <b className="text-fg">Matryoshka</b>는 그 위에 덧씌우는
+            wrapper로, 같은 목표를 <b className="text-fg">여러 prefix 길이</b>(예: 1024·512·256·128·64)에서 동시에 학습합니다.
+            결과 벡터는 <b className="text-fg">앞부분만 잘라 써도</b> 순위가 거의 유지돼서, 프로덕션이 저장·검색 비용을 줄이려
+            짧은 벡터를 쓸 때 그대로 납품할 수 있는 dense 부품이 됩니다. 학습 탭의 loss 아래 체크박스로 켜며, 모델 이름에{" "}
+            <M>-mrl</M>이 붙습니다.
+          </Note>
         </Panel>
       </Topic>
 
@@ -619,6 +626,14 @@ qrels/final.tsv  query-id  corpus-id  1     # 채점표 (확정용)`}</Code>
               출력됩니다.
             </Note>
           </div>
+          <Note tone="amber" title="스윕은 '한 변수' 탐침입니다 — 한계를 알고 쓰세요">
+            이 랩의 스윕은 한 축만 바꾸고 나머지는 <b className="text-fg">고정</b>합니다. 읽기 쉬운 곡선을 주지만 두 가지를
+            기억하세요. ① <b className="text-fg">상호작용</b> — learning rate는 batch·rank·loss와 얽혀서, 고정 LR에서 고른
+            “최적 rank”가 LR이 바뀌면 더는 최적이 아닐 수 있습니다(비-LR 축은 <b className="text-fg">LR 동반(2축)</b>으로 함께
+            변주). ② <b className="text-fg">노이즈</b> — 단발 점수는 학습 운에 흔들리니 <b className="text-fg">시드 반복</b>으로
+            평균±편차를 보세요. 그리고 <span className="mono">비교</span> 탭의 유의성 검정은{" "}
+            <b className="text-fg">평가셋 표집 노이즈</b>를 재는 것이지 학습 재현 노이즈가 아닙니다 — 둘은 다릅니다.
+          </Note>
         </Panel>
       </Topic>
 
@@ -714,6 +729,14 @@ qrels/final.tsv  query-id  corpus-id  1     # 채점표 (확정용)`}</Code>
             다시 정렬해 주므로 정답이 50등 안에만 들면 임무 완수 — 1등으로 올리는 건 리랭커가 더 잘합니다. 반대로 임베더가
             50 안에 못 넣은 정답은 <b className="text-fg">리랭커도 영영 보지 못합니다</b>. recall이 전체 검색 품질의
             천장인 이유입니다.
+          </Note>
+          <Note tone="amber" title="단, 작은 corpus에선 recall@50이 포화됩니다">
+            recall@50은 <b className="text-fg">건초더미가 충분히 클 때만</b> 변별력이 있습니다. corpus가 300개면 상위 50은
+            상위 16%라, 강한 모델은 거의 항상 정답을 담아 점수가 <b className="text-fg">1.0에 붙어버립니다</b>(모델 간 차이
+            0). 이 PoC corpus를 300→1500으로 키우자 recall@1이 0.94(포화)에서 0.80으로 내려와 비로소 모델을 가렸지만,
+            recall@50은 1500에서도 0.98로 평탄했습니다. <b className="text-fg">실전 규칙</b>: recall@50은 “프로덕션 후보
+            커버리지” 지표로 보고하되, <b className="text-fg">모델 선택은 헤드룸이 있는 recall@5·recall@1·nDCG@10으로</b>{" "}
+            하세요. recall@50 자체로 모델을 고르려면 corpus가 수천~만 단위는 돼야 합니다.
           </Note>
           <p className="text-[13px] leading-relaxed text-mut">
             여기에 두 가지 안전장치가 붙습니다. 첫째, <b className="text-fg">평가셋 지문(fingerprint)</b> — 평가셋 내용의

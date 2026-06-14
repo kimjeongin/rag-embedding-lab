@@ -18,8 +18,11 @@ const LOSS_OPTIONS: { value: TrainLoss; label: string }[] = [
 ];
 const LOSS_SET = new Set(LOSS_OPTIONS.map((o) => o.value));
 
-// One axis at a time — the sweep UI enforces the practitioner methodology instead
-// of documenting it. ("none" = repeat the same config over seeds only.)
+// One PRIMARY axis at a time — a single-variable probe, not a joint search. Because
+// learning rate interacts with almost everything, a non-LR axis can be co-swept with LR
+// ("LR 동반") so each setting is judged at its own best LR rather than one frozen guess —
+// the nuisance-parameter caveat from Google's Tuning Playbook. ("none" = repeat the same
+// config over seeds only, to measure run-to-run variance.)
 const AXES = [
   { value: "learning_rate", label: "learning rate", hint: "예: 1e-5, 2e-5, 1e-4" },
   { value: "loss", label: "loss", hint: "예: mnrl, gist, triplet" },
@@ -39,6 +42,7 @@ const RUN_STATUS: Record<string, { label: string; cls: string }> = {
   skipped: { label: "건너뜀", cls: "text-faint" },
   stopped: { label: "중단", cls: "text-amber" },
   interrupted: { label: "끊김", cls: "text-amber" },
+  pruned: { label: "가지치기", cls: "text-faint" },
 };
 
 function castAxisValue(axis: Axis, raw: string): number | string {
@@ -164,26 +168,84 @@ function RunDetail({ run, running }: { run: JobRunState; running: boolean }) {
   );
 }
 
+interface LeaderRow {
+  label: string;
+  idx: number;
+  n: number; // how many seeds folded into this row
+  ndcgMean: number;
+  ndcgStd: number;
+  recallMean: number;
+}
+
+const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+const std = (xs: number[]) => {
+  if (xs.length < 2) return 0;
+  const m = mean(xs);
+  return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / (xs.length - 1));
+};
+/** Drop the "· seed=NN" segment so seed-siblings share one display label. */
+const stripSeed = (label: string) => label.split(" · ").filter((p) => !p.startsWith("seed=")).join(" · ");
+
+/** Collapse runs that differ only by seed into one variance-aware row, ranked by mean
+ *  nDCG@10. A single-seed sweep is just every group with n=1 (no ± shown). Ranking on
+ *  the seed mean — not a lone run — is what keeps training noise from reordering it. */
+function aggregateBySeed(runs: JobRunState[]): LeaderRow[] {
+  const groups = new Map<string, { label: string; idx: number; ndcg: number[]; recall: number[] }>();
+  for (const r of runs) {
+    if (!r.eval) continue;
+    const rest = { ...r.config };
+    delete rest.seed; // everything-but-seed is the grouping key
+    const key = JSON.stringify(rest);
+    const g = groups.get(key) ?? { label: stripSeed(r.label) || `run ${r.idx}`, idx: r.idx, ndcg: [], recall: [] };
+    g.ndcg.push(r.eval.metrics["ndcg@10"] ?? 0);
+    g.recall.push(r.eval.metrics["recall@50"] ?? 0);
+    groups.set(key, g);
+  }
+  return [...groups.values()]
+    .map((g) => ({
+      label: g.label,
+      idx: g.idx,
+      n: g.ndcg.length,
+      ndcgMean: mean(g.ndcg),
+      ndcgStd: std(g.ndcg),
+      recallMean: mean(g.recall),
+    }))
+    .sort((a, b) => b.ndcgMean - a.ndcgMean);
+}
+
 /** Live leaderboard — auto-evaluated runs ranked while the rest still train. */
 function SweepLeaderboard({ job }: { job: JobState }) {
-  const ranked = job.runs
-    .filter((r) => r.eval)
-    .sort((x, y) => (y.eval!.metrics["ndcg@10"] ?? 0) - (x.eval!.metrics["ndcg@10"] ?? 0));
-  if (ranked.length < 2) return null;
-  const top = ranked[0].eval!.metrics["ndcg@10"] ?? 0;
+  const rows = aggregateBySeed(job.runs);
+  if (rows.length < 2) return null;
+  const top = rows[0].ndcgMean;
+  const seeded = rows.some((r) => r.n > 1);
   return (
     <Panel className="mt-5 p-5">
-      <div className="mb-3 text-[13px] font-medium text-mut">리더보드 (자동 평가 · dev split)</div>
+      <div className="mb-3 flex items-center gap-1.5 text-[13px] font-medium text-mut">
+        리더보드 (자동 평가 · dev split{seeded ? " · 시드 평균±편차" : ""})
+        {seeded && (
+          <Info title="시드 평균으로 줄 세웁니다" align="left">
+            같은 설정을 여러 <span className="mono">seed</span>로 돌린 런은 하나로 묶어 <b className="text-fg">평균 ± 표준편차</b>로
+            표시합니다. 편차만큼 겹치는 두 설정은 사실상 동률 — 단발 점수로 순위를 매기면 학습 노이즈에 속습니다.
+          </Info>
+        )}
+      </div>
       <table className="w-full text-left">
         <tbody className="mono text-[12px]">
-          {ranked.map((r, i) => (
-            <tr key={r.idx} className={`border-t border-line/60 ${i === 0 ? "text-signal" : "text-mut"}`}>
+          {rows.map((r, i) => (
+            <tr key={r.label + r.idx} className={`border-t border-line/60 ${i === 0 ? "text-signal" : "text-mut"}`}>
               <td className="w-8 py-1.5">{i + 1}</td>
-              <td className="py-1.5">{r.label || `run ${r.idx}`}</td>
-              <td className="py-1.5 text-right">nDCG@10 {fmt(r.eval!.metrics["ndcg@10"] ?? 0)}</td>
-              <td className="py-1.5 pl-4 text-right">recall@50 {fmt(r.eval!.metrics["recall@50"] ?? 0)}</td>
+              <td className="py-1.5">
+                {r.label}
+                {r.n > 1 && <span className="ml-1.5 text-faint">×{r.n} seed</span>}
+              </td>
+              <td className="py-1.5 text-right">
+                nDCG@10 {fmt(r.ndcgMean)}
+                {r.n > 1 && <span className="text-faint"> ±{r.ndcgStd.toFixed(3)}</span>}
+              </td>
+              <td className="py-1.5 pl-4 text-right">recall@50 {fmt(r.recallMean)}</td>
               <td className="py-1.5 pl-4 text-right text-faint">
-                {i === 0 ? "1등" : `Δ ${((r.eval!.metrics["ndcg@10"] ?? 0) - top).toFixed(4)}`}
+                {i === 0 ? "1등" : `Δ ${(r.ndcgMean - top).toFixed(4)}`}
               </td>
             </tr>
           ))}
@@ -212,6 +274,8 @@ export default function Train() {
   const [lr, setLr] = useState("2e-5");
   const [device, setDevice] = useState("");
   const [loss, setLoss] = useState<TrainLoss>("mnrl");
+  const [matryoshka, setMatryoshka] = useState(false);
+  const [matryoshkaDims, setMatryoshkaDims] = useState(""); // blank = auto from model dim
   const [dropout, setDropout] = useState("");
   const [patience, setPatience] = useState(3);
   const [monitor, setMonitor] = useState<"ndcg" | "loss">("ndcg");
@@ -225,8 +289,11 @@ export default function Train() {
   // sweep-only
   const [axis, setAxis] = useState<Axis>("learning_rate");
   const [axisValues, setAxisValues] = useState("1e-5, 2e-5, 1e-4");
+  const [coVaryLr, setCoVaryLr] = useState(false); // cross the primary axis with LR (2-axis)
+  const [lrValues, setLrValues] = useState("1e-5, 2e-5, 1e-4");
   const [seeds, setSeeds] = useState(1);
   const [keepTopK, setKeepTopK] = useState(0); // 0 = keep everything
+  const [prune, setPrune] = useState(false); // median pruning — kill clearly-losing runs early
 
   const [confirmStop, setConfirmStop] = useState(false);
   useEffect(() => {
@@ -286,6 +353,10 @@ export default function Train() {
       learning_rate: parseFloat(lr) || (method === "lora" ? 1e-4 : 2e-5),
       device: device.trim(),
       loss,
+      matryoshka,
+      matryoshka_dims: matryoshka
+        ? matryoshkaDims.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0)
+        : [],
       dropout: Number.isFinite(parsedDropout) ? parsedDropout : null,
       early_stop_patience: patience,
       early_stop_metric: monitor,
@@ -314,10 +385,22 @@ export default function Train() {
         if (axis === "loss" && !LOSS_SET.has(v as TrainLoss)) problems.push(`loss가 아닙니다: ${v}`);
         else if (axis !== "loss" && Number.isNaN(castAxisValue(axis, v))) problems.push(`숫자가 아닙니다: ${v}`);
       });
-      runs = values.map((v) => ({
-        label: `${axisShort[axis]}=${v}`,
-        config: { ...cfg, [axis]: castAxisValue(axis, v) } as TrainRequest,
-      }));
+      // optional 2nd axis = learning rate, so a non-LR axis is judged at its own best LR
+      // (LR interacts with everything — a single frozen LR can rank by luck, not the axis).
+      const crossLr = coVaryLr && axis !== "learning_rate";
+      const lrs = crossLr ? lrValues.split(",").map((s) => s.trim()).filter(Boolean) : [];
+      if (crossLr) {
+        if (lrs.length === 0) problems.push("LR 동반: LR 값을 쉼표로 구분해 입력하세요");
+        lrs.forEach((v) => Number.isFinite(parseFloat(v)) || problems.push(`LR이 숫자가 아닙니다: ${v}`));
+      }
+      runs = values.flatMap((v) => {
+        const base = { label: `${axisShort[axis]}=${v}`, config: { ...cfg, [axis]: castAxisValue(axis, v) } as TrainRequest };
+        if (!crossLr) return [base];
+        return lrs.map((lrv) => ({
+          label: `${base.label} · lr=${lrv}`,
+          config: { ...base.config, learning_rate: parseFloat(lrv) },
+        }));
+      });
     }
     if (mode === "sweep" && seeds > 1) {
       runs = runs.flatMap((r) =>
@@ -333,7 +416,7 @@ export default function Train() {
     }
     return { runs, problems };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, axis, axisValues, seeds, base, out, epochs, batch, lr, device, loss, dropout, patience, monitor, method, loraR, loraAlpha, loraDropout, loraTarget, note, overview.data]);
+  }, [mode, axis, axisValues, coVaryLr, lrValues, seeds, base, out, epochs, batch, lr, device, loss, matryoshka, matryoshkaDims, dropout, patience, monitor, method, loraR, loraAlpha, loraDropout, loraTarget, note, overview.data]);
 
   const submit = () =>
     createJob.mutate(
@@ -341,11 +424,12 @@ export default function Train() {
         runs: plannedRuns,
         auto_eval: autoEval,
         keep_top_k: mode === "sweep" && keepTopK > 0 ? keepTopK : null,
+        prune: mode === "sweep" && prune,
       },
       { onSuccess: (j) => setSelectedId(j.id) },
     );
 
-  const namePreview = `${out.trim() || "…"}-${loss}${method === "lora" ? `-r${loraR}` : ""}-eN`;
+  const namePreview = `${out.trim() || "…"}-${loss}${matryoshka ? "-mrl" : ""}${method === "lora" ? `-r${loraR}` : ""}-eN`;
   const finishedRun =
     job?.status === "done" && job.kind === "train" && job.runs[0]?.result ? job.runs[0] : null;
   const bestSweepRun =
@@ -377,9 +461,11 @@ export default function Train() {
               onChange={setMode}
             />
             <Info title="스윕이란" align="left">
-              아래 설정을 베이스로 <b className="text-fg">한 축만 바꿔가며</b> 여러 런을 순차 실행하고, 끝날 때마다{" "}
-              <b className="text-fg">자동 평가</b>해 리더보드에 쌓습니다. 한 번에 한 축(관행: LR → loss → r 순),
-              시드 반복으로 분산까지 — 다 돌면 <span className="mono">비교</span> 탭에서 diff로 고르세요.
+              아래 설정을 베이스로 <b className="text-fg">한 축(하이퍼파라미터 하나)</b>을 바꿔가며 여러 런을 순차 실행하고,
+              끝날 때마다 <b className="text-fg">자동 평가</b>해 리더보드에 쌓습니다. 단일 변수 탐침이라 결과는 “고정한 다른
+              값 아래에서의” 비교 — LR은 거의 모든 것과 상호작용하니 비-LR 축은 <b className="text-fg">LR 동반(2축)</b>으로, 학습
+              노이즈는 <b className="text-fg">시드 반복</b>으로 다루세요. 다 돌면 <span className="mono">비교</span> 탭에서
+              diff·유의성으로 확정합니다.
             </Info>
           </div>
 
@@ -455,6 +541,37 @@ export default function Train() {
                 </Info>
               </div>
             </Field>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[12.5px] text-mut">
+              <input
+                type="checkbox"
+                checked={matryoshka}
+                onChange={(e) => setMatryoshka(e.target.checked)}
+                disabled={running}
+                className="h-4 w-4 accent-[#c6f24a]"
+              />
+              Matryoshka — 차원 절단 학습
+              <Info title="Matryoshka (차원을 잘라 써도 견디는 벡터)" align="left">
+                같은 loss를 여러 prefix 길이(예: 1024·512·256·128·64)에서 동시에 학습해, <b className="text-fg">앞부분만
+                잘라 써도</b> 순위 품질이 유지되는 벡터를 만듭니다. 프로덕션이 저장·ANN 비용을 줄이려 짧은 벡터를 쓸 때
+                유리한 dense 부품 — wrapper라 어떤 loss와도 합쳐지고, 모델 이름에 <span className="mono">-mrl</span>이 붙습니다.
+                여러 차원의 backward 그래프를 동시에 들고 있어 <b className="text-fg">메모리를 크게 씁니다</b> —
+                batch·LoRA로도 잘 안 줄어듭니다. OOM이면 차원 수를 줄이거나(예: 256·64) 더 작은 base 모델 / VRAM이 큰
+                GPU를 쓰세요.
+              </Info>
+            </label>
+            {matryoshka && (
+              <div className="mt-2 sm:max-w-md">
+                <Field label="절단 차원" hint="비우면 모델 차원에서 자동 (d·d/2·d/4…64)">
+                  <Input
+                    value={matryoshkaDims}
+                    onChange={(e) => setMatryoshkaDims(e.target.value)}
+                    placeholder="예: 512, 256, 128, 64 (비우면 자동)"
+                    className="mono"
+                    disabled={running}
+                  />
+                </Field>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -547,6 +664,48 @@ export default function Train() {
                     </Info>
                   </div>
                 </Field>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-line/60 pt-3">
+                <label
+                  className={`flex items-center gap-2 text-[12.5px] ${
+                    axis === "learning_rate" || axis === "none" ? "cursor-not-allowed text-faint" : "cursor-pointer text-mut"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={coVaryLr && axis !== "learning_rate" && axis !== "none"}
+                    onChange={(e) => setCoVaryLr(e.target.checked)}
+                    disabled={running || axis === "learning_rate" || axis === "none"}
+                    className="h-4 w-4 accent-[#c6f24a]"
+                  />
+                  LR 동반 (2축)
+                  <Info title="왜 LR을 함께 변주하나" align="left">
+                    learning rate는 거의 모든 설정과 상호작용합니다. <b className="text-fg">batch·rank·loss를 고정 LR 하나에서만</b>{" "}
+                    비교하면 “그 축”이 아니라 “누구의 LR이 우연히 맞았나”로 순위가 갈릴 수 있어요. 각 값을 자기 최적 LR에서
+                    재보려면 LR을 2번째 축으로 함께 돌립니다 (런 수 = 값 × LR × 시드).
+                  </Info>
+                </label>
+                {coVaryLr && axis !== "learning_rate" && axis !== "none" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-faint">LR 값</span>
+                    <Input value={lrValues} onChange={(e) => setLrValues(e.target.value)} className="mono w-44" disabled={running} />
+                  </div>
+                )}
+                <label className="flex cursor-pointer items-center gap-2 text-[12.5px] text-mut">
+                  <input
+                    type="checkbox"
+                    checked={prune}
+                    onChange={(e) => setPrune(e.target.checked)}
+                    disabled={running}
+                    className="h-4 w-4 accent-[#c6f24a]"
+                  />
+                  median pruning
+                  <Info title="분명히 지는 런 조기 종료" align="left">
+                    학습 중 매 epoch, 진행 중인 런의 최고 검증 nDCG가 <b className="text-fg">이미 끝난 런들의 중앙값</b>을 밑돌면 그
+                    런을 멈추고 다음으로 넘어갑니다(Optuna의 MedianPruner). 비싼 순차 스윕에서 나쁜 후보에 시간을 안 써요 —
+                    완료된 런이 2개 이상 쌓인 뒤 2 epoch부터 판단합니다.
+                  </Info>
+                </label>
               </div>
               <div className="mono mt-3 border-t border-line/60 pt-3 text-[11.5px] text-mut">
                 실행 목록 ({plannedRuns.length}런 · 예상 디스크 ~{(plannedRuns.length * 1.1).toFixed(1)}GB

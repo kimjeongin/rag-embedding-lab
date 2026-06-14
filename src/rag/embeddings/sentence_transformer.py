@@ -35,10 +35,15 @@ class SentenceTransformerEmbedder:
             else "mps" if torch.backends.mps.is_available()
             else "cpu"
         )
-        self._model = SentenceTransformer(settings.st_model, device=device)
+        # truncate_dim (Matryoshka inference): ST truncates each embedding to the first
+        # N dims; normalize_embeddings then re-normalizes the prefix. get_sentence_
+        # embedding_dimension() reports N, so the dim guard below still holds.
+        self._model = SentenceTransformer(
+            settings.st_model, device=device, truncate_dim=settings.truncate_dim
+        )
         self._instruction = settings.query_instruction
 
-        dim = self._model.get_sentence_embedding_dimension()
+        dim = self._model.get_embedding_dimension()
         if dim != settings.embed_dim:
             raise EmbeddingError(
                 f"Model '{settings.st_model}' outputs dim {dim} != EMBED_DIM "

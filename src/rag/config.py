@@ -40,9 +40,15 @@ class Settings:
     st_model: str = _DEFAULT_ST_MODEL
     st_device: str = ""
 
+    # Matryoshka inference: truncate embeddings to this many dims (then re-normalize).
+    # None = full dim. Only meaningful for a model trained with MatryoshkaLoss — it's
+    # how the production side would store/search shorter vectors. (ST backend only.)
+    truncate_dim: int | None = None
+
     @classmethod
     def from_env(cls) -> "Settings":
         """Build settings from environment variables, falling back to the defaults."""
+        truncate = os.getenv("EMBED_TRUNCATE_DIM", "")
         return cls(
             embed_dim=int(os.getenv("EMBED_DIM", str(_DEFAULT_EMBED_DIM))),
             query_instruction=os.getenv("QUERY_INSTRUCTION", DEFAULT_QUERY_INSTRUCTION),
@@ -51,6 +57,7 @@ class Settings:
             embed_model=os.getenv("EMBED_MODEL", _DEFAULT_EMBED_MODEL),
             st_model=os.getenv("ST_MODEL", _DEFAULT_ST_MODEL),
             st_device=os.getenv("ST_DEVICE", ""),
+            truncate_dim=int(truncate) if truncate else None,
         )
 
     @property

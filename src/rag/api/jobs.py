@@ -20,6 +20,7 @@ import gc
 import json
 import os
 import shutil
+import statistics
 import sys
 import time
 import uuid
@@ -57,6 +58,44 @@ _HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("no space left",),
      "디스크가 가득 찼습니다 — 모델 페이지에서 안 쓰는 모델을 정리하세요 (런당 약 1GB)."),
 )
+
+
+# Cross-run median pruning (sweep-only, opt-in): while a run trains, compare its
+# best-so-far validation nDCG against the runs that already finished, at the same
+# epoch, and kill it early if it trails the median — the single biggest compute saving
+# for an expensive sequential sweep (Optuna's MedianPruner, on the metric we already
+# stream). Held off until a few epochs in (early curves are noisy) and until enough
+# peers exist to form a median.
+_PRUNE_WARMUP = 2       # ≥ this many completed runs before a median means anything
+_PRUNE_MIN_EPOCH = 2    # never prune before a run has had this many epochs
+
+
+def _best_ndcg_at(epochs: list[dict], epoch: int) -> float | None:
+    """A run's best val nDCG@10 through ``epoch`` (monotone — the value early stopping
+    would keep). None when no epoch up to here reported an nDCG."""
+    seen = [e["ndcg"] for e in epochs if e.get("ndcg") is not None and e.get("epoch", 0) <= epoch]
+    return max(seen) if seen else None
+
+
+def _should_prune(current: float | None, peer_bests: list[float], epoch: int) -> bool:
+    """True when a run at ``epoch`` should be pruned: its best-so-far trails the median
+    of the completed peers'. Pure (no I/O) so it's unit-testable."""
+    if epoch < _PRUNE_MIN_EPOCH or current is None or len(peer_bests) < _PRUNE_WARMUP:
+        return False
+    return current < statistics.median(peer_bests)
+
+
+def _peer_bests_at(job: dict, current_idx: int, epoch: int) -> list[float]:
+    """best-so-far nDCG at ``epoch`` for every COMPLETED run other than this one.
+    Completed-only: a run that was itself pruned/failed isn't a fair baseline."""
+    out = []
+    for r in job["runs"]:
+        if r["idx"] == current_idx or r.get("status") not in ("trained", "evaluated"):
+            continue
+        best = _best_ndcg_at(r.get("epochs") or [], epoch)
+        if best is not None:
+            out.append(best)
+    return out
 
 
 def jobs_dir() -> Path:
@@ -137,7 +176,12 @@ def delete_job(job_id: str) -> bool:
 
 
 # ── job creation + control ───────────────────────────────────────────────────────
-def create_job(runs: list[dict], auto_eval: bool = True, keep_top_k: int | None = None) -> dict:
+def create_job(
+    runs: list[dict],
+    auto_eval: bool = True,
+    keep_top_k: int | None = None,
+    prune: bool = False,
+) -> dict:
     """Register a job (not yet started): runs = [{"label": str, "config": dict}]."""
     _ensure_loaded()
     job = {
@@ -147,6 +191,7 @@ def create_job(runs: list[dict], auto_eval: bool = True, keep_top_k: int | None 
         "created_at": _now(),
         "auto_eval": auto_eval,
         "keep_top_k": keep_top_k,
+        "prune": prune and len(runs) > 1,   # pruning needs peers — meaningless for a single run
         "current": None,
         "error": None,
         "runs": [
@@ -222,7 +267,7 @@ async def _run_job(job_id: str) -> None:
             await _run_one(job, run)
             _persist(job)
         if job.get("keep_top_k") and not _stop:
-            _prune_models(job)
+            _cull_loser_models(job)
         job["status"] = "stopped" if _stop else "done"
     except Exception as exc:  # noqa: BLE001 — a runner bug must not leave the job dangling
         job["status"] = "failed"
@@ -244,6 +289,8 @@ def _train_env(req: TrainRequest) -> dict[str, str]:
         "TRAIN_LR": str(req.learning_rate),
         "TRAIN_DEVICE": req.device,
         "TRAIN_LOSS": req.loss,
+        "TRAIN_MATRYOSHKA": "1" if req.matryoshka else "0",
+        "TRAIN_MATRYOSHKA_DIMS": ",".join(str(d) for d in req.matryoshka_dims),
         "TRAIN_DROPOUT": "" if req.dropout is None else str(req.dropout),
         "TRAIN_PATIENCE": str(req.early_stop_patience),
         "TRAIN_MONITOR": req.early_stop_metric,
@@ -285,6 +332,7 @@ async def _run_one(job: dict, run: dict) -> None:
     _proc = proc
     accumulated: list[str] = []
     seen_loss = seen_epochs = 0
+    pruned = False
     started = time.monotonic()
     try:
         with log_path.open("a", encoding="utf-8") as log_f:
@@ -306,6 +354,20 @@ async def _run_one(job: dict, run: dict) -> None:
                         run["epochs"].append(point)
                     seen_epochs = len(epochs)
                     _persist(job)  # epoch boundary — cheap (~once a minute), keeps disk current
+
+                    # median pruning — judged at the epoch boundary on the metric we
+                    # just streamed; kill a clearly-trailing run so the sweep moves on
+                    if job.get("prune") and not pruned and not _stop and not _skip:
+                        epoch = run["epochs"][-1]["epoch"]
+                        current = _best_ndcg_at(run["epochs"], epoch)
+                        peers = _peer_bests_at(job, run["idx"], epoch)
+                        if _should_prune(current, peers, epoch):
+                            pruned = True
+                            run["hint"] = (
+                                f"중간 검증 nDCG가 완료된 런들의 중앙값을 밑돌아 epoch {epoch}에서 "
+                                "조기 종료(median pruning) — keep_top_k처럼 나쁜 후보에 시간을 안 씁니다"
+                            )
+                            _kill_current()
         exit_code = await proc.wait()
     finally:
         _proc = None
@@ -315,6 +377,9 @@ async def _run_one(job: dict, run: dict) -> None:
 
     if _stop or _skip:
         run["status"] = "stopped" if _stop else "skipped"
+        return
+    if pruned:
+        run["status"] = "pruned"   # killed by median pruning — no model saved, no eval
         return
     if exit_code != 0:
         tail = "\n".join(text.split("\n")[-25:])
@@ -378,10 +443,11 @@ def _release_torch_memory() -> None:
             torch.cuda.empty_cache()
 
 
-def _prune_models(job: dict) -> None:
+def _cull_loser_models(job: dict) -> None:
     """keep_top_k: after the sweep, delete the model folders of the losing runs
     (~1GB each). Their eval records stay in the registry — the numbers survive,
-    the weights don't. Only the winners' folders remain."""
+    the weights don't. Only the winners' folders remain. (Distinct from median
+    pruning, which stops a run mid-training; this culls finished models on disk.)"""
     evaluated = [r for r in job["runs"] if r.get("eval") and r.get("result")]
     ranked = sorted(
         evaluated, key=lambda r: r["eval"]["metrics"].get("ndcg@10", 0.0), reverse=True

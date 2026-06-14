@@ -1,10 +1,29 @@
-"""Lab support — default model selection (the rest of rag.lab needs Ollama/torch and
-isn't unit-tested)."""
-from rag.lab import default_model
+"""Lab support — default model selection + truncate-dim plumbing (the rest of rag.lab
+needs Ollama/torch and isn't unit-tested)."""
+import pytest
+
+from rag.lab import build_eval_settings, default_model, infer_dim
 
 
 def test_default_model_prefers_an_embedding_model_for_ollama():
     assert default_model("ollama", ["qwen3:4b", "qwen3-embedding:0.6b"]) == "qwen3-embedding:0.6b"
+
+
+def test_infer_dim_short_circuits_to_truncate_dim():
+    # truncate_dim is the produced dimension — no model load, no Ollama call
+    assert infer_dim("sentence-transformers", "outputs/whatever", "", truncate_dim=256) == 256
+    assert infer_dim("ollama", "m", "http://x", truncate_dim=128) == 128
+
+
+def test_build_eval_settings_carries_truncate_dim_for_st():
+    s = build_eval_settings("sentence-transformers", "outputs/m", 256, "", truncate_dim=256)
+    assert s.truncate_dim == 256 and s.embed_dim == 256 and s.st_model == "outputs/m"
+
+
+def test_build_eval_settings_rejects_truncate_for_ollama():
+    # Ollama embeds at a fixed dimension — truncation is a sentence-transformers feature
+    with pytest.raises(ValueError, match="truncate_dim"):
+        build_eval_settings("ollama", "m", 256, "http://x", truncate_dim=256)
 
 
 def test_default_model_falls_back_to_first_for_ollama_without_embedding():

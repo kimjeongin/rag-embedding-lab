@@ -22,6 +22,7 @@ export default function Eval() {
   const [override, setOverride] = useState(preset.model ?? ""); // user-typed model ("" = use the query's default)
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
+  const [truncateDim, setTruncateDim] = useState(""); // Matryoshka: "" = full dim (ST only)
   const models = useModels(backend);
   const runEval = useRunEval();
 
@@ -30,12 +31,20 @@ export default function Eval() {
   const changeBackend = (b: Embedder) => {
     setBackend(b);
     setOverride(""); // drop the override so the new backend's default shows
+    if (b === "ollama") setTruncateDim(""); // truncation is ST-only
   };
 
   const submit = () => {
     const m = model.trim();
     if (!m) return;
-    runEval.mutate({ embedder: backend, model: m, label: label.trim(), note: note.trim() });
+    const dim = parseInt(truncateDim, 10);
+    runEval.mutate({
+      embedder: backend,
+      model: m,
+      label: label.trim(),
+      note: note.trim(),
+      truncate_dim: backend === "sentence-transformers" && Number.isFinite(dim) && dim > 0 ? dim : null,
+    });
   };
 
   const result = runEval.data;
@@ -83,6 +92,24 @@ export default function Eval() {
             <Field label="가설 메모" hint="비교 탭에 함께 표시">
               <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 베이스라인 측정" />
             </Field>
+            {backend === "sentence-transformers" && (
+              <Field label="차원 절단 (Matryoshka)" hint="비우면 전체 차원">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={truncateDim}
+                    onChange={(e) => setTruncateDim(e.target.value)}
+                    placeholder="예: 256"
+                    className="mono"
+                  />
+                  <Info title="Matryoshka 차원 절단 평가" align="left">
+                    <span className="mono">-mrl</span> 모델은 앞부분만 잘라 써도 견딥니다. 256을 넣으면{" "}
+                    <b className="text-fg">256차원으로 잘라</b> 평가해 “<span className="mono">…@256</span>” 런으로 기록 —{" "}
+                    <span className="mono">비교</span> 탭에서 전체 차원과 나란히 두면 차원↓당 품질 손실이 보입니다. 학습
+                    모델(ST)에서만 동작합니다.
+                  </Info>
+                </div>
+              </Field>
+            )}
           </div>
         </Panel>
       </Section>

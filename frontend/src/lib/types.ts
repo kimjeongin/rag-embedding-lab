@@ -264,6 +264,7 @@ export interface EvalRequest {
   label?: string;
   split?: "dev" | "final"; // final = one-shot confirmation of a chosen winner
   note?: string;
+  truncate_dim?: number | null; // Matryoshka: score the truncated prefix (ST models only)
 }
 export interface EvalResponse {
   model: string;
@@ -286,6 +287,8 @@ export interface TrainRequest {
   learning_rate: number;
   device: string;
   loss?: TrainLoss;
+  matryoshka?: boolean; // wrap the loss so truncated vectors (768→256→…) stay strong
+  matryoshka_dims?: number[]; // empty + matryoshka on → derived from the model's dim
   dropout?: number | null; // backbone dropout; null = model defaults
   early_stop_patience?: number; // 0 = off (run all epochs, save the last)
   early_stop_metric?: "ndcg" | "loss";
@@ -321,6 +324,7 @@ export interface JobCreateRequest {
   runs: JobRunSpec[];
   auto_eval?: boolean;
   keep_top_k?: number | null;
+  prune?: boolean; // median pruning — kill runs trailing the completed median (sweep-only)
 }
 export type JobRunStatus =
   | "pending"
@@ -330,7 +334,8 @@ export type JobRunStatus =
   | "failed"
   | "skipped"
   | "stopped"
-  | "interrupted";
+  | "interrupted"
+  | "pruned";
 export interface JobRunState {
   idx: number;
   label: string;

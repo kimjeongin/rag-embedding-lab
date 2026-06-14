@@ -19,7 +19,7 @@ from rag.api.schemas.lab import (
 
 router = APIRouter()
 
-_TERMINAL = ("trained", "evaluated", "failed", "skipped", "stopped", "interrupted")
+_TERMINAL = ("trained", "evaluated", "failed", "skipped", "stopped", "interrupted", "pruned")
 
 
 def _summary(job: dict) -> JobSummary:
@@ -46,6 +46,7 @@ async def create_job(req: JobCreateRequest) -> JobState:
         [{"label": r.label, "config": r.config.model_dump()} for r in req.runs],
         auto_eval=req.auto_eval,
         keep_top_k=req.keep_top_k,
+        prune=req.prune,
     )
     jobs.start_job(job["id"])
     return JobState(**job)

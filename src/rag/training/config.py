@@ -30,6 +30,16 @@ _DEFAULT_LORA_DROPOUT = 0.05
 _DEFAULT_LORA_TARGET = "all-linear"              # "all-linear" | "attention" (q/k/v/o only)
 
 
+def _parse_dims(raw: str) -> tuple[int, ...]:
+    """'768, 256, 128' → (768, 256, 128); blank/garbage entries dropped."""
+    dims = []
+    for part in raw.split(","):
+        part = part.strip()
+        if part.isdigit() and int(part) > 0:
+            dims.append(int(part))
+    return tuple(dims)
+
+
 @dataclass(frozen=True, slots=True)
 class TrainingConfig:
     base_model: str = _DEFAULT_BASE_MODEL       # served model's HF checkpoint
@@ -46,6 +56,14 @@ class TrainingConfig:
     # triplet additionally *requires* hard negatives on every record.
     loss: str = _DEFAULT_LOSS
     gist_guide: str = _DEFAULT_GIST_GUIDE        # guide model for GISTEmbedLoss
+
+    # Matryoshka representation learning: wrap the chosen loss so the embedding stays
+    # strong when truncated to a shorter prefix (768→256→128→…). The production side
+    # then stores/searches shorter vectors at little quality cost. `matryoshka_dims`
+    # empty + matryoshka on → derive [d, d/2, d/4, …] from the model's own dim at train
+    # time. Composes with any loss (MNRL/GIST/triplet) — it's a wrapper, not a loss.
+    matryoshka: bool = False
+    matryoshka_dims: tuple[int, ...] = ()
 
     # Backbone dropout override. None = keep the model's defaults. The config key
     # differs per architecture (BERT: hidden_dropout_prob, Qwen: attention_dropout, …);
@@ -97,6 +115,8 @@ class TrainingConfig:
             query_instruction=os.getenv("QUERY_INSTRUCTION", DEFAULT_QUERY_INSTRUCTION),
             loss=os.getenv("TRAIN_LOSS", _DEFAULT_LOSS),
             gist_guide=os.getenv("TRAIN_GIST_GUIDE", _DEFAULT_GIST_GUIDE),
+            matryoshka=os.getenv("TRAIN_MATRYOSHKA", "0").lower() not in ("0", "false", "no", ""),
+            matryoshka_dims=_parse_dims(os.getenv("TRAIN_MATRYOSHKA_DIMS", "")),
             dropout=float(dropout) if dropout else None,   # "" = keep model defaults
             early_stop_patience=int(os.getenv("TRAIN_PATIENCE", str(_DEFAULT_PATIENCE))),
             early_stop_metric=os.getenv("TRAIN_MONITOR", _DEFAULT_MONITOR),

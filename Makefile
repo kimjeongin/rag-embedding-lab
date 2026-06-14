@@ -7,6 +7,10 @@ API_PORT ?= 8800
 
 # ── PoC data pipeline defaults (override per-invocation: `make crawl CRAWL_URL=…`) ──
 CRAWL_URL ?= https://www.korea.kr/sitemap_policy.xml
+# Haystack size. recall@50 only discriminates on a big corpus: at 300 docs top-50 is
+# the top 16% and every strong model scores ~1.0 (no signal). 1500 de-saturates
+# recall@1/@5/nDCG; drop to 300 for a fast demo (`make crawl CRAWL_MAX_PAGES=300`).
+CRAWL_MAX_PAGES ?= 1500
 GEN_MODEL ?= qwen3.5:4b
 N_QUERIES ?= 4
 HARD_NEGATIVES ?= 4
@@ -62,8 +66,8 @@ lint:  ## Lint backend (ruff) + frontend (eslint)
 
 # ── PoC data pipeline: crawl → pairs → eval set → baseline (README "PoC loop") ──
 
-crawl:  ## Crawl CRAWL_URL (site root or sitemap.xml) → page-level data/corpus.jsonl
-	uv run rag-crawl $(CRAWL_URL)
+crawl:  ## Crawl CRAWL_URL → corpus.jsonl (CRAWL_MAX_PAGES pages; bigger = less-saturated eval)
+	CRAWL_MAX_PAGES=$(CRAWL_MAX_PAGES) uv run rag-crawl $(CRAWL_URL)
 
 pairs:  ## LLM search-box queries → split → round-trip filter (train) → hard negatives
 	GEN_MODEL=$(GEN_MODEL) N_QUERIES=$(N_QUERIES) HARD_NEGATIVES=$(HARD_NEGATIVES) \

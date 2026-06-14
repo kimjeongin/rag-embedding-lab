@@ -29,10 +29,11 @@ async def run_eval(req: EvalRequest) -> EvalResponse:
             split=req.split,
             ollama_url=req.ollama_url,
             note=req.note,
+            truncate_dim=req.truncate_dim,
         )
     except NoJudgedQueries as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except FileNotFoundError as exc:  # final split missing → actionable 409, not a 500
+    except (FileNotFoundError, ValueError) as exc:  # missing final split / bad truncate combo → 4xx
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 — surface model/embedding failures as 502
         raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc

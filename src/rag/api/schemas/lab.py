@@ -203,6 +203,9 @@ class EvalRequest(BaseModel):
     # one-shot confirmation for the chosen winner (never used for selection).
     split: Literal["dev", "final"] = "dev"
     note: str = ""                      # experimenter's memo, shown alongside the run
+    # Matryoshka inference: truncate to this many dims before scoring (ST models only).
+    # Records the run as "…@{dim}" so the dim→quality curve is comparable in Compare.
+    truncate_dim: int | None = Field(default=None, ge=8, le=4096)
 
 
 class EvalResponse(BaseModel):
@@ -230,6 +233,10 @@ class TrainRequest(BaseModel):
     # Backbone dropout override; None keeps the model's own defaults. (LoRA adapters
     # have their separate lora_dropout below.)
     dropout: float | None = Field(default=None, ge=0, le=0.9)
+    # Matryoshka: wrap the loss so truncated vectors (768→256→128→…) stay strong.
+    # matryoshka_dims empty + matryoshka on → derived from the model's dim at train time.
+    matryoshka: bool = False
+    matryoshka_dims: list[int] = Field(default_factory=list)
     # Early stopping: stop after this many epochs without improvement on the monitored
     # metric and save the BEST epoch's weights. 0 = off (run all epochs, save the last).
     early_stop_patience: int = Field(default=3, ge=0, le=20)
@@ -265,6 +272,9 @@ class JobCreateRequest(BaseModel):
     # After the sweep: keep only the top-k models' folders (~1GB each); the losing
     # runs keep their eval records, just not their weights.
     keep_top_k: int | None = Field(default=None, ge=1)
+    # Median pruning (sweep-only): kill a run mid-training once its best-so-far val
+    # nDCG trails the median of the completed runs — saves compute on losing configs.
+    prune: bool = False
 
 
 class JobRunState(BaseModel):
@@ -290,6 +300,7 @@ class JobState(BaseModel):
     created_at: str
     auto_eval: bool = True
     keep_top_k: int | None = None
+    prune: bool = False                  # median pruning enabled for this sweep
     current: int | None = None           # idx of the run training right now
     error: str | None = None
     runs: list[JobRunState]

@@ -27,18 +27,23 @@ async def run_eval_flow(
     split: str = "dev",
     ollama_url: str | None = None,
     note: str | None = None,
+    truncate_dim: int | None = None,
 ) -> dict:
     """Evaluate one model on one split and record the run.
 
     Returns {model, embed_dim, metrics, n_queries, ci95, run, prior_best, split}.
     Raises NoJudgedQueries when nothing is scorable; embedding/model failures
-    propagate as-is (the caller decides how to surface them).
+    propagate as-is (the caller decides how to surface them). ``truncate_dim``
+    measures the model's Matryoshka prefix (e.g. 256-d) — recorded as a distinct
+    run ("…@256") so the dim→quality curve shows up in Compare.
     """
     eval_dir = (eval_dir or "").strip() or eval_dir_from_env()
     ollama_url = ollama_url or Settings.from_env().ollama_url
 
-    dim = lab.infer_dim(embedder, model, ollama_url)
-    settings = lab.build_eval_settings(embedder, model, dim, ollama_url)
+    dim = lab.infer_dim(embedder, model, ollama_url, truncate_dim)
+    settings = lab.build_eval_settings(embedder, model, dim, ollama_url, truncate_dim)
+    if truncate_dim and label and "@" not in label:
+        label = f"{label}@{truncate_dim}"
 
     # Δ is only meaningful against runs on the SAME eval-set contents AND split (a
     # different haystack — or the held-out final split — isn't comparable), so scope

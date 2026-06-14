@@ -106,8 +106,12 @@ def is_sample_eval(eval_dir: str) -> bool:
 
 
 # ── eval settings (which model to measure) ─────────────────────────────────────
-def infer_dim(embedder: str, model: str, ollama_url: str) -> int:
-    """The embedding dimension this model produces — so no manual dim field can be wrong."""
+def infer_dim(embedder: str, model: str, ollama_url: str, truncate_dim: int | None = None) -> int:
+    """The embedding dimension this model produces — so no manual dim field can be wrong.
+    With ``truncate_dim`` (Matryoshka inference) the vectors are cut to that length, so
+    that IS the dimension; Ollama has no truncation, so it's rejected upstream."""
+    if truncate_dim:
+        return truncate_dim
     if embedder == "ollama":
         resp = httpx.post(f"{ollama_url}/api/embed", json={"model": model, "input": "x"}, timeout=30)
         resp.raise_for_status()
@@ -124,18 +128,22 @@ def infer_dim(embedder: str, model: str, ollama_url: str) -> int:
             pass  # malformed config — fall back to loading the model
     from sentence_transformers import SentenceTransformer
 
-    return int(SentenceTransformer(model).get_sentence_embedding_dimension())
+    return int(SentenceTransformer(model).get_embedding_dimension())
 
 
-def build_eval_settings(embedder: str, model: str, embed_dim: int, ollama_url: str) -> Settings:
+def build_eval_settings(
+    embedder: str, model: str, embed_dim: int, ollama_url: str, truncate_dim: int | None = None
+) -> Settings:
     """Settings for evaluating one model, inheriting unrelated fields from the env."""
     base = Settings.from_env()
     if embedder == "ollama":
+        if truncate_dim:
+            raise ValueError("차원 절단(truncate_dim)은 sentence-transformers 모델에서만 됩니다 (Ollama는 고정 차원)")
         return Settings(
             embedder="ollama", embed_model=(model or base.embed_model), embed_dim=embed_dim,
             ollama_url=(ollama_url or base.ollama_url), query_instruction=base.query_instruction,
         )
     return Settings(
         embedder="sentence-transformers", st_model=(model or base.st_model), embed_dim=embed_dim,
-        query_instruction=base.query_instruction,
+        query_instruction=base.query_instruction, truncate_dim=truncate_dim,
     )
