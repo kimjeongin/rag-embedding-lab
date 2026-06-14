@@ -64,15 +64,22 @@ The `{task}` comes from `QUERY_INSTRUCTION`.
    import real query/click logs (`POST /api/data/import`) and grow qrels with the
    built-in judging UI.
 2. **Train** — server-owned **jobs** (a refresh never kills a run): single runs or
-   **sweeps** (one axis × values × seeds, sequential, auto-evaluated as each run
-   finishes — a live leaderboard). Selectable loss (MNRL / cached MNRL / GIST /
-   triplet), backbone dropout, LoRA knobs, per-epoch validation with early stopping;
-   the **best** epoch's weights are saved and the name says so (`…-mnrl-e7`); the full
-   recipe + data fingerprints land in `train_meta.json`.
+   **sweeps** — one axis × values, optionally co-varied with **LR** (2-axis, so a
+   non-LR axis is judged at its own best LR), × seeds, run sequentially and
+   auto-evaluated into a **seed-aggregated** live leaderboard (mean ± std, so single-run
+   noise can't reorder it); opt-in **median pruning** stops clearly-losing runs early.
+   Selectable loss (MNRL / cached MNRL / GIST / triplet), optional **Matryoshka**
+   (truncatable vectors), backbone dropout, LoRA knobs, per-epoch validation with early
+   stopping; the **best** epoch's weights are saved and the name says so (`…-mnrl-e7`,
+   `-mrl` when Matryoshka); the full recipe + data fingerprints land in `train_meta.json`.
 3. **Evaluate** — embed the whole eval corpus + queries with the **same** formatting,
    rank by cosine in-memory (numpy), score against the qrels. `recall@50` is the
    headline (in a hybrid+rerank pipeline the dense model is a candidate generator);
-   `EVAL_TOP_K` aligns it to your production fusion depth.
+   `EVAL_TOP_K` aligns it to your production fusion depth. **But** recall@50 only
+   discriminates on a *large* haystack (top-50 of a few-hundred-doc corpus is ~everything,
+   so every model ties ~1.0) — at PoC scale select on **recall@5 / recall@1 / nDCG@10**.
+   A Matryoshka (`-mrl`) model can be scored at a truncated dimension
+   (`EMBED_TRUNCATE_DIM`, or the Eval tab's 차원 절단) to read its dim→quality curve.
 4. **Compare** — every eval is recorded; pick two runs for a **paired per-query diff**
    (win/loss, sign-flip permutation p-value, topic slices, retrieved docs side by
    side). Import production BM25 as a TREC run to measure complementarity. Confirm the
@@ -183,9 +190,9 @@ The React app is a thin client over these (FastAPI, [`rag/api/routes/lab/`](src/
 | `GET /api/models?embedder=` | model list + a sensible default |
 | `GET /api/data/{overview,pairs,corpus}` | dataset counts + previews |
 | `POST /api/data/{pairs,eval}` | (re)generate training pairs / the BEIR eval set |
-| `POST /api/eval` | score a model → append to the run registry → metrics + Δ |
+| `POST /api/eval` | score a model (optional `truncate_dim`) → append to the run registry → metrics + Δ |
 | `GET`·`DELETE /api/runs[/{id}]` | list (with best-per-metric) / delete a run |
-| `POST /api/train` | fine-tune, streamed live over **SSE** (log / loss / metrics / done) |
+| `POST`·`GET /api/jobs[/{id}]` | create/observe **server-owned** training jobs (single or sweep); poll state, `/stop`·`/skip` |
 
 Lab support code is framework-free (keeping the route handlers thin): the run registry in
 [`rag/runs.py`](src/rag/runs.py), environment/model introspection in
@@ -241,10 +248,12 @@ Eval/Compare screens do this interactively; from the CLI:
 EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
 EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eval  # fine-tuned
 ```
-> ⚠️ The sample eval set's distractors are deliberately *easy* (so a strong base model
-> scores ~0.98) — it proves the harness, not model quality. Real discrimination comes
-> from a real corpus: crawl one (`rag-crawl` + `EVAL_SOURCE=corpus`) or bring in-house
-> data. See [`docs/evaluation.md`](docs/evaluation.md).
+> ⚠️ Eval discrimination is mostly a function of **haystack size**. The bundled sample
+> is deliberately easy (a strong base model scores ~0.98) — it proves the harness, not
+> model quality. A real crawl (`rag-crawl` + `EVAL_SOURCE=corpus`) helps, but note even a
+> ~1500-doc corpus leaves **recall@50 saturated** (top-50 ≈ top 3%); recall@1/@5/nDCG@10
+> are what move and what you should select on. For recall@50 itself to bite you need a
+> haystack in the thousands+. See [`docs/evaluation.md`](docs/evaluation.md).
 
 **Training-pair format** (JSONL, one record per line — written by `datagen`, read by
 `training`; the eval set is separate, see [`docs/evaluation.md`](docs/evaluation.md)):
@@ -258,11 +267,13 @@ one). Bring your own data in this format (point `TRAIN_FILE`/`TRAIN_EVAL_FILE` a
 put documents in `data/corpus.jsonl` and run `rag-gen-synthetic`. Key env:
 `TRAIN_BASE_MODEL`, `TRAIN_EPOCHS` (a *ceiling* — early stopping ends sooner),
 `TRAIN_PATIENCE` / `TRAIN_MONITOR` (`ndcg` or `loss`; the best epoch's weights are what
-gets saved), `TRAIN_LOSS` (`mnrl` / `cached_mnrl` / `gist` / `triplet`), `TRAIN_DROPOUT`,
-`TRAIN_SEED`, `TRAIN_NOTE`, `TRAIN_BATCH_SIZE`, `TRAIN_DEVICE`, `TRAIN_METHOD`
-(`full` or `lora` — adapters are merged into the base on save;
-`TRAIN_LORA_R/ALPHA/DROPOUT/TARGET` tune them), `EVAL_TOP_K` (ranking depth —
-match your production fusion depth), `GEN_MODEL`, `N_QUERIES`, `HARD_NEGATIVES`,
+gets saved), `TRAIN_LOSS` (`mnrl` / `cached_mnrl` / `gist` / `triplet`),
+`TRAIN_MATRYOSHKA`(+`TRAIN_MATRYOSHKA_DIMS` — truncatable vectors; memory-heavy, reduce
+the dim count if it OOMs), `TRAIN_DROPOUT`, `TRAIN_SEED`, `TRAIN_NOTE`,
+`TRAIN_BATCH_SIZE`, `TRAIN_DEVICE`, `TRAIN_METHOD` (`full` or `lora` — adapters are merged
+into the base on save; `TRAIN_LORA_R/ALPHA/DROPOUT/TARGET` tune them), `EVAL_TOP_K`
+(ranking depth — match your production fusion depth), `EMBED_TRUNCATE_DIM` (score a
+Matryoshka model at a shorter prefix), `GEN_MODEL`, `N_QUERIES`, `HARD_NEGATIVES`,
 `ROUND_TRIP_K`, `NEG_MARGIN`.
 
 ## Architecture
@@ -285,7 +296,8 @@ src/rag/
 ├── evaluation/       beir.py (corpus/queries/qrels IO) · retrieval.py (embed + in-memory rank) · metrics.py
 ├── api/              lab HTTP API (FastAPI) + composition root
 │   ├── app.py        create_app(): Settings + lab routes + serve frontend/dist
-│   └── deps.py · errors.py · schemas/lab.py · routes/lab/ (status·models·data·runs·evaluate·train SSE)
+│   ├── jobs.py       server-owned training jobs (single/sweep) · pruning.py (median pruning, pure) · hints.py (failure→fix)
+│   └── deps.py · errors.py · schemas/lab.py · routes/lab/ (status·models·data·runs·jobs·evaluate)
 ├── cli/              entrypoints (thin): serve · crawl · gen_data · gen_synthetic · gen_eval · train · evaluate
 ├── runs.py           eval-run registry (JSONL) ·  lab.py  env/model introspection ·  trainlog.py  log parsing
 ├── dataset.py        shared training-pair JSONL IO (datagen ↔ training)

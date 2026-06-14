@@ -51,10 +51,12 @@ export function Seg<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-line bg-ink-880/60 p-1">
+    <div role="radiogroup" className="inline-flex rounded-xl border border-line bg-ink-880/60 p-1">
       {options.map((o) => (
         <button
           key={o.value}
+          role="radio"
+          aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cx(
             "rounded-lg px-3.5 py-2 text-sm transition-all duration-150",

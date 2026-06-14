@@ -31,10 +31,3 @@ export function Tag({ children, tone = "mut" }: { children: ReactNode; tone?: "s
   }[tone];
   return <span className={cx("mono rounded-md px-1.5 py-0.5 text-[11px] font-medium", map)}>{children}</span>;
 }
-
-/** Keyboard-key hint (e.g. ⌘K). */
-export function Kbd({ children }: { children: ReactNode }) {
-  return (
-    <kbd className="mono rounded-md border border-line2 bg-ink-800 px-1.5 py-px text-[10.5px] text-mut">{children}</kbd>
-  );
-}

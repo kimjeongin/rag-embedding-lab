@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Play, SkipForward, Square } from "lucide-react";
+import { ArrowRight, ChevronRight, Play, SkipForward, Square } from "lucide-react";
 
 import { fmt } from "../lib/format";
 import { PATH } from "../lib/nav";
@@ -8,7 +8,8 @@ import { useCreateJob, useDataOverview, useJob, useJobs, useSkipRun, useStatus, 
 import { useQueryClient } from "@tanstack/react-query";
 import { LossCurve } from "../components/charts";
 import { Btn, ErrorNote, Field, Info, Input, Panel, Section, SectionLabel, Seg, Stat } from "../components/ui";
-import type { JobRunSpec, JobRunState, JobState, TrainLoss, TrainRequest } from "../lib/types";
+import { AXES, type Axis, aggregateBySeed, planRuns } from "../lib/sweep";
+import type { JobRunState, JobState, TrainLoss, TrainRequest } from "../lib/types";
 
 const LOSS_OPTIONS: { value: TrainLoss; label: string }[] = [
   { value: "mnrl", label: "MNRL" },
@@ -16,22 +17,6 @@ const LOSS_OPTIONS: { value: TrainLoss; label: string }[] = [
   { value: "gist", label: "GIST" },
   { value: "triplet", label: "Triplet" },
 ];
-const LOSS_SET = new Set(LOSS_OPTIONS.map((o) => o.value));
-
-// One PRIMARY axis at a time — a single-variable probe, not a joint search. Because
-// learning rate interacts with almost everything, a non-LR axis can be co-swept with LR
-// ("LR 동반") so each setting is judged at its own best LR rather than one frozen guess —
-// the nuisance-parameter caveat from Google's Tuning Playbook. ("none" = repeat the same
-// config over seeds only, to measure run-to-run variance.)
-const AXES = [
-  { value: "learning_rate", label: "learning rate", hint: "예: 1e-5, 2e-5, 1e-4" },
-  { value: "loss", label: "loss", hint: "예: mnrl, gist, triplet" },
-  { value: "dropout", label: "dropout", hint: "예: 0, 0.1, 0.2" },
-  { value: "lora_r", label: "LoRA rank", hint: "예: 8, 16, 32" },
-  { value: "batch_size", label: "batch size", hint: "예: 8, 16, 32" },
-  { value: "none", label: "(축 없음 — 시드만 반복)", hint: "같은 설정 × N시드로 분산 측정" },
-] as const;
-type Axis = (typeof AXES)[number]["value"];
 
 const RUN_STATUS: Record<string, { label: string; cls: string }> = {
   pending: { label: "대기", cls: "text-faint" },
@@ -43,21 +28,6 @@ const RUN_STATUS: Record<string, { label: string; cls: string }> = {
   stopped: { label: "중단", cls: "text-amber" },
   interrupted: { label: "끊김", cls: "text-amber" },
   pruned: { label: "가지치기", cls: "text-faint" },
-};
-
-function castAxisValue(axis: Axis, raw: string): number | string {
-  if (axis === "loss") return raw;
-  if (axis === "lora_r" || axis === "batch_size") return parseInt(raw, 10);
-  return parseFloat(raw);
-}
-
-const axisShort: Record<Axis, string> = {
-  learning_rate: "lr",
-  loss: "loss",
-  dropout: "drop",
-  lora_r: "r",
-  batch_size: "batch",
-  none: "",
 };
 
 function etaLabel(run: JobRunState): string | null {
@@ -168,51 +138,6 @@ function RunDetail({ run, running }: { run: JobRunState; running: boolean }) {
   );
 }
 
-interface LeaderRow {
-  label: string;
-  idx: number;
-  n: number; // how many seeds folded into this row
-  ndcgMean: number;
-  ndcgStd: number;
-  recallMean: number;
-}
-
-const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-const std = (xs: number[]) => {
-  if (xs.length < 2) return 0;
-  const m = mean(xs);
-  return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / (xs.length - 1));
-};
-/** Drop the "· seed=NN" segment so seed-siblings share one display label. */
-const stripSeed = (label: string) => label.split(" · ").filter((p) => !p.startsWith("seed=")).join(" · ");
-
-/** Collapse runs that differ only by seed into one variance-aware row, ranked by mean
- *  nDCG@10. A single-seed sweep is just every group with n=1 (no ± shown). Ranking on
- *  the seed mean — not a lone run — is what keeps training noise from reordering it. */
-function aggregateBySeed(runs: JobRunState[]): LeaderRow[] {
-  const groups = new Map<string, { label: string; idx: number; ndcg: number[]; recall: number[] }>();
-  for (const r of runs) {
-    if (!r.eval) continue;
-    const rest = { ...r.config };
-    delete rest.seed; // everything-but-seed is the grouping key
-    const key = JSON.stringify(rest);
-    const g = groups.get(key) ?? { label: stripSeed(r.label) || `run ${r.idx}`, idx: r.idx, ndcg: [], recall: [] };
-    g.ndcg.push(r.eval.metrics["ndcg@10"] ?? 0);
-    g.recall.push(r.eval.metrics["recall@50"] ?? 0);
-    groups.set(key, g);
-  }
-  return [...groups.values()]
-    .map((g) => ({
-      label: g.label,
-      idx: g.idx,
-      n: g.ndcg.length,
-      ndcgMean: mean(g.ndcg),
-      ndcgStd: std(g.ndcg),
-      recallMean: mean(g.recall),
-    }))
-    .sort((a, b) => b.ndcgMean - a.ndcgMean);
-}
-
 /** Live leaderboard — auto-evaluated runs ranked while the rest still train. */
 function SweepLeaderboard({ job }: { job: JobState }) {
   const rows = aggregateBySeed(job.runs);
@@ -286,6 +211,7 @@ export default function Train() {
   const [loraTarget, setLoraTarget] = useState<"all-linear" | "attention">("all-linear");
   const [note, setNote] = useState("");
   const [autoEval, setAutoEval] = useState(true);
+  const [showAdvanced, setShowAdvanced] = useState(false); // device · dropout · early stopping · memo
   // sweep-only
   const [axis, setAxis] = useState<Axis>("learning_rate");
   const [axisValues, setAxisValues] = useState("1e-5, 2e-5, 1e-4");
@@ -371,52 +297,19 @@ export default function Train() {
     };
   };
 
-  // ── expand the sweep into an explicit run list (preview = exactly what runs) ──
-  const { runs: plannedRuns, problems } = useMemo(() => {
-    const problems: string[] = [];
-    const cfg = baseConfig();
-    let runs: JobRunSpec[];
-    if (mode === "single" || axis === "none") {
-      runs = [{ label: "", config: cfg }];
-    } else {
-      const values = axisValues.split(",").map((s) => s.trim()).filter(Boolean);
-      if (values.length === 0) problems.push("축 값을 쉼표로 구분해 입력하세요");
-      values.forEach((v) => {
-        if (axis === "loss" && !LOSS_SET.has(v as TrainLoss)) problems.push(`loss가 아닙니다: ${v}`);
-        else if (axis !== "loss" && Number.isNaN(castAxisValue(axis, v))) problems.push(`숫자가 아닙니다: ${v}`);
-      });
-      // optional 2nd axis = learning rate, so a non-LR axis is judged at its own best LR
-      // (LR interacts with everything — a single frozen LR can rank by luck, not the axis).
-      const crossLr = coVaryLr && axis !== "learning_rate";
-      const lrs = crossLr ? lrValues.split(",").map((s) => s.trim()).filter(Boolean) : [];
-      if (crossLr) {
-        if (lrs.length === 0) problems.push("LR 동반: LR 값을 쉼표로 구분해 입력하세요");
-        lrs.forEach((v) => Number.isFinite(parseFloat(v)) || problems.push(`LR이 숫자가 아닙니다: ${v}`));
-      }
-      runs = values.flatMap((v) => {
-        const base = { label: `${axisShort[axis]}=${v}`, config: { ...cfg, [axis]: castAxisValue(axis, v) } as TrainRequest };
-        if (!crossLr) return [base];
-        return lrs.map((lrv) => ({
-          label: `${base.label} · lr=${lrv}`,
-          config: { ...base.config, learning_rate: parseFloat(lrv) },
-        }));
-      });
-    }
-    if (mode === "sweep" && seeds > 1) {
-      runs = runs.flatMap((r) =>
-        Array.from({ length: seeds }, (_, i) => ({
-          label: `${r.label ? `${r.label} · ` : ""}seed=${42 + i}`,
-          config: { ...r.config, seed: 42 + i },
-        })),
-      );
-    }
-    if (runs.length > 64) problems.push(`런이 너무 많습니다 (${runs.length} > 64)`);
-    if (loss === "triplet" && overview.data && !overview.data.train_has_negatives) {
-      problems.push("Triplet loss에는 hard negative가 필요합니다 — 데이터 탭에서 mining을 켜고 재생성하세요");
-    }
-    return { runs, problems };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, axis, axisValues, coVaryLr, lrValues, seeds, base, out, epochs, batch, lr, device, loss, matryoshka, matryoshkaDims, dropout, patience, monitor, method, loraR, loraAlpha, loraDropout, loraTarget, note, overview.data]);
+  // Expand the sweep into the explicit run list (the preview = exactly what runs).
+  // planRuns is a pure function (lib/sweep) — the React Compiler memoizes this call, so
+  // there's no hand-maintained dependency array to drift.
+  const { runs: plannedRuns, problems } = planRuns({
+    mode,
+    axis,
+    axisValues,
+    coVaryLr,
+    lrValues,
+    seeds,
+    base: baseConfig(),
+    trainHasNegatives: overview.data?.train_has_negatives,
+  });
 
   const submit = () =>
     createJob.mutate(
@@ -570,11 +463,14 @@ export default function Train() {
                     disabled={running}
                   />
                 </Field>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-amber/90">
+                  ⚠ 차원마다 backward 그래프를 들고 있어 메모리를 많이 씁니다 — OOM이면 batch·LoRA보다 차원 수를 줄이세요.
+                </p>
               </div>
             )}
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
             <Field label="epochs (최대)" hint="early stop이 일찍 멈춤">
               <Input type="number" min={1} value={epochs} onChange={(e) => setEpochs(+e.target.value)} className="mono" disabled={running} />
             </Field>
@@ -584,51 +480,69 @@ export default function Train() {
             <Field label="learning rate">
               <Input value={lr} onChange={(e) => setLr(e.target.value)} className="mono" disabled={running} />
             </Field>
-            <Field label="device" hint="빈칸=auto">
-              <Input value={device} onChange={(e) => setDevice(e.target.value)} placeholder="auto" className="mono" disabled={running} />
-            </Field>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Field label="dropout" hint="빈칸=모델 기본값">
-              <div className="flex items-center gap-2">
-                <Input value={dropout} onChange={(e) => setDropout(e.target.value)} placeholder="예: 0.1" className="mono" disabled={running} />
-                <Info title="dropout (과적합 억제)" align="left">
-                  아키텍처마다 적용 키가 달라(BERT: <span className="mono">hidden_dropout_prob</span>, Qwen:{" "}
-                  <span className="mono">attention_dropout</span>) 실제 적용 키는 학습 로그 첫 줄에 표시됩니다. 작은
-                  데이터일수록 효과적 — 보통 0~0.3 비교.
-                </Info>
-              </div>
-            </Field>
-            <Field label="patience" hint="0 = early stop 끔">
-              <div className="flex items-center gap-2">
-                <Input type="number" min={0} value={patience} onChange={(e) => setPatience(+e.target.value)} className="mono" disabled={running} />
-                <Info title="early stopping" align="left">
-                  epochs를 크게 잡아두고 매 epoch 검증을 봅니다. <b className="text-fg">개선 없는 epoch이 patience번
-                  연속</b>되면 멈추고 <b className="text-fg">가장 좋았던 epoch</b>이 저장됩니다 — 모델 이름의{" "}
-                  <span className="mono">-eN</span>이 그 epoch.
-                </Info>
-              </div>
-            </Field>
-            <Field label="중단 기준" hint="무엇이 '개선'인가">
-              <div className="flex flex-wrap items-center gap-2">
-                <Seg
-                  options={[
-                    { value: "ndcg", label: "val nDCG@10" },
-                    { value: "loss", label: "val loss" },
-                  ]}
-                  value={monitor}
-                  onChange={setMonitor}
-                />
-                <Info title="nDCG vs loss" align="left">
-                  <b className="text-fg">val nDCG@10</b> = 실제 검색 성능(기본 추천). <b className="text-fg">val loss</b>
-                  와 갈리면(loss↓ nDCG↓) 과적합 신호입니다.
-                </Info>
-              </div>
-            </Field>
-            <Field label="가설 메모" hint="비교 탭에 함께 표시">
-              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: lr 올리면 더 좋을까?" disabled={running} />
-            </Field>
+          {/* Advanced: sensible defaults (device=auto, dropout=model, patience=3, monitor=ndcg) —
+              hidden so the 80% path isn't a wall; a model dev opens it when needed. */}
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="flex items-center gap-1.5 text-[12.5px] font-medium text-mut transition-colors hover:text-fg"
+            >
+              <ChevronRight size={14} className={`transition-transform ${showAdvanced ? "rotate-90" : ""}`} />
+              고급 설정 <span className="font-normal text-faint">— device · dropout · early stopping · 메모</span>
+            </button>
+            {showAdvanced && (
+              <>
+                <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <Field label="device" hint="빈칸=auto">
+                    <Input value={device} onChange={(e) => setDevice(e.target.value)} placeholder="auto" className="mono" disabled={running} />
+                  </Field>
+                  <Field label="dropout" hint="빈칸=모델 기본값">
+                    <div className="flex items-center gap-2">
+                      <Input value={dropout} onChange={(e) => setDropout(e.target.value)} placeholder="예: 0.1" className="mono" disabled={running} />
+                      <Info title="dropout (과적합 억제)" align="left">
+                        아키텍처마다 적용 키가 달라(BERT: <span className="mono">hidden_dropout_prob</span>, Qwen:{" "}
+                        <span className="mono">attention_dropout</span>) 실제 적용 키는 학습 로그 첫 줄에 표시됩니다. 작은
+                        데이터일수록 효과적 — 보통 0~0.3 비교.
+                      </Info>
+                    </div>
+                  </Field>
+                  <Field label="patience" hint="0 = early stop 끔">
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={0} value={patience} onChange={(e) => setPatience(+e.target.value)} className="mono" disabled={running} />
+                      <Info title="early stopping" align="left">
+                        epochs를 크게 잡아두고 매 epoch 검증을 봅니다. <b className="text-fg">개선 없는 epoch이 patience번
+                        연속</b>되면 멈추고 <b className="text-fg">가장 좋았던 epoch</b>이 저장됩니다 — 모델 이름의{" "}
+                        <span className="mono">-eN</span>이 그 epoch.
+                      </Info>
+                    </div>
+                  </Field>
+                  <Field label="중단 기준" hint="무엇이 '개선'인가">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Seg
+                        options={[
+                          { value: "ndcg", label: "val nDCG@10" },
+                          { value: "loss", label: "val loss" },
+                        ]}
+                        value={monitor}
+                        onChange={setMonitor}
+                      />
+                      <Info title="nDCG vs loss" align="left">
+                        <b className="text-fg">val nDCG@10</b> = 실제 검색 성능(기본 추천). <b className="text-fg">val loss</b>
+                        와 갈리면(loss↓ nDCG↓) 과적합 신호입니다.
+                      </Info>
+                    </div>
+                  </Field>
+                </div>
+                <div className="mt-4 sm:max-w-md">
+                  <Field label="가설 메모" hint="비교 탭에 함께 표시">
+                    <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: lr 올리면 더 좋을까?" disabled={running} />
+                  </Field>
+                </div>
+              </>
+            )}
           </div>
 
           {mode === "sweep" && (
@@ -684,6 +598,11 @@ export default function Train() {
                     비교하면 “그 축”이 아니라 “누구의 LR이 우연히 맞았나”로 순위가 갈릴 수 있어요. 각 값을 자기 최적 LR에서
                     재보려면 LR을 2번째 축으로 함께 돌립니다 (런 수 = 값 × LR × 시드).
                   </Info>
+                  {(axis === "learning_rate" || axis === "none") && (
+                    <span className="text-[11px] text-faint">
+                      {axis === "learning_rate" ? "(축이 이미 LR)" : "(먼저 축을 고르세요)"}
+                    </span>
+                  )}
                 </label>
                 {coVaryLr && axis !== "learning_rate" && axis !== "none" && (
                   <div className="flex items-center gap-2">
@@ -701,9 +620,10 @@ export default function Train() {
                   />
                   median pruning
                   <Info title="분명히 지는 런 조기 종료" align="left">
-                    학습 중 매 epoch, 진행 중인 런의 최고 검증 nDCG가 <b className="text-fg">이미 끝난 런들의 중앙값</b>을 밑돌면 그
-                    런을 멈추고 다음으로 넘어갑니다(Optuna의 MedianPruner). 비싼 순차 스윕에서 나쁜 후보에 시간을 안 써요 —
-                    완료된 런이 2개 이상 쌓인 뒤 2 epoch부터 판단합니다.
+                    학습 중 매 epoch, 진행 중인 런의 최고 검증 지표(모니터링하는 <b className="text-fg">nDCG 또는 loss</b>)가{" "}
+                    <b className="text-fg">이미 끝난 런들의 중앙값</b>에 못 미치면 멈추고 다음으로 넘어갑니다(Optuna의
+                    MedianPruner). 비싼 순차 스윕에서 나쁜 후보에 시간을 안 써요 — 완료된 런이 3개 이상 쌓인 뒤 2 epoch부터
+                    판단합니다.
                   </Info>
                 </label>
               </div>
