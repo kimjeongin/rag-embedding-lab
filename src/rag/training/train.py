@@ -51,7 +51,7 @@ def _compose_output_dir(cfg: TrainingConfig, saved_epoch: int) -> str:
     return path
 
 
-def matryoshka_dims(requested: tuple[int, ...], model_dim: int) -> list[int]:
+def resolve_matryoshka_dims(requested: tuple[int, ...], model_dim: int) -> list[int]:
     """The truncation dimensions to train, descending. A request is honoured but
     clamped to dims the model can actually produce (≤ model_dim); an empty/unusable
     request falls back to halving from the full dim (d, d/2, d/4, …) down to 64."""
@@ -105,7 +105,7 @@ def _build_loss(model, cfg: TrainingConfig, has_negatives: bool):
         # Train the loss at several embedding prefixes at once, so a truncated vector
         # is still well-ordered. Wraps any base loss — the contrastive objective is
         # unchanged, just applied to [:d] for each d.
-        dims = matryoshka_dims(cfg.matryoshka_dims, model.get_embedding_dimension())
+        dims = resolve_matryoshka_dims(cfg.matryoshka_dims, model.get_embedding_dimension())
         print(f"[train] Matryoshka representation learning — dims {dims}")
         return losses.MatryoshkaLoss(model, base, matryoshka_dims=dims)
     return base

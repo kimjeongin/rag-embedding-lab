@@ -20,7 +20,6 @@ import gc
 import json
 import os
 import shutil
-import statistics
 import sys
 import time
 import uuid
@@ -28,6 +27,7 @@ from datetime import datetime
 from pathlib import Path
 
 from rag import trainlog
+from rag.api import hints, pruning
 from rag.api.schemas.lab import TrainRequest
 
 DEFAULT_JOBS_DIR = "runs/jobs"
@@ -43,62 +43,6 @@ _proc: asyncio.subprocess.Process | None = None
 _stop = False    # stop the whole job (current run killed, rest skipped)
 _skip = False    # kill just the current run, move on to the next
 _loaded = False
-
-# Common failure signatures → an actionable hint in the run state (the raw log is
-# still there; this is the "what do I do now" line the UI shows first).
-_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
-    (("out of memory", "mps backend out of memory", "cuda out of memory"),
-     "메모리 부족입니다 — batch size를 줄이거나 LoRA로 전환해 보세요. batch를 유지하고 싶으면 Cached MNRL이 "
-     "메모리를 아껴줍니다. Matryoshka를 켰다면 여러 차원의 backward 그래프를 동시에 들고 있어 batch·LoRA로도 "
-     "잘 안 줄어드니, 차원 수를 줄이세요(또는 VRAM이 더 큰 GPU)."),
-    (("no module named", "modulenotfounderror"),
-     "학습 스택이 설치되어 있지 않습니다 — `uv sync --group training` 후 다시 시도하세요."),
-    (("hard negative",),
-     "Triplet loss에는 모든 레코드에 hard negative가 필요합니다 — 데이터 탭에서 hard-negative mining을 켜고 재생성하세요."),
-    (("connection refused", "connecterror", "11434"),
-     "Ollama가 꺼져 있는 것 같습니다 — `ollama serve`가 실행 중인지 확인하세요."),
-    (("no space left",),
-     "디스크가 가득 찼습니다 — 모델 페이지에서 안 쓰는 모델을 정리하세요 (런당 약 1GB)."),
-)
-
-
-# Cross-run median pruning (sweep-only, opt-in): while a run trains, compare its
-# best-so-far validation nDCG against the runs that already finished, at the same
-# epoch, and kill it early if it trails the median — the single biggest compute saving
-# for an expensive sequential sweep (Optuna's MedianPruner, on the metric we already
-# stream). Held off until a few epochs in (early curves are noisy) and until enough
-# peers exist to form a median.
-_PRUNE_WARMUP = 2       # ≥ this many completed runs before a median means anything
-_PRUNE_MIN_EPOCH = 2    # never prune before a run has had this many epochs
-
-
-def _best_ndcg_at(epochs: list[dict], epoch: int) -> float | None:
-    """A run's best val nDCG@10 through ``epoch`` (monotone — the value early stopping
-    would keep). None when no epoch up to here reported an nDCG."""
-    seen = [e["ndcg"] for e in epochs if e.get("ndcg") is not None and e.get("epoch", 0) <= epoch]
-    return max(seen) if seen else None
-
-
-def _should_prune(current: float | None, peer_bests: list[float], epoch: int) -> bool:
-    """True when a run at ``epoch`` should be pruned: its best-so-far trails the median
-    of the completed peers'. Pure (no I/O) so it's unit-testable."""
-    if epoch < _PRUNE_MIN_EPOCH or current is None or len(peer_bests) < _PRUNE_WARMUP:
-        return False
-    return current < statistics.median(peer_bests)
-
-
-def _peer_bests_at(job: dict, current_idx: int, epoch: int) -> list[float]:
-    """best-so-far nDCG at ``epoch`` for every COMPLETED run other than this one.
-    Completed-only: a run that was itself pruned/failed isn't a fair baseline."""
-    out = []
-    for r in job["runs"]:
-        if r["idx"] == current_idx or r.get("status") not in ("trained", "evaluated"):
-            continue
-        best = _best_ndcg_at(r.get("epochs") or [], epoch)
-        if best is not None:
-            out.append(best)
-    return out
-
 
 def jobs_dir() -> Path:
     """Where job state + logs live (JOBS_DIR), defaulting to runs/jobs."""
@@ -280,31 +224,38 @@ async def _run_job(job_id: str) -> None:
         _persist(job)
 
 
+# TrainRequest field → TRAIN_* env var. Almost all are TRAIN_{NAME.upper()}; only these
+# three names differ from their env spelling (kept for back-compat with existing scripts).
+_ENV_ALIASES = {
+    "learning_rate": "TRAIN_LR",
+    "early_stop_patience": "TRAIN_PATIENCE",
+    "early_stop_metric": "TRAIN_MONITOR",
+}
+
+
+def _encode_env(value: object) -> str:
+    """Serialize a config value the way TrainingConfig.from_env decodes it: None→"" (the
+    Optional sentinel), bool→"1"/"0", list/tuple→csv, everything else→str."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (list, tuple)):
+        return ",".join(str(v) for v in value)
+    return str(value)
+
+
 def _train_env(req: TrainRequest) -> dict[str, str]:
-    """The TRAIN_* overrides rag.training.config.TrainingConfig.from_env() reads."""
-    return {
-        **os.environ,
-        "TRAIN_BASE_MODEL": req.base_model,
-        "TRAIN_OUTPUT_DIR": req.output_dir,
-        "TRAIN_EPOCHS": str(req.epochs),
-        "TRAIN_BATCH_SIZE": str(req.batch_size),
-        "TRAIN_LR": str(req.learning_rate),
-        "TRAIN_DEVICE": req.device,
-        "TRAIN_LOSS": req.loss,
-        "TRAIN_MATRYOSHKA": "1" if req.matryoshka else "0",
-        "TRAIN_MATRYOSHKA_DIMS": ",".join(str(d) for d in req.matryoshka_dims),
-        "TRAIN_DROPOUT": "" if req.dropout is None else str(req.dropout),
-        "TRAIN_PATIENCE": str(req.early_stop_patience),
-        "TRAIN_MONITOR": req.early_stop_metric,
-        "TRAIN_AUTO_NAME": "1" if req.auto_name else "0",
-        "TRAIN_SEED": str(req.seed),
-        "TRAIN_NOTE": req.note,
-        "TRAIN_METHOD": req.method,
-        "TRAIN_LORA_R": str(req.lora_r),
-        "TRAIN_LORA_ALPHA": str(req.lora_alpha),
-        "TRAIN_LORA_DROPOUT": str(req.lora_dropout),
-        "TRAIN_LORA_TARGET": req.lora_target,
-    }
+    """The TRAIN_* overrides the training subprocess reads (via TrainingConfig.from_env).
+
+    Derived from the request's fields rather than hand-listed, so a new TrainRequest
+    field propagates automatically — no parallel dict to keep in sync. The round-trip
+    (here → env strings → from_env) is pinned by a test so the two ends can't drift.
+    """
+    env = {**os.environ}
+    for name, value in req.model_dump().items():
+        env[_ENV_ALIASES.get(name, f"TRAIN_{name.upper()}")] = _encode_env(value)
+    return env
 
 
 async def _run_one(job: dict, run: dict) -> None:
@@ -357,17 +308,19 @@ async def _run_one(job: dict, run: dict) -> None:
                     seen_epochs = len(epochs)
                     _persist(job)  # epoch boundary — cheap (~once a minute), keeps disk current
 
-                    # median pruning — judged at the epoch boundary on the metric we
-                    # just streamed; kill a clearly-trailing run so the sweep moves on
+                    # median pruning — judged at the epoch boundary on whatever this
+                    # sweep MONITORS (nDCG or loss), so it never fights early stopping
                     if job.get("prune") and not pruned and not _stop and not _skip:
                         epoch = run["epochs"][-1]["epoch"]
-                        current = _best_ndcg_at(run["epochs"], epoch)
-                        peers = _peer_bests_at(job, run["idx"], epoch)
-                        if _should_prune(current, peers, epoch):
+                        metric = req.early_stop_metric
+                        current = pruning.best_metric_at(run["epochs"], epoch, metric)
+                        peers = pruning.peer_bests_at(job["runs"], run["idx"], epoch, metric)
+                        if pruning.should_prune(current, peers, epoch, metric):
                             pruned = True
+                            label = "nDCG" if metric == "ndcg" else "val loss"
                             run["hint"] = (
-                                f"중간 검증 nDCG가 완료된 런들의 중앙값을 밑돌아 epoch {epoch}에서 "
-                                "조기 종료(median pruning) — keep_top_k처럼 나쁜 후보에 시간을 안 씁니다"
+                                f"중간 검증 {label}가 완료된 런들의 중앙값에 못 미쳐 epoch {epoch}에서 "
+                                "조기 종료(median pruning) — 나쁜 후보에 시간을 안 씁니다"
                             )
                             _kill_current()
         exit_code = await proc.wait()
@@ -387,7 +340,7 @@ async def _run_one(job: dict, run: dict) -> None:
         tail = "\n".join(text.split("\n")[-25:])
         run["status"] = "failed"
         run["error"] = f"학습 프로세스 종료 (exit {exit_code})"
-        run["hint"] = _hint_for(tail)
+        run["hint"] = hints.hint_for(tail)
         return
 
     before, after = trainlog.parse_eval_ndcg(text)
@@ -434,15 +387,17 @@ async def _auto_eval(run: dict) -> None:
 
 def _release_torch_memory() -> None:
     """Each auto-eval loads a ~1GB model into this process; without an explicit
-    release a long sweep would accumulate them."""
+    release a long sweep would accumulate them. Only the import is optional (the API
+    can run without the training stack) — a real empty_cache failure should surface."""
     gc.collect()
-    with contextlib.suppress(Exception):
+    try:
         import torch
-
-        if torch.backends.mps.is_available():
-            torch.mps.empty_cache()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+    except ImportError:
+        return
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def _cull_loser_models(job: dict) -> None:
@@ -465,11 +420,3 @@ def _cull_loser_models(job: dict) -> None:
         if outputs_root in path.parents and path.exists():
             shutil.rmtree(path, ignore_errors=True)
             run["model_deleted"] = True
-
-
-def _hint_for(tail: str) -> str | None:
-    lowered = tail.lower()
-    for needles, hint in _HINTS:
-        if any(needle in lowered for needle in needles):
-            return hint
-    return None
