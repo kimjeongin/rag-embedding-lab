@@ -400,6 +400,38 @@ class LabelCommitResponse(BaseModel):
     message: str
 
 
+# ── /api/search — the Qdrant-backed serving path ────────────────────────────────
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=1)
+    top_k: int = Field(default=10, ge=1, le=100)
+
+
+class SearchHit(BaseModel):
+    score: float                         # cosine similarity (index stores normalised vectors)
+    url: str | None = None
+    title: str | None = None
+    content: str = ""
+
+
+class SearchResponse(BaseModel):
+    query: str
+    collection: str                      # the versioned collection the live alias resolved to
+    model: str                           # the model that embedded THIS query (must match the index)
+    hits: list[SearchHit]
+
+
+class SearchStatusResponse(BaseModel):
+    reachable: bool                      # Qdrant answered
+    alias: str                           # the serving pointer ({prefix}-live)
+    collection: str | None = None        # its current target (None → nothing indexed yet)
+    points: int = 0
+    dim: int | None = None               # the index's vector size
+    dim_matches: bool | None = None      # index dim == this process's embedder dim
+    collections: list[str] = Field(default_factory=list)  # the whole family (rollback copies)
+    embedder: str                        # what /api/search would embed queries with
+    model: str
+
+
 # ── POST /api/runs/import-trec — an external retriever's ranking as a run ───────
 class ImportTrecRequest(BaseModel):
     label: str = ""                      # e.g. "BM25 (production)"

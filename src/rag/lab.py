@@ -156,8 +156,10 @@ def build_eval_settings(
         return Settings(
             embedder="ollama", embed_model=(model or base.embed_model), embed_dim=embed_dim,
             ollama_url=(ollama_url or base.ollama_url), query_instruction=base.query_instruction,
+            qdrant_url=base.qdrant_url, qdrant_collection=base.qdrant_collection,
         )
     return Settings(
         embedder="sentence-transformers", st_model=(model or base.st_model), embed_dim=embed_dim,
         query_instruction=base.query_instruction, truncate_dim=truncate_dim,
+        qdrant_url=base.qdrant_url, qdrant_collection=base.qdrant_collection,
     )

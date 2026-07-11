@@ -23,6 +23,8 @@ rag-gen-synthetic = "rag.cli.gen_synthetic:main"  # LLM-generated data: uv run r
 rag-gen-eval = "rag.cli.gen_eval:main"       # sample BEIR eval set:   uv run rag-gen-eval
 rag-train = "rag.cli.train:main"             # fine-tune embeddings:   uv run rag-train
 rag-eval = "rag.cli.evaluate:main"           # measure retrieval:      uv run rag-eval
+rag-index = "rag.cli.index:main"             # corpus → Qdrant index:  uv run rag-index --model outputs/…
+rag-search = "rag.cli.search:main"           # query the live index:   uv run rag-search "질문"
 
 [dependency-groups]
 # Dev tooling (installed by `uv sync`); run tests with `uv run pytest`.

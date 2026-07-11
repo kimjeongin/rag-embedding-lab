@@ -16,7 +16,7 @@ N_QUERIES ?= 4
 HARD_NEGATIVES ?= 4
 
 .PHONY: help install run dev build stop clean reset test lint \
-        crawl pairs evalset baseline train pipeline
+        crawl pairs evalset baseline train pipeline qdrant index serve-ft
 
 help:  ## List available commands
 	@grep -hE '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) \
@@ -83,3 +83,18 @@ train:  ## Fine-tune the embedding model (TRAIN_* env; early stopping; → outpu
 	uv run rag-train
 
 pipeline: crawl pairs evalset baseline  ## Full PoC data pipeline (needs Ollama running)
+
+# ── Serving: fine-tuned model + Qdrant (docs/serving.md) ─────────────────────────
+SERVE_MODEL ?= outputs/embedding-ft
+
+qdrant:  ## Start a local Qdrant (docker, :6333, data in ./qdrant_storage)
+	@docker start rag-qdrant 2>/dev/null || \
+	  docker run -d --name rag-qdrant -p 6333:6333 \
+	    -v $(PWD)/qdrant_storage:/qdrant/storage qdrant/qdrant
+	@echo "✓ Qdrant → http://localhost:6333/dashboard"
+
+index:  ## Embed data/corpus.jsonl with SERVE_MODEL → versioned collection + alias swap
+	uv run rag-index --model $(SERVE_MODEL)
+
+serve-ft: build  ## Serve UI + API with the fine-tuned model (/api/search hits the Qdrant index)
+	EMBEDDER=sentence-transformers ST_MODEL=$(SERVE_MODEL) uv run rag-serve

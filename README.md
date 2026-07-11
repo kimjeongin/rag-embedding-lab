@@ -31,6 +31,8 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 | `uv run rag-gen-eval` | write a **BEIR-format eval set** (`data/eval`) — `EVAL_SOURCE=corpus` uses the crawled site as the haystack |
 | `uv run rag-train` | fine-tune the embedding model |
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
+| `uv run rag-index` | embed `data/corpus.jsonl` into **Qdrant** (versioned collection + atomic alias swap) |
+| `uv run rag-search "질문"` | query the live Qdrant index from the CLI (serving smoke test) |
 
 `rag-serve` (API + UI) is a long-running server; the rest are batch tools that run and
 exit. The web UI lives in [`frontend/`](frontend) — see [Web UI](#web-ui). For everyday
@@ -88,6 +90,11 @@ The `{task}` comes from `QUERY_INSTRUCTION`.
    (`HANDOFF.md` + `handoff.json`: embedding contract, parity sample vectors,
    reindex checklist). The lab does not deploy; production swaps the dense model
    inside its existing hybrid + rerank pipeline.
+6. **Serve (optional, this repo)** — the lab can also serve the winner itself:
+   sentence-transformers in-process + **Qdrant**. `make qdrant` → `make index
+   SERVE_MODEL=outputs/…` → `POST /api/search`. Reindexing is idempotent and swaps a
+   live alias atomically, so a model change is one command with zero downtime. See
+   **[docs/serving.md](docs/serving.md)**.
 
 ## Quick start
 

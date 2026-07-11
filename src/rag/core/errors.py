@@ -9,3 +9,7 @@ from __future__ import annotations
 
 class EmbeddingError(Exception):
     """The embedding service failed or returned an unusable response."""
+
+
+class VectorStoreError(Exception):
+    """The vector store (Qdrant) is unreachable, or the index is missing/incompatible."""

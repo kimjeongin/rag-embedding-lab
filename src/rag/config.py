@@ -20,6 +20,8 @@ _DEFAULT_EMBED_MODEL = "qwen3-embedding:0.6b"
 _DEFAULT_EMBED_DIM = 1024
 _DEFAULT_EMBEDDER = "ollama"
 _DEFAULT_ST_MODEL = "outputs/embedding-ft"
+_DEFAULT_QDRANT_URL = "http://localhost:6333"
+_DEFAULT_QDRANT_COLLECTION = "docs"
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +47,13 @@ class Settings:
     # how the production side would store/search shorter vectors. (ST backend only.)
     truncate_dim: int | None = None
 
+    # Qdrant serving index. `qdrant_collection` is the collection FAMILY prefix —
+    # every reindex creates a versioned collection under it ("{prefix}__{model}__…")
+    # and atomically repoints the "{prefix}-live" alias, so search never sees a
+    # half-built index (see rag.serving).
+    qdrant_url: str = _DEFAULT_QDRANT_URL
+    qdrant_collection: str = _DEFAULT_QDRANT_COLLECTION
+
     @classmethod
     def from_env(cls) -> "Settings":
         """Build settings from environment variables, falling back to the defaults."""
@@ -58,6 +67,8 @@ class Settings:
             st_model=os.getenv("ST_MODEL", _DEFAULT_ST_MODEL),
             st_device=os.getenv("ST_DEVICE", ""),
             truncate_dim=int(truncate) if truncate else None,
+            qdrant_url=os.getenv("QDRANT_URL", _DEFAULT_QDRANT_URL),
+            qdrant_collection=os.getenv("QDRANT_COLLECTION", _DEFAULT_QDRANT_COLLECTION),
         )
 
     @property

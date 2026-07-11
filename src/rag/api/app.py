@@ -2,17 +2,18 @@
 
 Serves the **lab API** (``/api/*``): generate data → train → evaluate → compare, plus
 (when built) the React front-end from ``frontend/dist`` at ``/`` so the API and UI share
-one origin. There is no vector store — evaluation ranks the corpus in-memory (numpy
-cosine), so nothing needs standing up but Ollama (for the default embedder) when you run
-an eval.
+one origin. Evaluation needs no vector store (it ranks the corpus in-memory, numpy
+cosine); the **serving path** (``/api/search``) is the exception — it reads the Qdrant
+index built by ``rag-index`` (see rag.serving, docs/serving.md).
 
 ASGI target for uvicorn is ``rag.api.app:app``.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -69,8 +70,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        from rag.vectorstore.qdrant import QdrantStore
+
         app.state.settings = settings
+        # Serving singletons (see rag.api.deps): the store is cheap to construct
+        # (no connection until used) so it's eager; the embedder is lazy — the stack
+        # + lock exist so `get_embedder` can build-once and shutdown can close it.
+        app.state.store = QdrantStore(settings.qdrant_url)
+        app.state.embedder = None
+        app.state.embedder_lock = asyncio.Lock()
+        app.state.embedder_stack = AsyncExitStack()
         yield
+        await app.state.embedder_stack.aclose()
+        app.state.store.close()
 
     app = FastAPI(title="RAG Embedding Lab", lifespan=lifespan)
     register_error_handlers(app)
