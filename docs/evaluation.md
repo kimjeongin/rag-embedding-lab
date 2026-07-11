@@ -304,6 +304,14 @@ Two properties to know:
   (title, content), so after a re-crawl the old pairs no longer match — re-run
   `rag-gen-synthetic`, then `rag-gen-eval` (the tools warn/refuse rather than silently
   shrinking the query set).
+- **Known limitation — `final` is sweep-clean, not epoch-clean.** Training-time
+  validation (early stopping / best-epoch selection) monitors nDCG over *all* of
+  `data/test.jsonl`'s queries — the same pool the eval set's dev/**final** qrels are
+  drawn from. So `final` is untouched by *sweep selection* (its whole purpose), but
+  the *epoch choice* inside each run has seen its queries, which can bias `final`
+  slightly upward. It's one degree of freedom, so the effect is small; eliminating it
+  entirely needs a three-way doc split (train / val-for-early-stopping / test) at
+  data generation.
 
 Observed with the base `qwen3-embedding:0.6b` on a 300-page Korean corpus (224 dev
 queries): `recall@1 ≈ 0.87`, `recall@5 ≈ 0.97`, `nDCG@10 ≈ 0.93` — discriminative

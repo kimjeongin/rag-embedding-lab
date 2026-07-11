@@ -88,7 +88,7 @@ def _build_loss(model, cfg: TrainingConfig, has_negatives: bool):
     elif cfg.loss == "triplet":
         if not has_negatives:
             raise SystemExit(
-                "[train] TripletLoss에는 모든 레코드에 hard negative가 필요합니다 — "
+                "[train] TripletLoss에는 hard negative가 필요합니다 — "
                 "데이터 탭에서 hard-negative mining을 켜고 데이터를 다시 생성하세요"
             )
         # Embeddings are L2-normalized, so cosine distance with a small margin
@@ -216,10 +216,18 @@ def train(cfg: TrainingConfig) -> dict:
 
     loss = _build_loss(model, cfg, has_negatives=bool(negative_columns))
 
-    queries, corpus, relevant = to_ir_eval(cfg.eval_file, cfg.query_instruction)
+    # Validation ranks the held-out queries against held-out docs PLUS the train-split
+    # docs as distractors — a val corpus of only the few test docs saturates nDCG@10
+    # near 1.0 and early stopping would be steering on noise. (Costs one corpus embed
+    # per epoch; at lab scale that's seconds.)
+    queries, corpus, relevant = to_ir_eval(
+        cfg.eval_file, cfg.query_instruction, distractor_file=cfg.train_file
+    )
     evaluator = InformationRetrievalEvaluator(
         queries, corpus, relevant, name="val", show_progress_bar=False
     )
+    print(f"[train] validation: {len(queries)} queries over {len(corpus)} docs "
+          f"(train-split docs included as distractors)")
     print("[train] baseline eval (before fine-tuning):")
     _print_metrics(evaluator(model))
 

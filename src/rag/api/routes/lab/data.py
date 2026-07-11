@@ -89,11 +89,13 @@ def _corpus_items(eval_dir: str, limit: int | None, truncate: int | None) -> tup
 
 
 def _train_has_negatives(train_file: str) -> bool:
-    """True only when EVERY record carries a hard negative (TripletLoss's requirement)."""
+    """True when the dataset carries mined hard negatives (TripletLoss's requirement).
+    Any record having them is enough — training pads short records from the others'
+    docs (rag.training.data.pad_negatives)."""
     if not Path(train_file).exists():
         return False
     records = list(load_jsonl(train_file))
-    return bool(records) and all(r.get("negatives") for r in records)
+    return any(r.get("negatives") for r in records)
 
 
 # ── reads ───────────────────────────────────────────────────────────────────────

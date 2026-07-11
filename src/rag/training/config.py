@@ -20,7 +20,10 @@ _DEFAULT_EPOCHS = 12                             # a *ceiling* — early stoppin
 _DEFAULT_BATCH_SIZE = 16
 _DEFAULT_LR = 2e-5
 _DEFAULT_LOSS = "mnrl"                           # mnrl | cached_mnrl | gist | triplet
-_DEFAULT_GIST_GUIDE = "sentence-transformers/all-MiniLM-L6-v2"
+# Multilingual on purpose: the guide vetoes in-batch negatives by ITS OWN similarity
+# judgment — an English-only guide is blind on the Korean PoC corpus and the veto
+# becomes noise. This one covers ko/en at MiniLM size.
+_DEFAULT_GIST_GUIDE = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 _DEFAULT_PATIENCE = 3                            # epochs without improvement before stopping
 _DEFAULT_MONITOR = "ndcg"                        # "ndcg" (val nDCG@10) | "loss" (val loss)
 _DEFAULT_METHOD = "full"                         # "full" (all params) | "lora" (adapters)

@@ -226,7 +226,7 @@ const LOSSES: {
       </>
     ),
     when: "VPN 가이드 vs VPN 장애 공지처럼 비슷해서 틀리는 쌍을 데이터로 갖고 있을 때.",
-    caveat: "모든 레코드에 negatives가 필요 — 없으면 시작 자체가 거부됩니다(데이터 탭에서 hard negative 마이닝).",
+    caveat: "hard negative가 마이닝된 데이터가 필요 — 없으면 시작 자체가 거부됩니다(데이터 탭에서 hard negative 마이닝).",
   },
 ];
 

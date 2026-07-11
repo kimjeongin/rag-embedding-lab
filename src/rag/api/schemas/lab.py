@@ -228,7 +228,7 @@ class TrainRequest(BaseModel):
     learning_rate: float = Field(default=2e-5, gt=0)
     device: str = ""                                 # "" = auto (cuda → mps → cpu)
     # Training loss — all fit the (query, positive[, negatives]) dataset; "triplet"
-    # additionally requires hard negatives on every record.
+    # additionally requires mined hard negatives (short records get padded).
     loss: Literal["mnrl", "cached_mnrl", "gist", "triplet"] = "mnrl"
     # Backbone dropout override; None keeps the model's own defaults. (LoRA adapters
     # have their separate lora_dropout below.)

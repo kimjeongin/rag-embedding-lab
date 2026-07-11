@@ -13,7 +13,7 @@ _HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("no module named", "modulenotfounderror"),
      "학습 스택이 설치되어 있지 않습니다 — `uv sync --group training` 후 다시 시도하세요."),
     (("hard negative",),
-     "Triplet loss에는 모든 레코드에 hard negative가 필요합니다 — 데이터 탭에서 hard-negative mining을 켜고 재생성하세요."),
+     "Triplet loss에는 hard negative가 필요합니다 — 데이터 탭에서 hard-negative mining을 켜고 재생성하세요."),
     (("connection refused", "connecterror", "11434"),
      "Ollama가 꺼져 있는 것 같습니다 — `ollama serve`가 실행 중인지 확인하세요."),
     (("no space left",),
