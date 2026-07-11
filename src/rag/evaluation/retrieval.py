@@ -64,8 +64,9 @@ def _top_indices(scores, n: int) -> list[int]:
     return top[np.argsort(-scores[top])].tolist()
 
 
-def _l2_normalize(matrix):
-    """Row-wise L2 normalise so a dot product equals cosine similarity."""
+def l2_normalize(matrix):
+    """Row-wise L2 normalise so a dot product equals cosine similarity — shared with
+    the datagen mining pass (rag.datagen.synthetic), which scores the same way."""
     import numpy as np
 
     return matrix / (np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12)
@@ -93,8 +94,8 @@ async def rank_corpus(
         return {q: [] for q in query_ids}
 
     docs = [Document(content=corpus[d]["text"] or "", title=corpus[d]["title"]) for d in doc_ids]
-    doc_matrix = _l2_normalize(np.asarray(await embedder.embed_documents(docs), dtype="float32"))
-    query_matrix = _l2_normalize(
+    doc_matrix = l2_normalize(np.asarray(await embedder.embed_documents(docs), dtype="float32"))
+    query_matrix = l2_normalize(
         np.asarray(await embedder.embed_queries([queries[q] for q in query_ids]), dtype="float32")
     )
 

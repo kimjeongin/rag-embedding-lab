@@ -284,7 +284,6 @@ async def _run_one(job: dict, run: dict) -> None:
 
     _proc = proc
     accumulated: list[str] = []
-    seen_loss = seen_epochs = 0
     pruned = False
     started = time.monotonic()
     try:
@@ -293,25 +292,25 @@ async def _run_one(job: dict, run: dict) -> None:
             async for raw in proc.stdout:
                 line = raw.decode("utf-8", errors="replace")
                 accumulated.append(line)
-                log_f.write(trainlog.clean_tqdm(line))
+                # Parse each line ONCE as it arrives (a tqdm redraw collapses to its
+                # final state) — re-parsing the whole accumulated log per line would
+                # be quadratic over a long training run.
+                clean = trainlog.clean_tqdm(line)
+                log_f.write(clean)
 
-                text = trainlog.clean_tqdm("".join(accumulated))
-                points = trainlog.parse_loss_points(text)
-                if seen_loss < len(points):
-                    run["loss"].extend(points[seen_loss:])
-                    seen_loss = len(points)
-                epochs = trainlog.parse_epoch_points(text)
-                if seen_epochs < len(epochs):
-                    for point in epochs[seen_epochs:]:
-                        point["elapsed"] = round(time.monotonic() - started, 1)
-                        run["epochs"].append(point)
-                    seen_epochs = len(epochs)
+                loss = trainlog.parse_loss_line(clean)
+                if loss:
+                    run["loss"].append(trainlog.loss_point(loss, step=len(run["loss"]) + 1))
+                point = trainlog.parse_epoch_line(clean)
+                if point:
+                    point["elapsed"] = round(time.monotonic() - started, 1)
+                    run["epochs"].append(point)
                     _persist(job)  # epoch boundary — cheap (~once a minute), keeps disk current
 
                     # median pruning — judged at the epoch boundary on whatever this
                     # sweep MONITORS (nDCG or loss), so it never fights early stopping
                     if job.get("prune") and not pruned and not _stop and not _skip:
-                        epoch = run["epochs"][-1]["epoch"]
+                        epoch = point["epoch"]
                         metric = req.early_stop_metric
                         current = pruning.best_metric_at(run["epochs"], epoch, metric)
                         peers = pruning.peer_bests_at(job["runs"], run["idx"], epoch, metric)

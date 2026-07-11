@@ -21,6 +21,7 @@ import httpx
 
 from rag.config import Settings
 from rag.dataset import load_jsonl
+from rag.evaluation.beir import available_splits, eval_set_fingerprint, resolve_split
 
 
 # ── environment introspection ──────────────────────────────────────────────────
@@ -91,6 +92,19 @@ def count_lines(path: str) -> int:
         return sum(1 for _ in load_jsonl(path))
     except FileNotFoundError:
         return 0
+
+
+def eval_overview(eval_dir: str) -> dict:
+    """Everything the UI shows about the bound eval set (feeds the EvalInfo DTO) —
+    built here once so the status and data routes can't drift apart."""
+    return {
+        "dir": eval_dir,
+        "is_sample": is_sample_eval(eval_dir),
+        "corpus": count_lines(f"{eval_dir}/corpus.jsonl"),
+        "queries": count_lines(f"{eval_dir}/queries.jsonl"),
+        "fingerprint": eval_set_fingerprint(eval_dir, resolve_split(eval_dir)),
+        "splits": available_splits(eval_dir),
+    }
 
 
 def is_sample_eval(eval_dir: str) -> bool:

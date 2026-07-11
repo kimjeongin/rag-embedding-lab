@@ -145,17 +145,16 @@ async def _similarity_matrix(pairs: list[dict], docs: list[dict], settings: Sett
     adapter owns request batching)."""
     import numpy as np
 
-    def _l2(matrix):
-        return matrix / (np.linalg.norm(matrix, axis=1, keepdims=True) + 1e-12)
+    from rag.evaluation.retrieval import l2_normalize
 
     async with build_embedder(settings) as embedder:
-        corpus = _l2(np.asarray(
+        corpus = l2_normalize(np.asarray(
             await embedder.embed_documents(
                 [Document(content=d["content"], title=d.get("title")) for d in docs]
             ),
             dtype="float32",
         ))
-        qmatrix = _l2(np.asarray(
+        qmatrix = l2_normalize(np.asarray(
             await embedder.embed_queries([pair["query"] for pair in pairs]), dtype="float32"
         ))
     return qmatrix @ corpus.T  # (n_pairs, n_docs)

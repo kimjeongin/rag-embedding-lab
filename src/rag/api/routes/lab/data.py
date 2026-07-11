@@ -44,9 +44,7 @@ from rag.dataset import dataset_paths, load_jsonl, write_jsonl
 from rag.evaluation.beir import (
     DEV_SPLIT,
     FINAL_SPLIT,
-    available_splits,
     eval_dir_from_env,
-    eval_set_fingerprint,
     load_corpus,
     load_qrels,
     prune_qrels_splits,
@@ -102,19 +100,11 @@ def _train_has_negatives(train_file: str) -> bool:
 @router.get("/data/overview", response_model=DataOverviewResponse)
 def data_overview() -> DataOverviewResponse:
     train_file, test_file = dataset_paths()
-    eval_dir = eval_dir_from_env()
     return DataOverviewResponse(
         train=FileCount(file=train_file, count=lab.count_lines(train_file)),
         test=FileCount(file=test_file, count=lab.count_lines(test_file)),
         train_has_negatives=_train_has_negatives(train_file),
-        eval=EvalInfo(
-            dir=eval_dir,
-            is_sample=lab.is_sample_eval(eval_dir),
-            corpus=lab.count_lines(f"{eval_dir}/corpus.jsonl"),
-            queries=lab.count_lines(f"{eval_dir}/queries.jsonl"),
-            fingerprint=eval_set_fingerprint(eval_dir, resolve_split(eval_dir)),
-            splits=available_splits(eval_dir),
-        ),
+        eval=EvalInfo(**lab.eval_overview(eval_dir_from_env())),
     )
 
 

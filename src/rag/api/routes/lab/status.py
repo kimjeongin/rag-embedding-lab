@@ -20,7 +20,7 @@ from rag.api.schemas.lab import (
     StatusResponse,
 )
 from rag.config import Settings
-from rag.evaluation.beir import available_splits, eval_dir_from_env, eval_set_fingerprint, resolve_split
+from rag.evaluation.beir import eval_dir_from_env
 
 router = APIRouter()
 
@@ -28,9 +28,8 @@ router = APIRouter()
 @router.get("/status", response_model=StatusResponse)
 def status(settings: Settings = Depends(get_settings)) -> StatusResponse:
     reachable, models = lab.ollama_status(settings.ollama_url)
-    eval_dir = eval_dir_from_env()
-    fingerprint = eval_set_fingerprint(eval_dir, resolve_split(eval_dir))
-    best = registry.best_per_metric(fingerprint=fingerprint)
+    overview = lab.eval_overview(eval_dir_from_env())
+    best = registry.best_per_metric(fingerprint=overview["fingerprint"])
     return StatusResponse(
         ollama=OllamaStatus(reachable=reachable, models=models),
         device=lab.device_status(),
@@ -39,14 +38,7 @@ def status(settings: Settings = Depends(get_settings)) -> StatusResponse:
             model=settings.active_model,
             embed_dim=settings.embed_dim,
         ),
-        eval=EvalInfo(
-            dir=eval_dir,
-            is_sample=lab.is_sample_eval(eval_dir),
-            corpus=lab.count_lines(f"{eval_dir}/corpus.jsonl"),
-            queries=lab.count_lines(f"{eval_dir}/queries.jsonl"),
-            fingerprint=fingerprint,
-            splits=available_splits(eval_dir),
-        ),
+        eval=EvalInfo(**overview),
         training_ready=lab.training_ready(),
         runs=len(registry.load_runs()),
         best_ndcg=best.get("ndcg@10"),

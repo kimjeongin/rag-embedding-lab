@@ -31,21 +31,38 @@ def clean_tqdm(text: str) -> str:
     return "\n".join(line.split("\r")[-1] for line in text.split("\n"))
 
 
+def parse_loss_line(line: str) -> dict | None:
+    """One line's training-step log as ``{epoch, loss}`` (epoch None when the line
+    doesn't carry one), or None for a non-loss line. The streaming job runner parses
+    each line as it arrives — re-parsing the whole accumulated log per line would be
+    quadratic over a long run."""
+    loss = _LOSS_RE.search(line)
+    if not loss:
+        return None
+    epoch = _EPOCH_RE.search(line)
+    return {
+        "epoch": float(epoch.group(1)) if epoch else None,
+        "loss": float(loss.group(1)),
+    }
+
+
+def loss_point(parsed: dict, step: int) -> dict:
+    """A ``parse_loss_line`` result as the stored ``{step, epoch, loss}`` point
+    (a missing epoch falls back to the step number, keeping the curve monotonic)."""
+    return {
+        "step": step,
+        "epoch": parsed["epoch"] if parsed["epoch"] is not None else float(step),
+        "loss": parsed["loss"],
+    }
+
+
 def parse_loss_points(text: str) -> list[dict]:
     """Every logged training step as ``{step, epoch, loss}`` (step is 1-based order)."""
     points: list[dict] = []
     for line in text.split("\n"):
-        loss = _LOSS_RE.search(line)
-        if loss:
-            epoch = _EPOCH_RE.search(line)
-            step = len(points) + 1
-            points.append(
-                {
-                    "step": step,
-                    "epoch": float(epoch.group(1)) if epoch else float(step),
-                    "loss": float(loss.group(1)),
-                }
-            )
+        parsed = parse_loss_line(line)
+        if parsed:
+            points.append(loss_point(parsed, step=len(points) + 1))
     return points
 
 
@@ -57,23 +74,30 @@ def _opt_float(raw: str) -> float | None:
         return None
 
 
+def parse_epoch_line(line: str) -> dict | None:
+    """One per-epoch validation line as ``{epoch, max_epochs, eval_loss, ndcg,
+    best_epoch}``, or None — the trainer prints one ``[epoch] n/max …`` line after
+    each epoch's eval, and ``best`` is the best epoch seen so far (what early
+    stopping will keep)."""
+    match = _EPOCH_LINE_RE.search(line)
+    if not match:
+        return None
+    return {
+        "epoch": int(match.group(1)),
+        "max_epochs": int(match.group(2)),
+        "eval_loss": _opt_float(match.group(3)),
+        "ndcg": _opt_float(match.group(4)),
+        "best_epoch": int(match.group(5)),
+    }
+
+
 def parse_epoch_points(text: str) -> list[dict]:
-    """Every per-epoch validation line as ``{epoch, max_epochs, eval_loss, ndcg,
-    best_epoch}`` — the trainer prints one ``[epoch] n/max …`` line after each epoch's
-    eval, and ``best`` is the best epoch seen so far (what early stopping will keep)."""
+    """Every per-epoch validation line in ``text`` (see ``parse_epoch_line``)."""
     points: list[dict] = []
     for line in text.split("\n"):
-        match = _EPOCH_LINE_RE.search(line)
-        if match:
-            points.append(
-                {
-                    "epoch": int(match.group(1)),
-                    "max_epochs": int(match.group(2)),
-                    "eval_loss": _opt_float(match.group(3)),
-                    "ndcg": _opt_float(match.group(4)),
-                    "best_epoch": int(match.group(5)),
-                }
-            )
+        point = parse_epoch_line(line)
+        if point:
+            points.append(point)
     return points
 
 
