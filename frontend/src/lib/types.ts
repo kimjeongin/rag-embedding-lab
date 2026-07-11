@@ -70,6 +70,46 @@ export interface HandoffResponse {
   path: string;
   markdown: string;
   handoff: Record<string, unknown>;
+  indexing?: string | null; // 재색인 훅 결과: "started" | 사유
+}
+
+// /api/search — Qdrant 서빙 경로
+export interface SearchHit {
+  score: number;
+  url?: string | null;
+  title?: string | null;
+  content: string;
+}
+export interface SearchResponse {
+  query: string;
+  collection: string;
+  model: string;
+  hits: SearchHit[];
+}
+export interface SearchStatusResponse {
+  reachable: boolean;
+  alias: string;
+  collection?: string | null;
+  points: number;
+  dim?: number | null;
+  dim_matches?: boolean | null;
+  collections: string[];
+  embedder: string;
+  model: string;
+}
+export interface IndexRequest {
+  model?: string;
+  recreate?: boolean;
+}
+export interface IndexJobStatus {
+  status: "idle" | "running" | "done" | "failed";
+  model?: string | null;
+  done: number;
+  total?: number | null;
+  error?: string | null;
+  summary?: Record<string, unknown> | null;
+  started_at?: string | null;
+  finished_at?: string | null;
 }
 
 // GET /api/data/*

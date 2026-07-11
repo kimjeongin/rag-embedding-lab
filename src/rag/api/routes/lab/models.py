@@ -14,7 +14,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 
 from rag import lab, modelstore
-from rag.api import jobs
+from rag.api import indexjob, jobs
 from rag.api.deps import get_settings
 from rag.api.schemas.lab import (
     DeleteModelResponse,
@@ -72,4 +72,18 @@ async def handoff(req: HandoffRequest) -> HandoffResponse:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 — surface encode/load failures as 502
         raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc
-    return HandoffResponse(path=req.path, markdown=result["markdown"], handoff=result["handoff"])
+
+    # Handoff = "this model goes live" → the serving index follows automatically
+    # (background; poll /api/index/status). A failure to START must not fail the
+    # handoff itself — the package is already written.
+    indexing: str | None = "off"
+    if req.reindex:
+        try:
+            indexjob.start(req.path)
+            indexing = "started"
+        except RuntimeError as exc:
+            indexing = str(exc)
+    return HandoffResponse(
+        path=req.path, markdown=result["markdown"], handoff=result["handoff"],
+        indexing=indexing,
+    )

@@ -15,6 +15,8 @@ import type {
   GenPairsResponse,
   HandoffResponse,
   ImportPairsRequest,
+  IndexJobStatus,
+  IndexRequest,
   ImportPairsResponse,
   ImportTrecRequest,
   ImportTrecResponse,
@@ -29,6 +31,8 @@ import type {
   ModelsResponse,
   PairsResponse,
   RunsResponse,
+  SearchResponse,
+  SearchStatusResponse,
   StatusResponse,
 } from "./types";
 
@@ -95,6 +99,11 @@ export const api = {
       `/runs/diff?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}${metric ? `&metric=${encodeURIComponent(metric)}` : ""}`,
     ),
   importTrec: (body: ImportTrecRequest) => request<ImportTrecResponse>("/runs/import-trec", json(body)),
+
+  search: (query: string, topK = 10) => request<SearchResponse>("/search", json({ query, top_k: topK })),
+  searchStatus: () => request<SearchStatusResponse>("/search/status"),
+  startIndex: (body: IndexRequest) => request<IndexJobStatus>("/index", json(body)),
+  indexStatus: () => request<IndexJobStatus>("/index/status"),
 
   jobs: () => request<JobsListResponse>("/jobs"),
   job: (id: string) => request<JobState>(`/jobs/${encodeURIComponent(id)}`),

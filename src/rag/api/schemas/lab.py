@@ -346,12 +346,16 @@ class DeleteModelResponse(BaseModel):
 
 class HandoffRequest(BaseModel):
     path: str
+    # Also reindex the serving index with this model in the background — handoff IS
+    # the "this model goes live" decision, so the index follows it by default.
+    reindex: bool = True
 
 
 class HandoffResponse(BaseModel):
     path: str
     markdown: str                        # HANDOFF.md content (also written into the dir)
     handoff: dict                        # handoff.json content
+    indexing: str | None = None          # "started" | why not (busy/off) — reindex hook result
 
 
 # ── POST /api/data/import — real query/click logs → pairs and/or qrels ──────────
@@ -418,6 +422,25 @@ class SearchResponse(BaseModel):
     collection: str                      # the versioned collection the live alias resolved to
     model: str                           # the model that embedded THIS query (must match the index)
     hits: list[SearchHit]
+
+
+class IndexRequest(BaseModel):
+    model: str = ""                      # "" → the process's ST model (ST_MODEL)
+    corpus_file: str = "data/corpus.jsonl"
+    recreate: bool = False               # force a rebuild even if up to date
+    truncate_dim: int | None = Field(default=None, ge=8, le=4096)  # Matryoshka index
+
+
+class IndexJobStatus(BaseModel):
+    """The one background reindex slot (see rag.api.indexjob)."""
+    status: Literal["idle", "running", "done", "failed"] = "idle"
+    model: str | None = None
+    done: int = 0                        # docs embedded so far
+    total: int | None = None
+    error: str | None = None
+    summary: dict | None = None          # index_corpus result once done
+    started_at: str | None = None
+    finished_at: str | None = None
 
 
 class SearchStatusResponse(BaseModel):

@@ -28,6 +28,8 @@ export const keys = {
   diff: (a: string, b: string, metric?: string) => ["diff", a, b, metric ?? ""] as const,
   jobs: ["jobs"] as const,
   job: (id: string) => ["jobs", id] as const,
+  searchStatus: ["search", "status"] as const,
+  indexStatus: ["index", "status"] as const,
 };
 
 // ── reads ──────────────────────────────────────────────────────────────────────
@@ -74,6 +76,17 @@ export const useJob = (id?: string | null) =>
       const s = q.state.data?.status;
       return s === "running" || s === "pending" ? 2_000 : false;
     },
+  });
+
+// The serving index (Qdrant) — cheap reads; the reindex job polls fast while running.
+export const useSearchStatus = () =>
+  useQuery({ queryKey: keys.searchStatus, queryFn: api.searchStatus, refetchInterval: 20_000 });
+
+export const useIndexStatus = () =>
+  useQuery({
+    queryKey: keys.indexStatus,
+    queryFn: api.indexStatus,
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 2_000 : false),
   });
 
 // ── mutations (invalidate what they change) ──────────────────────────────────────
@@ -233,8 +246,23 @@ export function useHandoff() {
     onError: fail,
     onSuccess: (data) => {
       toast.success(`핸드오프 패키지 생성 — ${data.path}/HANDOFF.md`);
+      if (data.indexing === "started") toast.info("서빙 인덱스 재색인 시작 — 검색 탭에서 진행률 확인");
       qc.invalidateQueries({ queryKey: keys.modelsDetail });
       qc.invalidateQueries({ queryKey: keys.status });
+      qc.invalidateQueries({ queryKey: keys.indexStatus });
+    },
+  });
+}
+
+export function useStartIndex() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (model?: string) => api.startIndex({ model: model ?? "" }),
+    onError: fail,
+    onSuccess: (state) => {
+      toast.success(`재색인 시작 — ${state.model}`);
+      qc.setQueryData(keys.indexStatus, state);
+      qc.invalidateQueries({ queryKey: keys.searchStatus });
     },
   });
 }

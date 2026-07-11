@@ -12,6 +12,7 @@ import Train from "./routes/Train";
 import Eval from "./routes/Eval";
 import Compare from "./routes/Compare";
 import Models from "./routes/Models";
+import Search from "./routes/Search";
 import About from "./routes/About";
 
 const queryClient = new QueryClient({
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
       { path: "eval", element: <Eval /> },
       { path: "compare", element: <Compare /> },
       { path: "models", element: <Models /> },
+      { path: "search", element: <Search /> },
       { path: "about", element: <About /> },
     ],
   },

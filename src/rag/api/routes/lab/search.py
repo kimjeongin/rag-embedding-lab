@@ -13,11 +13,18 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from rag import serving
+from rag.api import indexjob
 from rag.api.deps import get_embedder, get_settings, get_store
-from rag.api.schemas.lab import SearchRequest, SearchResponse, SearchStatusResponse
+from rag.api.schemas.lab import (
+    IndexJobStatus,
+    IndexRequest,
+    SearchRequest,
+    SearchResponse,
+    SearchStatusResponse,
+)
 from rag.config import Settings
 from rag.core.ports import Embedder
 from rag.vectorstore.qdrant import QdrantStore
@@ -45,3 +52,24 @@ async def search_status(
     return SearchStatusResponse(
         **overview, embedder=settings.embedder, model=settings.active_model
     )
+
+
+@router.post("/index", response_model=IndexJobStatus)
+def start_index(
+    req: IndexRequest, settings: Settings = Depends(get_settings)
+) -> IndexJobStatus:
+    """Start a background reindex (409 while one runs — one device, one embed pass)."""
+    model = req.model or settings.st_model
+    try:
+        state = indexjob.start(
+            model, corpus_file=req.corpus_file,
+            recreate=req.recreate, truncate_dim=req.truncate_dim,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return IndexJobStatus(**state)
+
+
+@router.get("/index/status", response_model=IndexJobStatus)
+def index_job_status() -> IndexJobStatus:
+    return IndexJobStatus(**indexjob.status())

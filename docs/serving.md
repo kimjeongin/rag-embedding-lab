@@ -20,7 +20,11 @@ make serve-ft                            # /api/search 가 색인을 서빙
 curl -s localhost:8000/api/search -H 'content-type: application/json' \
   -d '{"query": "연차 신청 방법", "top_k": 5}'
 curl -s localhost:8000/api/search/status   # alias → collection, dim 일치 여부
+curl -s localhost:8000/api/index -H 'content-type: application/json' -d '{}'  # 백그라운드 재색인
+curl -s localhost:8000/api/index/status    # 재색인 진행률
 ```
+
+웹 UI의 **검색 탭**이 이 전부를 시각화합니다: 인덱스 상태 · 재색인(진행바) · 실검색.
 
 ## 모델 교체 = 재색인, 자동
 
@@ -40,8 +44,14 @@ curl -s localhost:8000/api/search/status   # alias → collection, dim 일치 �
    색인된 인덱스를 절대 보지 않고, 전환은 무중단
 4. 이전 컬렉션은 롤백용으로 남음 → 새 인덱스 확인 후 `rag-index --prune`으로 정리
 
-멱등이므로 크론/핸드오프 훅에 그대로 걸 수 있습니다: 새 모델 핸드오프 후
-`uv run rag-index --model outputs/새모델` 한 줄이면 끝.
+멱등이므로 자동화에 그대로 걸 수 있고, 실제로 걸려 있습니다:
+
+- **핸드오프 훅**: 모델 페이지에서 핸드오프하면(`POST /api/models/handoff`) 그 모델로
+  백그라운드 재색인이 자동 시작됩니다 — 핸드오프가 곧 "이 모델이 라이브로 간다"는 결정이므로.
+  (`reindex: false`로 끌 수 있음)
+- **서버 재색인 잡**: `POST /api/index`(모델 선택, 409 = 이미 실행 중) +
+  `GET /api/index/status`(진행률 폴링). 웹 UI **검색 탭**에서 버튼/진행바로 노출됩니다.
+- CLI도 동일 flow를 씁니다: `uv run rag-index --model outputs/새모델`.
 
 ## 포맷 패리티 (가장 중요한 계약)
 
