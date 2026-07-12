@@ -39,6 +39,8 @@ export interface StatusResponse {
   best_ndcg?: number | null; // best nDCG@10 on the current eval set
   active_job?: string | null; // running training job id
   handed_off?: { model: string; at: string } | null; // latest delivery marker
+  qdrant_reachable: boolean; // serving vector store up? (header dot)
+  indexing: boolean; // background reindex running? (header pill)
 }
 
 // GET /api/models
@@ -84,7 +86,17 @@ export interface SearchResponse {
   query: string;
   collection: string;
   model: string;
+  embed_ms: number; // query-embedding latency (model-bound)
+  search_ms: number; // Qdrant ANN latency
   hits: SearchHit[];
+}
+export interface CollectionInfo {
+  name: string;
+  model_slug?: string | null; // which model built it (from the name)
+  dim?: number | null;
+  points: number;
+  fingerprint?: string | null; // corpus-content hash (from the name)
+  live: boolean; // alias points here right now
 }
 export interface SearchStatusResponse {
   reachable: boolean;
@@ -93,13 +105,17 @@ export interface SearchStatusResponse {
   points: number;
   dim?: number | null;
   dim_matches?: boolean | null;
-  collections: string[];
+  model_matches?: boolean | null; // index model == query embedder (same-dim trap guard)
+  collections: CollectionInfo[];
   embedder: string;
   model: string;
 }
 export interface IndexRequest {
   model?: string;
   recreate?: boolean;
+}
+export interface PruneResponse {
+  pruned: string[];
 }
 export interface IndexJobStatus {
   status: "idle" | "running" | "done" | "failed";

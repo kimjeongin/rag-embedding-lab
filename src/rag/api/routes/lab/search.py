@@ -19,8 +19,10 @@ from rag import serving
 from rag.api import indexjob
 from rag.api.deps import get_embedder, get_settings, get_store
 from rag.api.schemas.lab import (
+    AliasRequest,
     IndexJobStatus,
     IndexRequest,
+    PruneResponse,
     SearchRequest,
     SearchResponse,
     SearchStatusResponse,
@@ -73,3 +75,29 @@ def start_index(
 @router.get("/index/status", response_model=IndexJobStatus)
 def index_job_status() -> IndexJobStatus:
     return IndexJobStatus(**indexjob.status())
+
+
+@router.post("/index/alias", response_model=SearchStatusResponse)
+async def set_alias(
+    req: AliasRequest,
+    settings: Settings = Depends(get_settings),
+    store: QdrantStore = Depends(get_store),
+) -> SearchStatusResponse:
+    """Repoint the live alias at an existing collection — instant rollback, no re-embed."""
+    overview = await asyncio.to_thread(serving.set_live, settings, store, req.collection)
+    return SearchStatusResponse(
+        **overview, embedder=settings.embedder, model=settings.active_model
+    )
+
+
+@router.post("/index/prune", response_model=PruneResponse)
+async def prune(
+    settings: Settings = Depends(get_settings),
+    store: QdrantStore = Depends(get_store),
+) -> PruneResponse:
+    """Delete every family collection except the live target (the 'new index is good' call)."""
+    if indexjob.status()["status"] == "running":
+        # a running reindex is building a non-live collection — pruning now would eat it
+        raise HTTPException(status_code=409, detail="재색인이 실행 중입니다 — 끝난 뒤 정리하세요")
+    pruned = await asyncio.to_thread(serving.prune_collections, settings, store)
+    return PruneResponse(pruned=pruned)

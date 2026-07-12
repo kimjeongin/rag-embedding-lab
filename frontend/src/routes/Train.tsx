@@ -81,7 +81,7 @@ function RunDetail({ run, running }: { run: JobRunState; running: boolean }) {
             value={run.eval ? fmt(run.eval.metrics["ndcg@10"] ?? 0) : "—"}
             tag={run.eval ? "기록됨" : undefined}
             tone="signal"
-            sub={run.eval ? `recall@50 ${fmt(run.eval.metrics["recall@50"] ?? 0)} · 비교 탭에 누적` : "학습 후 자동 실행"}
+            sub={run.eval ? `recall@50 ${fmt(run.eval.metrics["recall@50"] ?? 0)} · 실험 탭에 누적` : "학습 후 자동 실행"}
           />
         </div>
       </div>
@@ -537,7 +537,7 @@ export default function Train() {
                   </Field>
                 </div>
                 <div className="mt-4 sm:max-w-md">
-                  <Field label="가설 메모" hint="비교 탭에 함께 표시">
+                  <Field label="가설 메모" hint="실험 탭에 함께 표시">
                     <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: lr 올리면 더 좋을까?" disabled={running} />
                   </Field>
                 </div>
@@ -710,12 +710,12 @@ export default function Train() {
               </div>
               <div className="mono mt-1 text-[12px] text-mut">
                 새 모델: {finishedRun.result.output_dir}
-                {finishedRun.eval ? " — 자동 평가 완료, 비교 탭에 기록됐어요" : " — 평가셋으로 실측해야 진짜 점수를 알 수 있어요"}
+                {finishedRun.eval ? " — 자동 평가 완료, 실험 탭에 기록됐어요" : " — 평가셋으로 실측해야 진짜 점수를 알 수 있어요"}
               </div>
             </div>
             {finishedRun.eval ? (
               <Btn icon={<ArrowRight size={15} />} onClick={() => nav(PATH.compare)}>
-                비교에서 보기
+                실험에서 보기
               </Btn>
             ) : (
               <Btn
@@ -740,11 +740,11 @@ export default function Train() {
                 <span className="mono text-mut">nDCG@10 {fmt(bestSweepRun.eval.metrics["ndcg@10"] ?? 0)}</span>
               </div>
               <div className="mono mt-1 text-[12px] text-mut">
-                {bestSweepRun.result.output_dir} — 비교 탭에서 diff·유의성으로 확인한 뒤 최종 확정하세요
+                {bestSweepRun.result.output_dir} — 실험 탭에서 diff·유의성으로 확인한 뒤 최종 확정하세요
               </div>
             </div>
             <Btn icon={<ArrowRight size={15} />} onClick={() => nav(PATH.compare)}>
-              비교에서 고르기
+              실험에서 고르기
             </Btn>
           </Panel>
         </Section>

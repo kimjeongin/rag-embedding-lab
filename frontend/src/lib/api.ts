@@ -30,6 +30,7 @@ import type {
   ModelsDetailResponse,
   ModelsResponse,
   PairsResponse,
+  PruneResponse,
   RunsResponse,
   SearchResponse,
   SearchStatusResponse,
@@ -104,6 +105,8 @@ export const api = {
   searchStatus: () => request<SearchStatusResponse>("/search/status"),
   startIndex: (body: IndexRequest) => request<IndexJobStatus>("/index", json(body)),
   indexStatus: () => request<IndexJobStatus>("/index/status"),
+  setAlias: (collection: string) => request<SearchStatusResponse>("/index/alias", json({ collection })),
+  pruneCollections: () => request<PruneResponse>("/index/prune", { method: "POST" }),
 
   jobs: () => request<JobsListResponse>("/jobs"),
   job: (id: string) => request<JobState>(`/jobs/${encodeURIComponent(id)}`),

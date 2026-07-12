@@ -38,9 +38,15 @@ class QdrantStore:
     def __exit__(self, *exc) -> None:
         self.close()
 
-    def _request(self, method: str, path: str, json: dict | None = None) -> dict:
+    def _request(
+        self, method: str, path: str, json: dict | None = None,
+        timeout: float | None = None,
+    ) -> dict:
         try:
-            resp = self._client.request(method, path, json=json)
+            kwargs: dict = {"json": json}
+            if timeout is not None:
+                kwargs["timeout"] = timeout
+            resp = self._client.request(method, path, **kwargs)
             resp.raise_for_status()
             return resp.json()
         except httpx.HTTPStatusError as exc:
@@ -54,9 +60,10 @@ class QdrantStore:
 
     # ── collections ────────────────────────────────────────────────────────────
     def ping(self) -> bool:
-        """True if the Qdrant instance answers at all."""
+        """True if the Qdrant instance answers at all. Short timeout — this runs on
+        every /api/status poll, so a black-holed host must not stall the header."""
         try:
-            self._request("GET", "/collections")
+            self._request("GET", "/collections", timeout=2.0)
             return True
         except VectorStoreError:
             return False

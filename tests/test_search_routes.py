@@ -53,4 +53,36 @@ def test_search_status_reports_index():
     assert body["reachable"] is True
     assert body["collection"] == "docs__outputs-ft__4d__f"
     assert body["dim_matches"] is True
+    assert body["model_matches"] is True
     assert body["embedder"] == "sentence-transformers"
+    [entry] = body["collections"]
+    assert entry["live"] is True and entry["model_slug"] == "outputs-ft"
+
+
+def test_search_status_flags_model_mismatch_with_same_dim():
+    store = FakeStore()
+    store.create_collection("docs__other-model__4d__f", dim=4)   # same dim, different model
+    store.swap_alias("docs-live", "docs__other-model__4d__f")
+    with make_client(store, FakeEmbedder()) as client:
+        body = client.get("/api/search/status").json()
+    assert body["dim_matches"] is True
+    assert body["model_matches"] is False
+
+
+def test_alias_rollback_and_prune():
+    store = indexed_store()
+    store.create_collection("docs__old-model__4d__f", dim=4)     # a rollback copy
+    with make_client(store, FakeEmbedder()) as client:
+        # roll back to the old collection
+        resp = client.post("/api/index/alias", json={"collection": "docs__old-model__4d__f"})
+        assert resp.status_code == 200
+        assert resp.json()["collection"] == "docs__old-model__4d__f"
+        # foreign name is refused via the domain error → 503 with the reason
+        bad = client.post("/api/index/alias", json={"collection": "other__x__4d__f"})
+        assert bad.status_code == 503 and "패밀리" in bad.json()["detail"]
+        # prune keeps only the (new) live target
+        resp = client.post("/api/index/prune")
+        assert resp.status_code == 200
+        assert resp.json()["pruned"] == ["docs__outputs-ft__4d__f"]
+    assert "docs__old-model__4d__f" in store.collections
+    assert "docs__outputs-ft__4d__f" not in store.collections

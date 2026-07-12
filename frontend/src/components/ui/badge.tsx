@@ -2,8 +2,16 @@ import type { ReactNode } from "react";
 
 import { cx } from "../../lib/format";
 
-/** Rounded status pill (header chips). */
-export function Pill({ children, tone = "mut" }: { children: ReactNode; tone?: "signal" | "cyan" | "amber" | "mut" }) {
+/** Rounded status pill (header chips). `title` = native hover tooltip. */
+export function Pill({
+  children,
+  tone = "mut",
+  title,
+}: {
+  children: ReactNode;
+  tone?: "signal" | "cyan" | "amber" | "mut";
+  title?: string;
+}) {
   const map = {
     signal: "text-signal border-signal/30 bg-signal/10",
     cyan: "text-cyan border-cyan/30 bg-cyan/10",
@@ -12,6 +20,7 @@ export function Pill({ children, tone = "mut" }: { children: ReactNode; tone?: "
   }[tone];
   return (
     <span
+      title={title}
       className={cx(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium leading-none",
         map,

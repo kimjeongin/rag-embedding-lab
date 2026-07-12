@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { BarChart3, Database, FlaskConical, Gauge, Play, Trophy } from "lucide-react";
+import { BarChart3, Database, FlaskConical, Gauge, Play, Search, Trophy } from "lucide-react";
 
 import { delta, fmt, short, when } from "../lib/format";
 import { PATH } from "../lib/nav";
@@ -14,10 +14,11 @@ function QuickStart({ go }: { go: (p: string) => void }) {
   return (
     <Section delay={120}>
       <SectionLabel>빠른 시작</SectionLabel>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <ActionCard icon={<Database size={18} />} title="데이터 생성" sub="학습 · 평가 데이터 만들기" onClick={() => go(PATH.data)} />
         <ActionCard icon={<FlaskConical size={18} />} title="모델 학습" sub="base를 fine-tune" onClick={() => go(PATH.train)} />
         <ActionCard icon={<Gauge size={18} />} title="성능 평가" sub="recall · nDCG 측정" onClick={() => go(PATH.eval)} />
+        <ActionCard icon={<Search size={18} />} title="실검색 (서빙)" sub="Qdrant 색인 · 검색 테스트" onClick={() => go(PATH.search)} />
       </div>
     </Section>
   );

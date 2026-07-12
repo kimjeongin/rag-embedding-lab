@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, Play } from "lucide-react";
+import { ArrowRight, BarChart3, Play } from "lucide-react";
 
 import { PATH } from "../lib/nav";
-import { useModels, useRunEval } from "../lib/queries";
+import { fmt } from "../lib/format";
+import { useModels, useRunEval, useRuns, useStatus } from "../lib/queries";
 import type { Embedder } from "../lib/types";
-import { Btn, ErrorNote, Field, Info, Input, Metric, Panel, Section, SectionLabel, Seg } from "../components/ui";
+import { Btn, ErrorNote, Field, Info, Input, Loading, Metric, Panel, Section, SectionLabel, Seg, Tag } from "../components/ui";
 
 const KPIS = ["recall@1", "recall@3", "mrr@10", "ndcg@10"] as const;
 
@@ -18,7 +19,12 @@ interface EvalPreset {
 export default function Eval() {
   const nav = useNavigate();
   const preset = (useLocation().state ?? {}) as EvalPreset;
-  const [backend, setBackend] = useState<Embedder>(preset.backend ?? "ollama");
+  const status = useStatus();
+  // 기본 백엔드 = 서버 프로세스의 임베더 — Ollama가 죽어 있는데 Ollama가 선택돼 있는
+  // "실행하면 바로 실패하는" 함정을 없앤다. 사용자가 만지면 그 선택이 우선.
+  const [chosen, setChosen] = useState<Embedder | null>(preset.backend ?? null);
+  const backend: Embedder =
+    chosen ?? (status.data?.settings.embedder === "sentence-transformers" ? "sentence-transformers" : "ollama");
   const [override, setOverride] = useState(preset.model ?? ""); // user-typed model ("" = use the query's default)
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
@@ -29,7 +35,7 @@ export default function Eval() {
   // Effective model = the user's override, else the backend's default — derived, no effect needed.
   const model = override || models.data?.default || "";
   const changeBackend = (b: Embedder) => {
-    setBackend(b);
+    setChosen(b);
     setOverride(""); // drop the override so the new backend's default shows
     if (b === "ollama") setTruncateDim(""); // truncation is ST-only
   };
@@ -89,7 +95,7 @@ export default function Eval() {
             <Field label="라벨" hint="비우면 모델명 사용">
               <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: base, ft·3ep" />
             </Field>
-            <Field label="가설 메모" hint="비교 탭에 함께 표시">
+            <Field label="가설 메모" hint="실험 탭에 함께 표시">
               <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 베이스라인 측정" />
             </Field>
             {backend === "sentence-transformers" && (
@@ -104,7 +110,7 @@ export default function Eval() {
                   <Info title="Matryoshka 차원 절단 평가" align="left">
                     <span className="mono">-mrl</span> 모델은 앞부분만 잘라 써도 견딥니다. 256을 넣으면{" "}
                     <b className="text-fg">256차원으로 잘라</b> 평가해 “<span className="mono">…@256</span>” 런으로 기록 —{" "}
-                    <span className="mono">비교</span> 탭에서 전체 차원과 나란히 두면 차원↓당 품질 손실이 보입니다. 학습
+                    <span className="mono">실험</span> 탭에서 전체 차원과 나란히 두면 차원↓당 품질 손실이 보입니다. 학습
                     모델(ST)에서만 동작합니다.
                   </Info>
                 </div>
@@ -157,6 +163,76 @@ export default function Eval() {
           </div>
         </Section>
       )}
+
+      <RecentEvals />
     </div>
+  );
+}
+
+// ── 최근 평가 이력 — 결과가 어디로 가는지 이 화면에서 바로 보이게 ─────────────────
+function RecentEvals() {
+  const nav = useNavigate();
+  const { data, isLoading } = useRuns();
+  if (isLoading) return <Loading />;
+  if (!data || data.runs.length === 0) return null;
+
+  // 최신순 상위 6개 — 현재 평가셋 여부를 함께 표시 (다른 지문은 실험 탭에서도 비교 불가)
+  const recent = [...data.runs]
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    .slice(0, 6);
+
+  return (
+    <Section delay={100}>
+      <SectionLabel
+        hint={
+          <button onClick={() => nav(PATH.compare)} className="inline-flex items-center gap-1 transition-colors hover:text-signal">
+            전체는 실험 탭에서 <ArrowRight size={11} />
+          </button>
+        }
+      >
+        최근 평가
+      </SectionLabel>
+      <Panel className="overflow-hidden p-0">
+        <table className="w-full text-left text-[12.5px]">
+          <thead>
+            <tr className="border-b border-line bg-ink-880/60 text-[10.5px] uppercase tracking-wider text-faint">
+              <th className="px-4 py-2.5 font-medium">런</th>
+              <th className="px-4 py-2.5 font-medium">recall@1</th>
+              <th className="px-4 py-2.5 font-medium">nDCG@10</th>
+              <th className="px-4 py-2.5 font-medium">평가셋</th>
+              <th className="px-4 py-2.5 font-medium">언제</th>
+            </tr>
+          </thead>
+          <tbody className="text-mut">
+            {recent.map((r, i) => {
+              const sameSet = !!r.eval_fingerprint && r.eval_fingerprint === data.current_fingerprint;
+              return (
+                <tr key={r.id} className={i < recent.length - 1 ? "border-b border-line/60" : ""}>
+                  <td className="max-w-72 px-4 py-2.5">
+                    <span className="block truncate font-medium text-fg" title={r.model}>
+                      {r.label || r.model}
+                    </span>
+                    <span className="mono text-[10.5px] text-faint">
+                      {r.split ?? "dev"}
+                      {r.n_queries ? ` · ${r.n_queries}q` : ""}
+                    </span>
+                  </td>
+                  <td className="mono px-4 py-2.5">{fmt(r.metrics["recall@1"] ?? 0)}</td>
+                  <td className="mono px-4 py-2.5">{fmt(r.metrics["ndcg@10"] ?? 0)}</td>
+                  <td className="px-4 py-2.5">
+                    {sameSet ? (
+                      <Tag tone="signal">현재</Tag>
+                    ) : (
+                      <Tag>#{(r.eval_fingerprint ?? "레거시").slice(0, 6)}</Tag>
+                    )}
+                  </td>
+                  <td className="mono px-4 py-2.5 text-faint">{(r.created_at ?? "").slice(5, 16).replace("T", " ")}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Panel>
+    </Section>
   );
 }

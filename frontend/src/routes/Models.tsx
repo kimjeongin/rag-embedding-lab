@@ -93,7 +93,9 @@ export default function Models() {
               <b className="text-fg">dense 모델만 교체</b>하므로, 서빙팀에 필요한 건 모델 가중치 +{" "}
               <b className="text-fg">임베딩 계약</b>(instruction/문서 템플릿·pooling·normalize) +{" "}
               <b className="text-fg">패리티 검증용 샘플 벡터</b>(cosine ≥ 0.999) + 재색인 체크리스트. 버튼 한 번에
-              모델 폴더 안 <span className="mono">HANDOFF.md / handoff.json</span>으로 만들어 드립니다.
+              모델 폴더 안 <span className="mono">HANDOFF.md / handoff.json</span>으로 만들어 드립니다. 그리고
+              핸드오프는 곧 “이 모델이 라이브로 간다”는 결정이므로, <b className="text-fg">그 모델로 서빙 인덱스
+              재색인이 자동 시작</b>됩니다 — 진행률은 검색 탭에서.
             </Info>
           </span>
         </SectionLabel>

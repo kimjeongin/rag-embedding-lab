@@ -91,6 +91,19 @@ def test_collection_name_is_deterministic_and_safe():
     assert name == serving.collection_name("docs", "outputs/embedding-ft", 1024, "ab12")
 
 
+def test_parse_collection_name_inverts_collection_name():
+    name = serving.collection_name("docs", "outputs/embedding-ft", 1024, "ab12")
+    assert serving.parse_collection_name(name) == {
+        "prefix": "docs", "model_slug": "outputs-embedding-ft",
+        "dim": 1024, "fingerprint": "ab12",
+    }
+    # prefixes containing "__" parse from the right
+    tricky = serving.collection_name("my__docs", "m", 8, "fp")
+    assert serving.parse_collection_name(tricky)["prefix"] == "my__docs"
+    assert serving.parse_collection_name("not-a-family-name") is None
+    assert serving.parse_collection_name("a__b__nodim__c") is None
+
+
 def test_point_id_is_stable_per_url():
     assert serving.point_id("https://x/a") == serving.point_id("https://x/a")
     assert serving.point_id("https://x/a") != serving.point_id("https://x/b")
@@ -187,4 +200,49 @@ async def test_index_status_after_indexing(tmp_path):
     overview = serving.index_status(settings(), store)
     assert overview["collection"] == summary["collection"]
     assert overview["points"] == 3 and overview["dim_matches"] is True
-    assert overview["collections"] == [summary["collection"]]
+    assert overview["model_matches"] is True
+    [entry] = overview["collections"]
+    assert entry["name"] == summary["collection"] and entry["live"] is True
+    assert entry["points"] == 3 and entry["dim"] == 4
+    assert entry["model_slug"] == "outputs-ft"
+
+
+async def test_index_status_flags_same_dim_model_mismatch(tmp_path):
+    """The trap the dim guard can't catch: another model, same dim → warn, don't guess."""
+    store, path = FakeStore(), corpus_file(tmp_path)
+    await serving.index_corpus(settings(), FakeEmbedder(), store, path)
+
+    overview = serving.index_status(settings(st_model="outputs/ft-v2"), store)
+    assert overview["dim_matches"] is True          # same dim — old guard is blind
+    assert overview["model_matches"] is False       # new guard sees it
+
+
+async def test_search_reports_latency_split(tmp_path):
+    store, embedder, path = FakeStore(), FakeEmbedder(), corpus_file(tmp_path)
+    await serving.index_corpus(settings(), embedder, store, path)
+    result = await serving.search(settings(), embedder, store, "q")
+    assert result["embed_ms"] >= 0 and result["search_ms"] >= 0
+
+
+# ── set_live (rollback) ──────────────────────────────────────────────────────────
+async def test_set_live_rolls_back_to_previous_collection(tmp_path):
+    store, path = FakeStore(), corpus_file(tmp_path)
+    first = await serving.index_corpus(settings(), FakeEmbedder(), store, path)
+    second = await serving.index_corpus(
+        settings(st_model="outputs/ft-v2"), FakeEmbedder(), store, path
+    )
+    assert store.aliases["docs-live"] == second["collection"]
+
+    overview = serving.set_live(settings(), store, first["collection"])
+    assert store.aliases["docs-live"] == first["collection"]
+    assert overview["collection"] == first["collection"]
+    assert overview["model_matches"] is True        # settings() model built `first`
+
+
+def test_set_live_refuses_foreign_or_missing_collections():
+    store = FakeStore()
+    store.create_collection("other__m__4d__fp", 4)
+    with pytest.raises(VectorStoreError, match="패밀리"):
+        serving.set_live(settings(), store, "other__m__4d__fp")
+    with pytest.raises(VectorStoreError, match="없습니다"):
+        serving.set_live(settings(), store, "docs__ghost__4d__fp")

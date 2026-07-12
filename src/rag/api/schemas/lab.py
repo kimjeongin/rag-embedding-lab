@@ -52,6 +52,8 @@ class StatusResponse(BaseModel):
     best_ndcg: float | None = None      # best nDCG@10 on the current eval set (context bar)
     active_job: str | None = None       # id of the running training job, if any
     handed_off: dict | None = None      # latest delivery marker {model, at}
+    qdrant_reachable: bool = False      # serving vector store up? (header dot)
+    indexing: bool = False              # background reindex running? (header pill)
 
 
 # ── GET /api/models ─────────────────────────────────────────────────────────────
@@ -421,6 +423,8 @@ class SearchResponse(BaseModel):
     query: str
     collection: str                      # the versioned collection the live alias resolved to
     model: str                           # the model that embedded THIS query (must match the index)
+    embed_ms: float = 0                  # query-embedding latency (the model-bound part)
+    search_ms: float = 0                 # Qdrant ANN latency
     hits: list[SearchHit]
 
 
@@ -443,6 +447,16 @@ class IndexJobStatus(BaseModel):
     finished_at: str | None = None
 
 
+class CollectionInfo(BaseModel):
+    """One family collection — its name encodes (model, dim, corpus fingerprint)."""
+    name: str
+    model_slug: str | None = None        # which model built it (from the name)
+    dim: int | None = None
+    points: int = 0
+    fingerprint: str | None = None       # corpus-content hash (from the name)
+    live: bool = False                   # is the alias pointing here right now
+
+
 class SearchStatusResponse(BaseModel):
     reachable: bool                      # Qdrant answered
     alias: str                           # the serving pointer ({prefix}-live)
@@ -450,9 +464,19 @@ class SearchStatusResponse(BaseModel):
     points: int = 0
     dim: int | None = None               # the index's vector size
     dim_matches: bool | None = None      # index dim == this process's embedder dim
-    collections: list[str] = Field(default_factory=list)  # the whole family (rollback copies)
+    model_matches: bool | None = None    # index model == query embedder (same-dim trap guard)
+    collections: list[CollectionInfo] = Field(default_factory=list)  # family incl. rollback copies
     embedder: str                        # what /api/search would embed queries with
     model: str
+
+
+class AliasRequest(BaseModel):
+    """POST /api/index/alias — instant rollback/roll-forward to an existing collection."""
+    collection: str = Field(min_length=1)
+
+
+class PruneResponse(BaseModel):
+    pruned: list[str]                    # collections deleted (everything but the live target)
 
 
 # ── POST /api/runs/import-trec — an external retriever's ranking as a run ───────

@@ -263,6 +263,35 @@ export function useStartIndex() {
       toast.success(`재색인 시작 — ${state.model}`);
       qc.setQueryData(keys.indexStatus, state);
       qc.invalidateQueries({ queryKey: keys.searchStatus });
+      qc.invalidateQueries({ queryKey: keys.status });
+    },
+  });
+}
+
+// alias를 기존 컬렉션으로 즉시 전환 (롤백/롤포워드 — 재임베딩 없음)
+export function useSetAlias() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (collection: string) => api.setAlias(collection),
+    onError: fail,
+    onSuccess: (status) => {
+      toast.success(`라이브 전환 — ${status.collection}`);
+      qc.setQueryData(keys.searchStatus, status);
+    },
+  });
+}
+
+// 라이브가 아닌 패밀리 컬렉션 전부 삭제 (롤백 사본 정리)
+export function usePruneCollections() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.pruneCollections,
+    onError: fail,
+    onSuccess: (data) => {
+      toast.success(
+        data.pruned.length ? `${data.pruned.length}개 컬렉션 정리됨` : "정리할 컬렉션이 없습니다",
+      );
+      qc.invalidateQueries({ queryKey: keys.searchStatus });
     },
   });
 }

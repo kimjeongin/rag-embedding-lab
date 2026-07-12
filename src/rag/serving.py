@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 import uuid
 from collections.abc import Callable
 
@@ -47,6 +48,20 @@ def collection_name(prefix: str, model: str, dim: int, fingerprint: str | None) 
     """The versioned collection for one (model, dim, corpus) — same inputs, same name,
     which is what makes reindexing idempotent."""
     return f"{prefix}__{_slug(model)}__{dim}d__{fingerprint or 'nofp'}"
+
+
+def parse_collection_name(name: str) -> dict | None:
+    """Invert ``collection_name`` — the name IS the collection's metadata (which model,
+    what dim, which corpus content). Parsed from the right: the prefix may itself
+    contain ``__``, the generated parts never do."""
+    parts = name.rsplit("__", 3)
+    if len(parts) != 4 or not parts[2].endswith("d"):
+        return None
+    try:
+        dim = int(parts[2][:-1])
+    except ValueError:
+        return None
+    return {"prefix": parts[0], "model_slug": parts[1], "dim": dim, "fingerprint": parts[3]}
 
 
 def point_id(key: str) -> str:
@@ -138,22 +153,47 @@ async def search(
             f"현재 모델({settings.active_model})로 재색인하거나 EMBED_DIM을 맞추세요"
         )
 
+    t0 = time.perf_counter()
     vector = (await embedder.embed_queries([query]))[0]
+    t1 = time.perf_counter()
     hits = await asyncio.to_thread(store.query, alias, vector, top_k)
+    t2 = time.perf_counter()
     return {"query": query, "collection": target, "model": settings.active_model,
+            "embed_ms": round((t1 - t0) * 1000, 1), "search_ms": round((t2 - t1) * 1000, 1),
             "hits": [{"score": h["score"], **h["payload"]} for h in hits]}
 
 
 def index_status(settings: Settings, store: QdrantStore) -> dict:
-    """What the serving index looks like right now (drives the UI/status checks)."""
+    """What the serving index looks like right now (drives the UI/status checks).
+
+    ``model_matches`` is the guard the dim check can't give: two different models with
+    the SAME dim produce searchable-but-meaningless rankings. The collection name
+    carries the indexing model's slug, so we can compare it against the process's
+    query embedder and warn instead of silently returning nonsense.
+    """
     if not store.ping():
         return {"reachable": False, "alias": live_alias(settings.qdrant_collection),
                 "collection": None, "points": 0, "dim": None, "dim_matches": None,
-                "collections": []}
+                "model_matches": None, "collections": []}
     prefix = settings.qdrant_collection
     alias = live_alias(prefix)
     target = store.alias_target(alias)
     info = store.collection_info(target) if target else None
+    target_parsed = parse_collection_name(target) if target else None
+    collections = []
+    for name in store.list_collections():
+        if not name.startswith(f"{prefix}__"):
+            continue
+        parsed = parse_collection_name(name) or {}
+        cinfo = store.collection_info(name) or {"points": 0, "dim": None}
+        collections.append({
+            "name": name,
+            "model_slug": parsed.get("model_slug"),
+            "dim": cinfo["dim"],
+            "points": cinfo["points"],
+            "fingerprint": parsed.get("fingerprint"),
+            "live": name == target,
+        })
     return {
         "reachable": True,
         "alias": alias,
@@ -161,8 +201,27 @@ def index_status(settings: Settings, store: QdrantStore) -> dict:
         "points": info["points"] if info else 0,
         "dim": info["dim"] if info else None,
         "dim_matches": (info["dim"] == settings.embed_dim) if info else None,
-        "collections": [c for c in store.list_collections() if c.startswith(f"{prefix}__")],
+        "model_matches": (
+            (target_parsed.get("model_slug") == _slug(settings.active_model))
+            if target_parsed else None
+        ),
+        "collections": collections,
     }
+
+
+def set_live(settings: Settings, store: QdrantStore, collection: str) -> dict:
+    """Repoint the live alias at an existing family collection (instant rollback /
+    roll-forward — no re-embedding). Refuses names outside the family or missing
+    collections; the atomic swap itself is the same one ``index_corpus`` ends with."""
+    prefix = settings.qdrant_collection
+    if not collection.startswith(f"{prefix}__"):
+        raise VectorStoreError(
+            f"'{collection}'은 이 패밀리({prefix}__…)의 컬렉션이 아닙니다"
+        )
+    if store.collection_info(collection) is None:
+        raise VectorStoreError(f"컬렉션이 없습니다: {collection}")
+    store.swap_alias(live_alias(prefix), collection)
+    return index_status(settings, store)
 
 
 def prune_collections(settings: Settings, store: QdrantStore) -> list[str]:

@@ -1,15 +1,25 @@
 // 검색 — 학습한 모델이 Qdrant 인덱스에서 실제로 검색하는 서빙 플레이그라운드.
-// 위: 인덱스 상태(alias → 컬렉션, 문서 수, dim 일치) + 재색인(백그라운드 잡, 진행률 폴링).
+// 위: 인덱스 상태(alias → 컬렉션, 문서 수, dim·모델 일치) + 재색인(백그라운드 잡, 진행률
+// 폴링) + 컬렉션 인벤토리(라이브 전환 = 즉시 롤백, 정리 = 롤백 사본 삭제).
 // 아래: 실검색 — 쿼리는 서버 프로세스의 임베더(EMBEDDER/ST_MODEL)로 임베딩되므로
-// 인덱스를 만든 모델과 같아야 의미가 있다 (dim 불일치는 서버가 503으로 막는다).
+// 인덱스를 만든 모델과 같아야 의미가 있다 (dim 불일치는 서버가 503으로 막고,
+// 같은 dim의 다른 모델은 model_matches 경고가 잡는다).
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, RefreshCw, Search as SearchIcon } from "lucide-react";
+import { ExternalLink, RefreshCw, Search as SearchIcon, Trash2, Undo2 } from "lucide-react";
 
 import { api } from "../lib/api";
-import { fmt } from "../lib/format";
-import { keys, useIndexStatus, useModels, useSearchStatus, useStartIndex } from "../lib/queries";
-import type { SearchResponse } from "../lib/types";
+import { cx, fmt } from "../lib/format";
+import {
+  keys,
+  useIndexStatus,
+  useModels,
+  usePruneCollections,
+  useSearchStatus,
+  useSetAlias,
+  useStartIndex,
+} from "../lib/queries";
+import type { CollectionInfo, SearchResponse } from "../lib/types";
 import { Btn, ErrorNote, Field, Info, Input, Loading, Panel, Pill, Section, SectionLabel, Tag } from "../components/ui";
 
 export default function Search() {
@@ -71,6 +81,15 @@ function IndexPanel() {
                   <Pill>{s.points.toLocaleString()} 문서</Pill>
                   <Pill>dim {s.dim}</Pill>
                   {s.dim_matches === false && <Pill tone="amber">임베더 dim({s.model}) 불일치 — 재색인 필요</Pill>}
+                  {/* dim 가드가 못 잡는 함정: 같은 차원, 다른 모델 → 검색은 되지만 순위가 무의미 */}
+                  {s.dim_matches !== false && s.model_matches === false && (
+                    <Pill
+                      tone="amber"
+                      title="인덱스를 만든 모델과 쿼리를 임베딩하는 모델이 다릅니다. 차원이 같아 검색은 동작하지만 두 벡터는 다른 좌표계라 순위가 무의미합니다 — 현재 모델로 재색인하거나, 인덱스 모델의 컬렉션으로 전환하세요."
+                    >
+                      ⚠ 인덱스 모델 ≠ 쿼리 임베더 — 순위 무의미, 재색인 필요
+                    </Pill>
+                  )}
                 </>
               ) : (
                 <Pill tone="amber">색인 없음 — 아래에서 모델을 골라 재색인하세요</Pill>
@@ -106,14 +125,123 @@ function IndexPanel() {
               </Btn>
             </div>
 
+            {/* 사전 예방 — 몇 분짜리 임베딩을 돌리기 전에, 결과가 쓸모없을 조합임을 알린다 */}
+            {!running && !!model && model !== s.model && (
+              <p className="text-[12px] leading-relaxed text-amber">
+                ⚠ 이 모델로 색인해도 쿼리는 여전히 서버 임베더(<span className="mono">{s.model}</span>)가
+                임베딩하므로 순위가 무의미해집니다. 이 모델을 서빙하려면 핸드오프(모델 탭)하거나 서버의{" "}
+                <span className="mono">ST_MODEL</span>을 바꾸세요.
+              </p>
+            )}
             {running && (
               <JobProgress done={job.data?.done ?? 0} total={job.data?.total ?? null} model={job.data?.model} />
             )}
             {job.data?.status === "failed" && <ErrorNote>재색인 실패 — {job.data.error}</ErrorNote>}
+
+            {s.collections.length > 0 && <Collections items={s.collections} running={running} />}
           </div>
         )}
       </Panel>
     </Section>
+  );
+}
+
+// ── 컬렉션 인벤토리 — 라이브 전환(즉시 롤백) · 정리(롤백 사본 삭제) ────────────────
+function Collections({ items, running }: { items: CollectionInfo[]; running: boolean }) {
+  const setAlias = useSetAlias();
+  const prune = usePruneCollections();
+  const stale = items.filter((c) => !c.live).length;
+
+  return (
+    <div className="border-t border-line/60 pt-4">
+      <div className="mb-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-[12px] font-medium text-mut">
+          컬렉션 {items.length}개
+          <Info title="버전 컬렉션과 롤백" align="left">
+            재색인은 (모델·차원·코퍼스 지문)마다 새 컬렉션을 만들고 alias만 옮깁니다. 이전 컬렉션은
+            그대로 남아 있으므로 <b className="text-fg">라이브 전환</b>은 재임베딩 없이 즉시 롤백이
+            됩니다. 새 인덱스가 좋다고 확인되면 <b className="text-fg">정리</b>로 라이브가 아닌
+            컬렉션을 삭제해 디스크를 회수하세요.
+          </Info>
+        </div>
+        {stale > 0 && <PruneBtn count={stale} disabled={running || prune.isPending} onPrune={() => prune.mutate()} />}
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-line">
+        <table className="w-full text-left text-[12px]">
+          <thead>
+            <tr className="border-b border-line bg-ink-880/60 text-[10.5px] uppercase tracking-wider text-faint">
+              <th className="px-3 py-2 font-medium">모델</th>
+              <th className="px-3 py-2 font-medium">dim</th>
+              <th className="px-3 py-2 font-medium">문서</th>
+              <th className="px-3 py-2 font-medium">코퍼스 지문</th>
+              <th className="px-3 py-2 font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((c, i) => (
+              <tr key={c.name} className={cx(i < items.length - 1 && "border-b border-line/60", c.live && "bg-signal/[0.04]")}>
+                <td className="max-w-72 px-3 py-2">
+                  <span className="mono block truncate text-fg" title={c.name}>
+                    {c.model_slug ?? c.name}
+                  </span>
+                </td>
+                <td className="mono px-3 py-2 text-mut">{c.dim ?? "—"}</td>
+                <td className="mono px-3 py-2 text-mut">{c.points.toLocaleString()}</td>
+                <td className="mono px-3 py-2 text-faint">{c.fingerprint ?? "—"}</td>
+                <td className="px-3 py-2 text-right">
+                  {c.live ? (
+                    <Tag tone="signal">LIVE</Tag>
+                  ) : (
+                    <button
+                      onClick={() => setAlias.mutate(c.name)}
+                      disabled={running || setAlias.isPending}
+                      title="alias를 이 컬렉션으로 전환 — 재임베딩 없이 즉시 적용"
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-faint transition-colors hover:bg-ink-800 hover:text-fg disabled:opacity-40"
+                    >
+                      <Undo2 size={12} /> 라이브 전환
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** 정리(prune) — 파괴적이라 2클릭(armed) 패턴: 한 번 누르면 3초간 확인 상태. */
+function PruneBtn({ count, disabled, onPrune }: { count: number; disabled: boolean; onPrune: () => void }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 3000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  if (armed) {
+    return (
+      <button
+        onClick={() => {
+          onPrune();
+          setArmed(false);
+        }}
+        disabled={disabled}
+        className="mono rounded-md bg-danger/15 px-2 py-1 text-[11px] font-semibold text-danger hover:bg-danger/25 disabled:opacity-40"
+      >
+        롤백 사본 {count}개 삭제?
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={() => setArmed(true)}
+      disabled={disabled}
+      title="라이브가 아닌 컬렉션 삭제 — 롤백이 불가능해집니다"
+      className="inline-flex items-center gap-1 text-[11.5px] text-faint transition-colors hover:text-danger disabled:opacity-40"
+    >
+      <Trash2 size={13} /> 정리
+    </button>
   );
 }
 
@@ -137,7 +265,8 @@ function JobProgress({ done, total, model }: { done: number; total: number | nul
 // ── 실검색 ─────────────────────────────────────────────────────────────────────
 function SearchPanel() {
   const [query, setQuery] = useState("");
-  const search = useMutation({ mutationFn: (q: string) => api.search(q, 10) });
+  const [topK, setTopK] = useState(10);
+  const search = useMutation({ mutationFn: (q: string) => api.search(q, topK) });
 
   const submit = () => {
     const q = query.trim();
@@ -155,7 +284,19 @@ function SearchPanel() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
           />
-          <Btn icon={<SearchIcon size={15} />} onClick={submit} disabled={search.isPending || !query.trim()}>
+          <select
+            value={topK}
+            onChange={(e) => setTopK(Number(e.target.value))}
+            title="가져올 후보 수 — 프로덕션 recall 깊이(50)로도 확인해 보세요"
+            className="mono shrink-0 rounded-xl border border-line bg-ink-925 px-2.5 py-2.5 text-[12.5px] text-mut outline-none focus:border-signal/50"
+          >
+            {[5, 10, 20, 50].map((k) => (
+              <option key={k} value={k}>
+                top {k}
+              </option>
+            ))}
+          </select>
+          <Btn icon={<SearchIcon size={15} />} className="shrink-0" onClick={submit} disabled={search.isPending || !query.trim()}>
             검색
           </Btn>
         </div>
@@ -178,6 +319,12 @@ function Results({ data }: { data: SearchResponse }) {
       <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-faint">
         <Tag tone="cyan">{data.model}</Tag>
         <span className="mono">{data.collection}</span>
+        <span
+          className="mono ml-auto"
+          title="임베딩 = 쿼리를 벡터로 (모델 추론) · 검색 = Qdrant ANN 조회 — 느리면 어느 쪽이 병목인지 여기서 갈립니다"
+        >
+          임베딩 {data.embed_ms}ms · 검색 {data.search_ms}ms
+        </span>
       </div>
       <ol className="space-y-3">
         {data.hits.map((hit, i) => (

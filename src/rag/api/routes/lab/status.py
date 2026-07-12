@@ -11,8 +11,8 @@ from fastapi import APIRouter, Depends
 
 from rag import lab, modelstore
 from rag import runs as registry
-from rag.api import jobs
-from rag.api.deps import get_settings
+from rag.api import indexjob, jobs
+from rag.api.deps import get_settings, get_store
 from rag.api.schemas.lab import (
     EmbedInfo,
     EvalInfo,
@@ -21,12 +21,16 @@ from rag.api.schemas.lab import (
 )
 from rag.config import Settings
 from rag.evaluation.beir import eval_dir_from_env
+from rag.vectorstore.qdrant import QdrantStore
 
 router = APIRouter()
 
 
 @router.get("/status", response_model=StatusResponse)
-def status(settings: Settings = Depends(get_settings)) -> StatusResponse:
+def status(
+    settings: Settings = Depends(get_settings),
+    store: QdrantStore = Depends(get_store),
+) -> StatusResponse:
     reachable, models = lab.ollama_status(settings.ollama_url)
     overview = lab.eval_overview(eval_dir_from_env())
     best = registry.best_per_metric(fingerprint=overview["fingerprint"])
@@ -44,4 +48,6 @@ def status(settings: Settings = Depends(get_settings)) -> StatusResponse:
         best_ndcg=best.get("ndcg@10"),
         active_job=jobs.active_job_id(),
         handed_off=modelstore.handed_off_model(),
+        qdrant_reachable=store.ping(),
+        indexing=indexjob.status()["status"] == "running",
     )

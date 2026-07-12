@@ -137,7 +137,7 @@ def import_trec(req: ImportTrecRequest) -> ImportTrecResponse:
         metrics=record["metrics"],
         n_queries=len(per_query),
         errors=errors,
-        message=f"외부 런 등록 완료 — 비교 탭에서 dense 런과 diff하면 보완성이 보입니다 (n={len(per_query)})",
+        message=f"외부 런 등록 완료 — 실험 탭에서 dense 런과 diff하면 보완성이 보입니다 (n={len(per_query)})",
     )
 
 

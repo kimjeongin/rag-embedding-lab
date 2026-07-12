@@ -653,7 +653,7 @@ qrels/final.tsv  query-id  corpus-id  1     # 채점표 (확정용)`}</Code>
             기억하세요. ① <b className="text-fg">상호작용</b> — learning rate는 batch·rank·loss와 얽혀서, 고정 LR에서 고른
             “최적 rank”가 LR이 바뀌면 더는 최적이 아닐 수 있습니다(비-LR 축은 <b className="text-fg">LR 동반(2축)</b>으로 함께
             변주). ② <b className="text-fg">노이즈</b> — 단발 점수는 학습 운에 흔들리니 <b className="text-fg">시드 반복</b>으로
-            평균±편차를 보세요. 그리고 <span className="mono">비교</span> 탭의 유의성 검정은{" "}
+            평균±편차를 보세요. 그리고 <span className="mono">실험</span> 탭의 유의성 검정은{" "}
             <b className="text-fg">평가셋 표집 노이즈</b>를 재는 것이지 학습 재현 노이즈가 아닙니다 — 둘은 다릅니다.
           </Note>
         </Panel>
