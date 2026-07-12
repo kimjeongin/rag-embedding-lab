@@ -18,8 +18,8 @@ uv run rag-gen-eval            # write the SAMPLE eval set to data/eval (replace
 uv run rag-eval                # measure the configured embedder over it
 
 # compare two models on the same corpus, SAME backend — the deltas are the experiment result:
-EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
-EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eval  # fine-tuned
+ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
+ST_MODEL=outputs/embedding-ft      uv run rag-eval  # fine-tuned
 ```
 
 ---
@@ -216,10 +216,10 @@ the same backend** — and read the deltas:
 
 ```bash
 # baseline — the ORIGINAL checkpoint via sentence-transformers
-EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval
+ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval
 
 # candidate — the fine-tuned model via sentence-transformers
-EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft uv run rag-eval
+ST_MODEL=outputs/embedding-ft uv run rag-eval
 ```
 
 Keeping the backend fixed is what makes the Δ attributable to the fine-tune: the Ollama

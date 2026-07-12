@@ -4,10 +4,10 @@ This is the serving surface: what production integration actually calls. The hea
 lifting lives in ``rag.serving`` (framework-free, shared with rag-index/rag-search);
 these handlers only wire the process singletons (settings / embedder / store) to it.
 
-Run the server with the serving embedder configured (the lab default is Ollama, but
-serving is ST in-process by decision):
+Serving embeds ST in-process (the default backend); point ST_MODEL at the
+handed-off model:
 
-    EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft uv run rag-serve
+    ST_MODEL=outputs/embedding-ft uv run rag-serve
 """
 from __future__ import annotations
 

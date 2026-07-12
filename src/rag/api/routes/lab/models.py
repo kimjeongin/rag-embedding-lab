@@ -31,7 +31,7 @@ router = APIRouter()
 
 @router.get("/models", response_model=ModelsResponse)
 def models(
-    embedder: Embedder = "ollama",
+    embedder: Embedder = "sentence-transformers",
     settings: Settings = Depends(get_settings),
 ) -> ModelsResponse:
     choices = lab.list_models(embedder, settings.ollama_url)

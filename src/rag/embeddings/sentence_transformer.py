@@ -1,9 +1,10 @@
 """SentenceTransformer-backed Embedder adapter (implements rag.core.ports.Embedder).
 
 Embeds with a LOCAL sentence-transformers model — e.g. one fine-tuned by
-`rag.training` (saved under outputs/...). It's the alternative to OllamaEmbedder:
-selecting it (EMBEDDER=sentence-transformers) evaluates the fine-tuned model instead of
-the Ollama one — only the place that builds the embedder picks which one.
+`rag.training` (saved under outputs/...). This is the DEFAULT backend (the lab's own
+path: train/eval/serve all load the model in-process); OllamaEmbedder is the
+EMBEDDER=ollama alternative for parity checks — only the place that builds the
+embedder picks which one.
 
 Applies the same rag.core.formatting as serving/training (parity). Needs the
 training stack (`uv sync --group training`); the heavy imports are deferred to

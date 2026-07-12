@@ -18,7 +18,7 @@ from rag.core.formatting import DEFAULT_QUERY_INSTRUCTION
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
 _DEFAULT_EMBED_MODEL = "qwen3-embedding:0.6b"
 _DEFAULT_EMBED_DIM = 1024
-_DEFAULT_EMBEDDER = "ollama"
+_DEFAULT_EMBEDDER = "sentence-transformers"
 _DEFAULT_ST_MODEL = "outputs/embedding-ft"
 _DEFAULT_QDRANT_URL = "http://localhost:6333"
 _DEFAULT_QDRANT_COLLECTION = "docs"
@@ -30,11 +30,15 @@ class Settings:
     query_instruction: str = DEFAULT_QUERY_INSTRUCTION
 
     # Which embedding backend to use:
-    #   "ollama"                -> OllamaEmbedder (default; the original model)
-    #   "sentence-transformers" -> SentenceTransformerEmbedder (e.g. a fine-tuned model)
+    #   "sentence-transformers" -> SentenceTransformerEmbedder (default — the lab's own
+    #                              path: train/eval/serve all load the model in-process)
+    #   "ollama"                -> OllamaEmbedder (parity check against an Ollama-served
+    #                              stack; NOT part of the serving path)
     embedder: str = _DEFAULT_EMBEDDER
 
-    # Ollama backend
+    # Ollama — primarily the data tab's LLM for synthetic query generation
+    # (datagen.synthetic hits {ollama_url}/api/chat); embed_model only applies
+    # when embedder="ollama".
     ollama_url: str = _DEFAULT_OLLAMA_URL
     embed_model: str = _DEFAULT_EMBED_MODEL
 

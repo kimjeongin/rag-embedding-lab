@@ -2,10 +2,10 @@
 from rag.config import Settings
 
 
-def test_defaults_use_ollama():
+def test_defaults_use_sentence_transformers():
     s = Settings()
-    assert s.embedder == "ollama"
-    assert s.embed_model == "qwen3-embedding:0.6b"
+    assert s.embedder == "sentence-transformers"
+    assert s.st_model == "outputs/embedding-ft"
     assert s.embed_dim == 1024
 
 

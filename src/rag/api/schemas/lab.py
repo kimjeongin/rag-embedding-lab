@@ -196,7 +196,7 @@ class DiffResponse(BaseModel):
 
 # ── POST /api/eval ──────────────────────────────────────────────────────────────
 class EvalRequest(BaseModel):
-    embedder: Embedder = "ollama"
+    embedder: Embedder = "sentence-transformers"
     model: str
     ollama_url: str | None = None
     eval_dir: str | None = None         # defaults to EVAL_DIR

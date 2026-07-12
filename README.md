@@ -13,11 +13,12 @@ train → evaluate → compare → hand off → search — end to end, on a lapt
 
 A **React web app** drives the whole loop; every step is also a plain CLI command.
 
-Stack: **Python 3.13 + uv** · **Ollama** (`qwen3-embedding:0.6b`) · **sentence-transformers** ·
-**FastAPI** · **Qdrant** (serving only) · **React** (Vite + Tailwind). Dependencies locked in `uv.lock`.
+Stack: **Python 3.13 + uv** · **sentence-transformers** (the embedder everywhere: train/eval/serve) ·
+**Ollama** (the LLM that writes synthetic queries; optional parity embedder) · **FastAPI** ·
+**Qdrant** (serving only) · **React** (Vite + Tailwind). Dependencies locked in `uv.lock`.
 
-> 🚀 **Quickstart:** `uv sync` · `npm install --prefix frontend && npm run build --prefix frontend`
-> · `uv run rag-serve` → http://localhost:8000 (UI + API on one port).
+> 🚀 **Quickstart:** `uv sync --group training` · `npm install --prefix frontend && npm run build
+> --prefix frontend` · `uv run rag-serve` → http://localhost:8000 (UI + API on one port).
 > No vector database needed to train/evaluate — evaluation ranks the corpus in-memory.
 > Qdrant enters only when you serve (`make qdrant`).
 
@@ -102,21 +103,21 @@ The `{task}` comes from `QUERY_INSTRUCTION`.
 
 ## Quick start
 
-### 1. Pull the embedding model (Ollama)
+### 1. Pull the Ollama models (for data generation)
+Embedding runs in-process via sentence-transformers — Ollama's job here is the **LLM that
+writes synthetic queries** in the data tab (`GEN_MODEL`). The embedding pull is only needed
+if you use the optional `EMBEDDER=ollama` parity backend.
 ```bash
-ollama pull qwen3-embedding:0.6b
-# sanity check: should print 1024
-curl -s http://localhost:11434/api/embed \
-  -d '{"model":"qwen3-embedding:0.6b","input":"hello"}' \
-  | python3 -c "import sys,json; print(len(json.load(sys.stdin)['embeddings'][0]))"
+ollama pull qwen3.5:2b            # query-synthesis LLM (data tab / rag-gen-synthetic)
+ollama pull qwen3-embedding:0.6b  # optional: the ollama parity embedder
 ```
 
 ### 2. Install dependencies (uv)
 Python is pinned to **3.13** (`.python-version`); uv installs it if missing. The project is
 a `src/` package (`rag`); `uv sync` installs it editable.
 ```bash
-uv sync                    # base: API + datagen + eval (no torch)
-uv sync --group training   # add the training stack (torch, sentence-transformers) for rag-train
+uv sync --group training   # API + datagen + eval + the training stack (torch, sentence-transformers)
+uv sync                    # minimal alternative (no torch) — needs EMBEDDER=ollama, embedding via Ollama
 # bump everything to the latest compatible set later with:  uv lock --upgrade
 ```
 
@@ -153,9 +154,9 @@ Configuration is via environment variables (all optional). See [`.env.example`](
 |----------|---------|---------|
 | `EMBED_DIM` | `1024` | embedding dimension (must match the model) |
 | `QUERY_INSTRUCTION` | `Given a web search query, retrieve relevant passages that answer the query` | Qwen3 query task description |
-| `EMBEDDER` | `ollama` | backend: `ollama` or `sentence-transformers` (a fine-tuned model) |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama base URL (`ollama` backend) |
-| `EMBED_MODEL` | `qwen3-embedding:0.6b` | embedding model name (`ollama` backend) |
+| `EMBEDDER` | `sentence-transformers` | backend: `sentence-transformers` (default) or `ollama` (parity check) |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama base URL (query-synthesis LLM; `ollama` backend) |
+| `EMBED_MODEL` | `qwen3-embedding:0.6b` | embedding model name (`ollama` backend only) |
 | `ST_MODEL` | `outputs/embedding-ft` | model path/name (`sentence-transformers` backend) |
 | `ST_DEVICE` | `` (auto) | `cuda`/`mps`/`cpu` (`sentence-transformers` backend) |
 
@@ -271,8 +272,8 @@ the **same backend**, so the Δ is the fine-tune and not a quantisation/pooling 
 between stacks — and compare the deltas (recall@1 / nDCG@10 up = it helped). The
 Eval/Compare screens do this interactively; from the CLI:
 ```bash
-EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
-EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eval  # fine-tuned
+ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
+ST_MODEL=outputs/embedding-ft      uv run rag-eval  # fine-tuned
 ```
 > ⚠️ Eval discrimination is mostly a function of **haystack size**. The bundled sample
 > is deliberately easy (a strong base model scores ~0.98) — it proves the harness, not

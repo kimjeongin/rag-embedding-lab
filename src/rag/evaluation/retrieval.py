@@ -15,9 +15,9 @@ apart; that defeats the point of measuring. See docs/evaluation.md.
 
 To attribute a fine-tune's effect, measure base and fine-tuned with the SAME backend —
 quantisation/pooling/truncation differ between stacks and would pollute the Δ:
-    EMBEDDER=sentence-transformers ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
-    EMBEDDER=sentence-transformers ST_MODEL=outputs/embedding-ft      uv run rag-eval  # tuned
-(An Ollama run measures the *serving* path — a useful parity check, not the baseline.)
+    ST_MODEL=Qwen/Qwen3-Embedding-0.6B uv run rag-eval  # base
+    ST_MODEL=outputs/embedding-ft      uv run rag-eval  # tuned
+(An EMBEDDER=ollama run is a parity check against an Ollama-served stack, not the baseline.)
 """
 from __future__ import annotations
 

@@ -90,4 +90,5 @@ Ollama 등 다른 스택으로 옮길 때의 검증 절차는 [serving-parity.md
 |---|---|---|
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant 주소 |
 | `QDRANT_COLLECTION` | `docs` | 컬렉션 패밀리 접두어 (alias는 `{prefix}-live`) |
-| `EMBEDDER` / `ST_MODEL` | — | 서빙 임베더: `sentence-transformers` + 모델 경로 |
+| `EMBEDDER` | `sentence-transformers` | 서빙 임베더 백엔드 (기본이 ST — Ollama는 서빙 경로에 없음) |
+| `ST_MODEL` | `outputs/embedding-ft` | 서빙할 모델 경로 (핸드오프한 모델) |
