@@ -1,21 +1,25 @@
 # RAG Embedding Lab
 
-Fine-tune and measure dense-retrieval **embedding models** — generate data → train →
-evaluate → compare — end to end, on a laptop.
+Fine-tune, measure, and **serve** dense-retrieval **embedding models** — generate data →
+train → evaluate → compare → hand off → search — end to end, on a laptop.
 
 - **Generate** — toy or LLM-synthesised training pairs, plus a BEIR-format eval set.
 - **Train** — fine-tune an embedding model (sentence-transformers; macOS MPS / Linux CUDA / CPU).
 - **Evaluate** — recall@k / MRR / nDCG over a needle-in-haystack BEIR eval set.
-- **Compare** — stack runs side by side to see which model retrieves better.
+- **Compare** — per-query diffs + permutation p-values to pick a winner honestly.
+- **Hand off** — package the winner (embedding contract + parity vectors) for serving.
+- **Serve** — index the corpus into **Qdrant** (versioned collections, zero-downtime
+  alias swap, instant rollback) and search it live from the UI.
 
 A **React web app** drives the whole loop; every step is also a plain CLI command.
 
 Stack: **Python 3.13 + uv** · **Ollama** (`qwen3-embedding:0.6b`) · **sentence-transformers** ·
-**FastAPI** · **React** (Vite + Tailwind). Dependencies locked in `uv.lock`.
+**FastAPI** · **Qdrant** (serving only) · **React** (Vite + Tailwind). Dependencies locked in `uv.lock`.
 
 > 🚀 **Quickstart:** `uv sync` · `npm install --prefix frontend && npm run build --prefix frontend`
 > · `uv run rag-serve` → http://localhost:8000 (UI + API on one port).
-> No vector database to stand up — evaluation ranks the corpus in-memory.
+> No vector database needed to train/evaluate — evaluation ranks the corpus in-memory.
+> Qdrant enters only when you serve (`make qdrant`).
 
 ## Commands
 
@@ -31,7 +35,7 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 | `uv run rag-gen-eval` | write a **BEIR-format eval set** (`data/eval`) — `EVAL_SOURCE=corpus` uses the crawled site as the haystack |
 | `uv run rag-train` | fine-tune the embedding model |
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
-| `uv run rag-index` | embed `data/corpus.jsonl` into **Qdrant** (versioned collection + atomic alias swap) |
+| `uv run rag-index` | embed `data/corpus.jsonl` into **Qdrant** (versioned collection + atomic alias swap; `--prune` drops rollback copies) |
 | `uv run rag-search "질문"` | query the live Qdrant index from the CLI (serving smoke test) |
 
 `rag-serve` (API + UI) is a long-running server; the rest are batch tools that run and
@@ -130,6 +134,9 @@ A `Makefile` wraps every everyday task — run `make` (or `make help`) to list t
 | `make clean` | remove build artifacts (dist + caches); deps untouched |
 | `make test` | run the backend tests (pytest) |
 | `make lint` | ruff (Python) + eslint (frontend) |
+| `make qdrant` | start a local **Qdrant** (docker, :6333) for the serving path |
+| `make index` | embed the corpus into Qdrant (`SERVE_MODEL=outputs/…` picks the model) |
+| `make serve-ft` | serve UI + API with the fine-tuned model (`SERVE_MODEL`) as the embedder |
 
 Or drive it directly:
 ```bash
@@ -160,21 +167,30 @@ The offline tools have their own knobs (also in `.env.example`): `CRAWL_MAX_PAGE
 ## Web UI
 
 The React app ([`frontend/`](frontend)) wraps the **same `rag.*` offline loop** (generate
-data → train → evaluate → compare) — a thin client with no business logic of its own.
+data → train → evaluate → compare → hand off → serve) — a thin client with no business
+logic of its own.
 Bring your in-house eval set ([`docs/evaluation.md`](docs/evaluation.md)) and the
 eval/compare screens measure real models.
 
-A single-page studio: an **Overview** dashboard (champion + leaderboard + nDCG trend),
-**Data** (crawl a site into the corpus · generate/preview training pairs & the BEIR eval
-set, both streamed over SSE), **Train** (live SSE loss curve + before/after nDCG),
-**Eval** (auto-dim model scoring with Δ-vs-best), and **Compare** (grouped metric bars +
-best-per-metric table). Toasts, focus-trapped dialogs.
+A single-page studio, tabs in pipeline order: **개요** (champion + leaderboard + nDCG
+trend), **데이터** (crawl a site into the corpus · generate/preview training pairs & the
+BEIR eval set · import real query/click logs · a judging UI that grows qrels), **학습**
+(single runs or sweeps, live SSE loss curve, per-epoch validation), **평가** (auto-dim
+model scoring with Δ-vs-best, Matryoshka truncation, recent-runs history), **실험**
+(grouped metric bars, per-query diff + permutation p-value, final confirmation), **모델**
+(recipe shelf + handoff packaging — handoff auto-starts a background reindex), **검색**
+(the serving console: index status with dim/model-mismatch guards, collection inventory
+with instant alias rollback + prune, reindex with progress, live search with latency
+split), and **소개** (a built-in textbook + report). The header always shows the world
+state: the process embedder + model, Qdrant liveness, device, eval-set fingerprint,
+best score, running jobs.
 
 **Stack:** Vite · React + TypeScript · Tailwind v4 · TanStack Query (server state) ·
 React Router · Radix UI + Sonner (behaviour) · hand-drawn SVG charts (data-viz).
 The design system, data layer, and screens live in
-`frontend/src/{components,lib,routes}`. It talks to the **lab API** (`/api/*`); there is no
-vector store — evaluation ranks in-memory, so only Ollama is needed (when you run an eval).
+`frontend/src/{components,lib,routes}`. It talks to the **lab API** (`/api/*`); training
+and evaluation need no vector store (in-memory ranking) — Qdrant is used by the 검색 tab
+only.
 
 ```bash
 npm install --prefix frontend          # one-time: JS deps
@@ -193,13 +209,16 @@ The React app is a thin client over these (FastAPI, [`rag/api/routes/lab/`](src/
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /api/status` | Ollama / device / eval-set / training-ready / run-count |
+| `GET /api/status` | embedder / device / Ollama / Qdrant / eval-set / running jobs — the header's world state |
 | `GET /api/models?embedder=` | model list + a sensible default |
 | `GET /api/data/{overview,pairs,corpus}` | dataset counts + previews |
 | `POST /api/data/{pairs,eval}` | (re)generate training pairs / the BEIR eval set |
 | `POST /api/eval` | score a model (optional `truncate_dim`) → append to the run registry → metrics + Δ |
 | `GET`·`DELETE /api/runs[/{id}]` | list (with best-per-metric) / delete a run |
 | `POST`·`GET /api/jobs[/{id}]` | create/observe **server-owned** training jobs (single or sweep); poll state, `/stop`·`/skip` |
+| `GET /api/models/detail` · `POST /api/models/handoff` | model shelf (recipes, sizes) · handoff package (+ auto-reindex hook) |
+| `POST /api/search` · `GET /api/search/status` | search the live Qdrant index · index health (dim/model-match guards, collection family) |
+| `POST /api/index[/alias\|/prune]` · `GET /api/index/status` | background reindex (409 while running) · instant alias rollback · drop rollback copies · job progress |
 
 Lab support code is framework-free (keeping the route handlers thin): the run registry in
 [`rag/runs.py`](src/rag/runs.py), environment/model introspection in
@@ -298,22 +317,29 @@ src/rag/
 │   ├── formatting.py format_query / format_document  (asymmetry, one place)
 │   └── errors.py
 ├── embeddings/       Embedder adapters: ollama.py · sentence_transformer.py · factory.py (build_embedder)
+├── vectorstore/      qdrant.py — Qdrant over plain httpx REST (no client lib; every wire call visible)
 ├── datagen/          crawl.py (site → corpus) · topics.py (16-topic set) · dummy.py (toy) · synthetic.py (LLM queries + filters + hard negatives) · eval_corpus.py (BEIR sample) · eval_from_corpus.py (BEIR from the real corpus)
 ├── training/         config · data · model · train  (contrastive fine-tuning)
 ├── evaluation/       beir.py (corpus/queries/qrels IO) · retrieval.py (embed + in-memory rank) · metrics.py
+├── serving.py        framework-free serving flow: versioned collections · atomic alias swap ·
+│                     idempotent index_corpus · search · rollback (set_live) · prune (CLI + API share it)
 ├── api/              lab HTTP API (FastAPI) + composition root
 │   ├── app.py        create_app(): Settings + lab routes + serve frontend/dist
 │   ├── jobs.py       server-owned training jobs (single/sweep) · pruning.py (median pruning, pure) · hints.py (failure→fix)
-│   └── deps.py · errors.py · schemas/lab.py · routes/lab/ (status·models·data·runs·jobs·evaluate)
-├── cli/              entrypoints (thin): serve · crawl · gen_data · gen_synthetic · gen_eval · train · evaluate
+│   ├── indexjob.py   the one background-reindex slot (handoff hook + POST /api/index)
+│   └── deps.py · errors.py · schemas/lab.py · routes/lab/ (status·models·data·runs·jobs·evaluate·search)
+├── cli/              entrypoints (thin): serve · crawl · gen_data · gen_synthetic · gen_eval · train · evaluate · index · search
 ├── runs.py           eval-run registry (JSONL) ·  lab.py  env/model introspection ·  trainlog.py  log parsing
 ├── dataset.py        shared training-pair JSONL IO (datagen ↔ training)
 └── config.py         Settings (injected; from_env at the root)
 
 frontend/             React lab (Vite + TS + Tailwind) — see frontend/README.md
 tests/                pure: formatting · settings · lab · eval-metrics · beir · runs · trainlog · datagen
-                      + the SSE route (a fake subprocess) — no vector DB / torch needed
+                      + serving/search/indexjob via in-memory fakes + the SSE route — no vector DB / torch needed
 docs/evaluation.md    the eval data contract + experiment assumptions (read before measuring)
+docs/serving.md       the serving path: Qdrant, versioned collections, rollback, automation
+docs/serving-parity.md porting the embedding contract to another serving stack
+docs/report.md        stakeholder report — why fine-tune, what was built, honest PoC numbers
 data/                 corpus.jsonl · train/test.jsonl (training pairs) · eval/ (BEIR-format eval set)
 ```
 

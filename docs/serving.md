@@ -18,13 +18,17 @@ make serve-ft                            # /api/search 가 색인을 서빙
 
 ```bash
 curl -s localhost:8000/api/search -H 'content-type: application/json' \
-  -d '{"query": "연차 신청 방법", "top_k": 5}'
-curl -s localhost:8000/api/search/status   # alias → collection, dim 일치 여부
+  -d '{"query": "연차 신청 방법", "top_k": 5}'       # 응답에 embed_ms/search_ms 지연 분해 포함
+curl -s localhost:8000/api/search/status   # alias → collection, dim/모델 일치, 컬렉션 목록
 curl -s localhost:8000/api/index -H 'content-type: application/json' -d '{}'  # 백그라운드 재색인
 curl -s localhost:8000/api/index/status    # 재색인 진행률
+curl -s localhost:8000/api/index/alias -H 'content-type: application/json' \
+  -d '{"collection": "docs__옛모델__1024d__지문"}'   # 즉시 롤백 (재임베딩 없음)
+curl -s -X POST localhost:8000/api/index/prune       # 라이브 외 컬렉션 삭제 (재색인 중이면 409)
 ```
 
-웹 UI의 **검색 탭**이 이 전부를 시각화합니다: 인덱스 상태 · 재색인(진행바) · 실검색.
+웹 UI의 **검색 탭**이 이 전부를 시각화합니다: 인덱스 상태(가드 포함) · 재색인(진행바) ·
+컬렉션 인벤토리(라이브 전환 = 롤백 · 정리) · 실검색(top-k · 지연 분해).
 
 ## 모델 교체 = 재색인, 자동
 
@@ -42,7 +46,9 @@ curl -s localhost:8000/api/index/status    # 재색인 진행률
 2. 없으면 → 새 컬렉션 생성, 배치 임베딩+upsert
 3. 마지막에 alias를 **원자적으로** 전환 (Qdrant의 delete+create 단일 액션) — 검색은 절반만
    색인된 인덱스를 절대 보지 않고, 전환은 무중단
-4. 이전 컬렉션은 롤백용으로 남음 → 새 인덱스 확인 후 `rag-index --prune`으로 정리
+4. 이전 컬렉션은 롤백용으로 남음 → **롤백 = alias만 되돌리기** (검색 탭의 "라이브 전환"
+   버튼 또는 `POST /api/index/alias` — 재임베딩 없이 즉시). 새 인덱스 확인 후
+   `rag-index --prune`(또는 검색 탭의 "정리")으로 사본을 삭제
 
 멱등이므로 자동화에 그대로 걸 수 있고, 실제로 걸려 있습니다:
 
@@ -64,10 +70,19 @@ Ollama 등 다른 스택으로 옮길 때의 검증 절차는 [serving-parity.md
 
 - **차원 가드**: 검색 시 인덱스 dim ≠ 임베더 dim이면 503 + 재색인 안내 (Matryoshka
   truncate 포함 — `rag-index --truncate-dim N`으로 색인했다면 서버도 `EMBED_TRUNCATE_DIM=N`).
-- **모델 가드(약한)**: 같은 dim의 다른 모델은 기술적으로 검색이 되지만 순위가 무의미합니다.
-  컬렉션 이름에 모델 슬러그가 박혀 있으니 `/api/search/status`의 `collection` vs `model`로
-  눈으로 확인하세요.
+- **모델 가드**: 같은 dim의 다른 모델은 기술적으로 검색이 되지만 순위가 무의미합니다.
+  컬렉션 이름에 모델 슬러그가 박혀 있어 서버가 자동 비교합니다 —
+  `/api/search/status`의 `model_matches: false`면 검색 탭이 amber 경고를 띄우고,
+  재색인 모델을 서버 임베더와 다르게 고르면 **색인을 시작하기 전에** 경고합니다.
 - Qdrant 다운/색인 없음 → `VectorStoreError` → HTTP 503 (원인과 다음 행동이 담긴 메시지).
+- **정리 가드**: 재색인이 도는 동안 `POST /api/index/prune`은 409 — 잡이 만들고 있는
+  (아직 라이브가 아닌) 컬렉션을 지워버리는 사고 방지.
+
+## 상태 한눈에 (헤더)
+
+웹 UI 헤더가 서빙의 "현재 세계 상태"를 상시 표시합니다: 프로세스 임베더(`ST`/`Ollama` +
+모델명), Qdrant 생존 점등, 재색인 중 pill. Ollama는 죽어 있을 때만 `Ollama ↓`로
+나타납니다(데이터 탭의 LLM 합성이 사용) — 건강한 상태는 조용히, 예외만 시끄럽게.
 
 ## 환경 변수
 
