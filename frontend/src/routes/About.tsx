@@ -13,6 +13,7 @@ import {
   HardDrive,
   Lightbulb,
   Package,
+  Search,
   ShieldCheck,
 } from "lucide-react";
 
@@ -109,7 +110,7 @@ const M = ({ children }: { children: ReactNode }) => <span className="mono text-
 const TOC: [string, string][] = [
   ["role", "랩의 역할"],
   ["basics", "임베딩 기초"],
-  ["flow", "5단계 플로우"],
+  ["flow", "6단계 플로우"],
   ["training", "학습의 원리"],
   ["loss", "Loss 함수"],
   ["knobs", "하이퍼파라미터"],
@@ -117,6 +118,7 @@ const TOC: [string, string][] = [
   ["eval", "평가"],
   ["compare", "비교·확정"],
   ["handoff", "납품"],
+  ["serving", "서빙"],
   ["report", "보고 포인트"],
   ["glossary", "용어 사전"],
 ];
@@ -156,6 +158,13 @@ const FLOW = [
     title: "모델",
     what: "학습된 모델의 전체 레시피(train_meta.json)를 열람·정리하고, 승자를 핸드오프 패키지로 서빙팀에 납품합니다.",
     why: "모델 파일만 던지면 서빙에서 점수가 증발합니다 — 임베딩 계약서와 패리티 검증 벡터까지가 납품입니다.",
+  },
+  {
+    icon: Search,
+    to: PATH.search,
+    title: "검색",
+    what: "납품할 모델로 corpus 전체를 Qdrant(벡터 DB)에 색인하고, 실제 쿼리를 넣어 검색해 봅니다. 모델을 핸드오프하면 그 모델로 자동 재색인이 걸립니다.",
+    why: "점수표가 아니라 실물로 확인하는 단계 — 그리고 “모델 교체 = 전면 재색인”이라는 서빙 절차를 무중단·자동으로 만드는 레퍼런스 구현입니다.",
   },
 ];
 
@@ -258,6 +267,12 @@ const GLOSSARY: [string, string][] = [
   ["p값", "관찰된 차이가 우연일 확률 — 관례상 0.05 미만이면 유의"],
   ["dev / final", "모의고사(선택용) / 수능(확정용)으로 분리한 평가셋"],
   ["핸드오프", "모델 + 임베딩 계약 + 패리티 벡터를 묶은 납품 패키지"],
+  ["벡터 DB", "문서 벡터를 저장하고 ‘가장 가까운 벡터’를 빠르게 찾는 DB (이 랩은 Qdrant)"],
+  ["색인(인덱싱)", "corpus 전체를 모델로 임베딩해 벡터 DB에 저장 — 모델 교체 시 전면 재실행"],
+  ["컬렉션", "벡터 DB 안의 테이블 — 이 랩은 (모델·차원·corpus 지문)마다 별도 생성"],
+  ["alias", "검색이 바라보는 고정 이름 — 실제 컬렉션을 원자적으로 갈아끼우는 스위치"],
+  ["무중단 전환", "새 인덱스를 다 만든 뒤 alias만 바꿔치기 — 검색이 멈추는 순간이 없음"],
+  ["멱등", "같은 작업을 몇 번 실행해도 결과가 같음 — 자동화에 걸어도 안전한 조건"],
 ];
 
 const GUARANTEES: ReactNode[][] = [
@@ -293,6 +308,11 @@ const GUARANTEES: ReactNode[][] = [
     "학습은 끊기지 않음",
     "학습 잡은 서버 소유 — 브라우저를 닫아도 진행되고, 끝나면 자동 평가까지. 스윕은 순차 실행 + median pruning으로 지는 런 조기 종료 + 상위 K개만 보관해 디스크도 자동 정리",
     "학습 탭",
+  ],
+  [
+    "모델 교체는 무중단",
+    "재색인은 새 컬렉션을 다 만든 뒤 alias를 원자적으로 전환 — 검색이 반쯤 만든 인덱스를 보는 순간이 없고, 옛 컬렉션은 롤백용으로 남음. 핸드오프하면 재색인이 자동으로 걸림",
+    "검색 탭",
   ],
 ];
 
@@ -396,7 +416,7 @@ export default function About() {
       </Topic>
 
       {/* ── 3. Flow ────────────────────────────────────────────────────── */}
-      <Topic id="flow" title="전체 플로우 — 다섯 단계의 의미" hint="사이드바의 탭 순서 그대로" delay={80}>
+      <Topic id="flow" title="전체 플로우 — 여섯 단계의 의미" hint="사이드바의 탭 순서 그대로" delay={80}>
         <div className="space-y-3">
           {FLOW.map((s, i) => {
             const Icon = s.icon;
@@ -812,8 +832,81 @@ qrels/final.tsv  query-id  corpus-id  1     # 채점표 (확정용)`}</Code>
         </Panel>
       </Topic>
 
-      {/* ── 11. Report ─────────────────────────────────────────────────── */}
-      <Topic id="report" title="보고 포인트 — 왜 이 결과를 믿어도 되는가" hint="이 섹션은 상급자에게 그대로 보여줘도 됩니다" delay={240}>
+      {/* ── 11. Serving ────────────────────────────────────────────────── */}
+      <Topic id="serving" title="서빙 — 납품한 모델이 실제로 검색하기까지" hint="벡터 DB 색인, 무중단 모델 교체, 그리고 자동화" delay={240}>
+        <Panel className="space-y-4 p-5">
+          <p className="text-[13px] leading-relaxed text-mut">
+            학습·평가·납품이 끝난 모델이 실제 검색을 하려면 두 가지가 더 필요합니다. ①{" "}
+            <b className="text-fg">색인(인덱싱)</b> — corpus의 모든 문서를 그 모델로 임베딩해{" "}
+            <b className="text-fg">벡터 DB</b>에 저장해 두는 일, ② <b className="text-fg">검색</b> — 들어온 쿼리를{" "}
+            <b className="text-fg">같은 모델</b>로 임베딩해 가장 가까운 문서 벡터들을 찾는 일. 이 랩의 벡터 DB는{" "}
+            <M>Qdrant</M>이고, 임베딩 추론은 학습 산출물(<M>outputs/…</M>)을 변환 없이 그대로 로드하는
+            sentence-transformers 인프로세스 방식입니다. <b className="text-fg">검색 탭</b>이 이 전체가 실제로
+            돌아가는 곳입니다 — 인덱스 상태 확인, 재색인, 그리고 실검색까지.
+          </p>
+          <Analogy>
+            색인은 <b className="text-fg">도서관 서가 정리</b>입니다. 임베딩 모델은 “이 책을 어느 서가에 꽂을지” 정하는
+            사서, 벡터 DB는 서가고요. 사서가 바뀌면(모델 교체) 새 사서의 분류 기준으로{" "}
+            <b className="text-fg">모든 책을 다시 꽂아야</b>(전면 재색인) 합니다 — 옛 배치를 그대로 두고 새 사서에게
+            책을 찾아오라고 하면 엉뚱한 서가로 가거든요. 서로 다른 모델의 벡터는 호환되지 않는 좌표계라는 납품
+            섹션의 이야기가 서빙에서 이렇게 나타납니다.
+          </Analogy>
+          <p className="text-[13px] leading-relaxed text-mut">
+            그런데 전면 재색인은 문서 수천 건 기준으로도 수 분이 걸리는 일입니다. 그동안 검색이 멈추거나, 반쯤 만들어진
+            인덱스가 사용자에게 보이면 안 됩니다. 이 랩은 <b className="text-fg">컬렉션 버저닝 + alias</b>로 이 문제를
+            풉니다:
+          </p>
+          <Code>{`docs__outputs-embedding-ft-mnrl-e1-3__1024d__f61681b8872e   ← 버전 컬렉션 (모델·차원·corpus 지문을 이름에 인코딩)
+docs-live                                                   ← 검색이 바라보는 유일한 이름 (alias)`}</Code>
+          <ul className="space-y-1.5 text-[12.5px] leading-relaxed text-mut">
+            <li>
+              <b className="text-fg">① 새 컬렉션에 색인</b> — 새 모델용 컬렉션을 옆에 따로 만들어 채웁니다. 그동안
+              검색은 기존 컬렉션으로 아무 일 없이 계속됩니다.
+            </li>
+            <li>
+              <b className="text-fg">② alias 원자적 전환</b> — 색인이 <i>다 끝난 뒤에만</i> <M>docs-live</M>가
+              가리키는 대상을 새 컬렉션으로 한 번에 바꿉니다. 검색이 반쯤 만든 인덱스를 보는 순간이 없고, 전환은
+              무중단입니다.
+            </li>
+            <li>
+              <b className="text-fg">③ 옛 컬렉션은 롤백용으로 보관</b> — 새 인덱스에 문제가 보이면 alias만 되돌리면
+              끝. 확인이 끝나면 정리(prune)합니다.
+            </li>
+          </ul>
+          <Note tone="signal" title="이름이 결정적이라 재실행이 안전합니다 (멱등)">
+            컬렉션 이름이 (모델, 차원, corpus 내용의 지문)에서 <b className="text-fg">자동으로 유도</b>되므로, 같은
+            조건으로 색인을 다시 걸면 “이미 완성돼 있음”을 감지하고 임베딩을 통째로 건너뜁니다. 버튼을 실수로 두 번
+            눌러도, 자동화가 반복 실행해도 무해합니다 — 그래서 아래 자동화에 그대로 걸 수 있습니다.
+          </Note>
+          <Tbl
+            head={["자동화", "무엇이 일어나나", "어디서"]}
+            rows={[
+              [
+                "핸드오프 훅",
+                "모델 탭에서 납품하는 순간 그 모델로 백그라운드 재색인이 자동 시작 — “이 모델이 라이브로 간다”는 결정을 인덱스가 사람 손 없이 따라갑니다",
+                "모델 탭 → 납품",
+              ],
+              ["재색인 버튼", "모델을 골라 수동 재색인 + 진행률 표시. 실행 중 중복 시작은 거부됩니다", "검색 탭"],
+              ["실검색", "쿼리를 서버의 임베더로 임베딩해 라이브 인덱스에서 검색 — 점수표가 아니라 실물 확인", "검색 탭"],
+            ]}
+          />
+          <Note tone="amber" title="안전 가드 — 조용히 틀리는 대신 시끄럽게 멈춥니다">
+            서빙에서 가장 위험한 사고는 <b className="text-fg">에러 없이 엉뚱한 결과가 나오는 것</b>입니다. 인덱스를
+            만든 모델과 쿼리를 임베딩하는 모델이 다르면 검색은 “되지만” 순위가 무의미해지거든요. 그래서 차원이 다르면
+            검색을 막고 재색인을 안내하며(HTTP 503), 같은 차원이라도 컬렉션 이름에 모델이 박혀 있어 상태 화면에서 눈으로
+            대조할 수 있습니다. 색인의 문서와 검색의 쿼리는 학습 때와 <b className="text-fg">같은 포맷 코드</b>를
+            통과합니다 — 납품 섹션의 “포맷 패리티” 계약이 서빙 경로에도 강제되는 것입니다.
+          </Note>
+          <p className="text-[13px] leading-relaxed text-mut">
+            이 서빙 경로는 프로덕션 그 자체가 아니라 <b className="text-fg">레퍼런스 구현</b>입니다 — 프로덕션(hybrid +
+            rerank)이 dense 부품을 교체할 때 따라야 할 절차(전면 재색인 → 패리티 확인 → 무중단 전환 → 롤백 대비)를 랩
+            안에서 실제로 돌려보고 검증하는 축소판입니다. 납품받는 쪽은 이 탭을 그대로 절차서로 쓸 수 있습니다.
+          </p>
+        </Panel>
+      </Topic>
+
+      {/* ── 12. Report ─────────────────────────────────────────────────── */}
+      <Topic id="report" title="보고 포인트 — 왜 이 결과를 믿어도 되는가" hint="이 섹션은 상급자에게 그대로 보여줘도 됩니다" delay={260}>
         <div className="space-y-4">
           <Panel className="relative overflow-hidden p-6">
             <div className="absolute -left-12 -top-12 h-44 w-44 rounded-full bg-signal/10 blur-3xl" />
@@ -832,7 +925,8 @@ qrels/final.tsv  query-id  corpus-id  1     # 채점표 (확정용)`}</Code>
             <Tbl head={["주장", "이를 보장하는 장치", "확인 위치"]} rows={GUARANTEES} />
             <Note tone="cyan" title="보고 동선 추천 — 숫자 세 개면 충분합니다">
               <b className="text-fg">개요 탭</b>(최고 점수와 추이) → <b className="text-fg">실험 탭</b>(base 모델 대비
-              쿼리별 diff와 p값, final 확정 ✓) → <b className="text-fg">모델 탭</b>(레시피와 핸드오프). 보고에는{" "}
+              쿼리별 diff와 p값, final 확정 ✓) → <b className="text-fg">모델 탭</b>(레시피와 핸드오프) →{" "}
+              <b className="text-fg">검색 탭</b>(그 모델이 실제로 검색하는 라이브 데모). 보고에는{" "}
               <M>Δrecall@50</M>, <M>p값</M>, <M>final 점수</M> 세 숫자를 중심에 두세요 — 각각 “얼마나 좋아졌나 /
               우연인가 / 새 데이터에서도 유지되나”에 답합니다.
             </Note>
@@ -848,8 +942,8 @@ qrels/final.tsv  query-id  corpus-id  1     # 채점표 (확정용)`}</Code>
         </div>
       </Topic>
 
-      {/* ── 12. Glossary ───────────────────────────────────────────────── */}
-      <Topic id="glossary" title="용어 사전" hint="본문에서 쓴 말들, 한 줄씩" delay={260}>
+      {/* ── 13. Glossary ───────────────────────────────────────────────── */}
+      <Topic id="glossary" title="용어 사전" hint="본문에서 쓴 말들, 한 줄씩" delay={280}>
         <Panel className="p-5">
           <div className="grid gap-x-10 gap-y-2.5 sm:grid-cols-2">
             {GLOSSARY.map(([t, d]) => (
