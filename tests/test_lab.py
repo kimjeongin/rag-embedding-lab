@@ -34,5 +34,12 @@ def test_default_model_first_dir_for_sentence_transformers():
     assert default_model("sentence-transformers", ["outputs/ft", "x"]) == "outputs/ft"
 
 
+def test_default_model_prefers_the_serving_model_when_available():
+    choices = ["outputs/a", "outputs/b"]
+    assert default_model("sentence-transformers", choices, preferred="outputs/b") == "outputs/b"
+    # the serving model may be gone from outputs/ (deleted) — fall back gracefully
+    assert default_model("sentence-transformers", choices, preferred="outputs/gone") == "outputs/a"
+
+
 def test_default_model_empty_when_no_choices():
     assert default_model("ollama", []) == ""

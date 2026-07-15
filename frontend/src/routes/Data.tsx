@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Database, FileText, FlaskConical, Gauge, Globe, Sparkles } from "lucide-react";
@@ -17,6 +17,7 @@ import {
   useLabelCommit,
   useModels,
   usePairs,
+  useStatus,
 } from "../lib/queries";
 import { startCrawl, useCrawlState } from "../lib/crawlStore";
 import { startSynthetic, useSyntheticState } from "../lib/syntheticStore";
@@ -167,11 +168,15 @@ function ImportPanel() {
 /** The judging loop: type a real query → see what the current model retrieves →
  * click what's actually relevant → it becomes qrels (+ a training pair). */
 function LabelPanel() {
+  // 검색 탭의 "이 쿼리 판정 → 평가셋" 링크가 ?label=<쿼리>로 들어온다 — 프리필 + 자동 검색
+  const [params, setParams] = useSearchParams();
+  const prefill = params.get("label") ?? "";
+  const anchor = useRef<HTMLDivElement>(null);
   const [backend, setBackend] = useState<Embedder>("sentence-transformers");
   const models = useModels(backend);
   const [override, setOverride] = useState("");
   const model = override || models.data?.default || "";
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(prefill);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [alsoTrain, setAlsoTrain] = useState(true);
   const commit = useLabelCommit();
@@ -181,6 +186,18 @@ function LabelPanel() {
     onSuccess: () => setPicked(new Set()),
   });
   const results: LabelDoc[] = search.data?.results ?? [];
+
+  useEffect(() => {
+    if (prefill) anchor.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [prefill]);
+  // 자동 검색은 타이머로 지연 발사 — StrictMode가 마운트 이펙트를 2회 돌리는 창 안에서
+  // mutate하면 관찰이 끊겨 pending이 고착된다(클린업으로 타이머만 취소되고 재예약됨)
+  useEffect(() => {
+    if (!prefill || !model || !search.isIdle) return;
+    const timer = setTimeout(() => search.mutate(), 50);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill, model, search.isIdle]);
 
   const togglePick = (id: string) =>
     setPicked((s) => {
@@ -192,13 +209,14 @@ function LabelPanel() {
 
   return (
     <Panel className="p-5">
-      <div className="mb-4 flex items-center gap-2">
+      <div ref={anchor} className="mb-4 flex items-center gap-2">
         <Search size={16} className="text-cyan" />
         <h3 className="text-[15px] font-semibold text-fg">라벨링 — 정답 판정으로 평가셋 키우기</h3>
         <Info title="판정 루프" align="left">
           실제 쿼리를 넣으면 <b className="text-fg">현재 모델의 top-10</b>이 나옵니다. 정답인 문서를 클릭해 저장하면{" "}
           <b className="text-fg">qrels(+학습쌍)</b>가 됩니다. 하루 10개씩만 판정해도 평가셋이 점점 "진짜"가 돼요 —
-          평가셋의 신뢰가 모든 비교의 전제입니다.
+          평가셋의 신뢰가 모든 비교의 전제입니다. 판정 모델이 서빙 인덱스와 같으면(기본) 인덱스 벡터를 재사용해
+          즉시 나옵니다 — 다른 모델은 첫 검색에서 corpus 전체를 임베딩해 오래 걸립니다(모델·코퍼스당 한 번).
         </Info>
       </div>
       <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
@@ -262,7 +280,15 @@ function LabelPanel() {
               onClick={() =>
                 commit.mutate(
                   { query: query.trim(), doc_ids: [...picked], also_train: alsoTrain },
-                  { onSuccess: () => { setPicked(new Set()); setQuery(""); search.reset(); } },
+                  {
+                    onSuccess: () => {
+                      setPicked(new Set());
+                      setQuery("");
+                      search.reset();
+                      // 판정 완료 — ?label 프리필을 지워 자동 검색이 재발사되지 않게
+                      if (prefill) setParams({}, { replace: true });
+                    },
+                  },
                 )
               }
             >
@@ -281,6 +307,7 @@ function LabelPanel() {
 
 export default function Data() {
   const overview = useDataOverview();
+  const status = useStatus();
   const pairs = usePairs();
   const corpus = useCorpus();
   const genPairs = useGenPairs();
@@ -316,6 +343,8 @@ export default function Data() {
   }, [synth.status, synth.result, synth.error, qc]);
 
   const synthRunning = synth.status === "running";
+  // AI 자동 생성은 Ollama의 LLM이 쿼리를 쓰므로, 죽어 있으면 누르기 전에 알린다
+  const ollamaDown = status.data ? !status.data.ollama.reachable : false;
   const busy = method === "toy" ? genPairs.isPending : synthRunning;
   const busyLabel =
     method === "synthetic" && synthRunning
@@ -421,8 +450,14 @@ export default function Data() {
               </div>
             )}
 
+            {method === "synthetic" && ollamaDown && (
+              <p className="mt-3 text-[12px] leading-relaxed text-amber">
+                ⚠ Ollama에 연결할 수 없습니다 — AI 자동 생성은 Ollama의 LLM이 corpus를 읽고 질문을 씁니다.{" "}
+                <span className="mono">ollama serve</span>로 띄운 뒤 다시 시도하세요. (예제 데이터는 Ollama 없이 됩니다)
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap gap-2.5">
-              <Btn icon={<Sparkles size={15} />} onClick={runGenPairs} disabled={busy}>
+              <Btn icon={<Sparkles size={15} />} onClick={runGenPairs} disabled={busy || (method === "synthetic" && ollamaDown)}>
                 {busy ? busyLabel : "학습 데이터 생성"}
               </Btn>
               <Btn variant="ghost" icon={<FileText size={15} />} onClick={() => setModal("pairs")}>

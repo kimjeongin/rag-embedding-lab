@@ -7,12 +7,15 @@ LLM-synthesised set) and the BEIR-format eval set. All of it delegates to
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from rag import lab
+from rag import lab, serving
+from rag.api import labelrank
+from rag.api.deps import get_embedder, get_settings, get_store
 from rag.api.schemas.lab import (
     CorpusDoc,
     CorpusResponse,
@@ -36,6 +39,7 @@ from rag.api.schemas.lab import (
 )
 from rag.api.sse import sse_event
 from rag.config import Settings
+from rag.core.errors import VectorStoreError
 from rag.datagen import ingest
 from rag.datagen.dummy import generate_dataset
 from rag.datagen.eval_corpus import generate as generate_eval_set
@@ -315,29 +319,72 @@ def import_pairs(req: ImportPairsRequest) -> ImportPairsResponse:
     )
 
 
+async def _rank_via_serving_index(
+    settings: Settings, embedder, store, corpus: dict, query: str, top_n: int = 10
+) -> list[str] | None:
+    """Fast path: the live Qdrant index already holds this model's document vectors
+    (a ~30min embed pass on a laptop) — reuse them instead of re-embedding the
+    corpus. Returns None whenever the index can't answer for THIS eval corpus
+    (unreachable / no index / different model or dim / contents drifted), so the
+    caller falls back to the in-process matrix."""
+    status = await asyncio.to_thread(serving.index_status, settings, store)
+    if not (status["reachable"] and status["collection"]):
+        return None
+    if not (status["dim_matches"] and status["model_matches"]):
+        return None
+    try:
+        # over-fetch: serving corpus may hold docs outside the eval corpus
+        result = await serving.search(settings, embedder, store, query, top_k=max(top_n * 3, 30))
+    except VectorStoreError:
+        return None
+    return labelrank.map_hits_to_corpus_ids(result["hits"], corpus, top_n) or None
+
+
 @router.post("/data/label/search", response_model=LabelSearchResponse)
-async def label_search(req: LabelSearchRequest) -> LabelSearchResponse:
+async def label_search(
+    req: LabelSearchRequest,
+    request: Request,
+    process: Settings = Depends(get_settings),
+    store=Depends(get_store),
+) -> LabelSearchResponse:
     """The judging loop's first half: rank the corpus for one query with the chosen
-    model, so a human can click which results are actually relevant."""
+    model, so a human can click which results are actually relevant.
+
+    When the chosen stack IS the serving embedder and the live index matches, the
+    ranking reuses the index's vectors (ms). Otherwise the corpus matrix is built
+    in-process and cached per (backend, model, corpus content) in ``labelrank`` —
+    the first judgment pays the full embed pass, the rest embed one query each."""
     eval_dir = eval_dir_from_env()
     if not (Path(eval_dir) / "corpus.jsonl").exists():
         raise HTTPException(status_code=400, detail="평가 corpus가 없습니다 — 평가셋을 먼저 만드세요")
     corpus = load_corpus(eval_dir)
 
-    from rag.embeddings import build_embedder
-    from rag.evaluation.retrieval import rank_corpus
-
-    settings = Settings.from_env()
     try:
-        dim = lab.infer_dim(req.embedder, req.model, settings.ollama_url)
-        eval_settings = lab.build_eval_settings(req.embedder, req.model, dim, settings.ollama_url)
-        async with build_embedder(eval_settings) as embedder:
-            rankings = await rank_corpus(embedder, corpus, {"q": req.query}, top_n=10)
+        dim = lab.infer_dim(req.embedder, req.model, process.ollama_url)
+        eval_settings = lab.build_eval_settings(req.embedder, req.model, dim, process.ollama_url)
+        ranked = None
+        shared = None
+        if (
+            eval_settings.embedder == process.embedder
+            and eval_settings.active_model == process.active_model
+            and eval_settings.embed_dim == process.embed_dim
+        ):
+            # the judging default IS the serving embedder — borrow the process
+            # instance instead of loading a second copy of the same ~GB weights
+            shared = await get_embedder(request)
+            ranked = await _rank_via_serving_index(process, shared, store, corpus, req.query)
+        if ranked is None:
+            ranked = await labelrank.rank(
+                eval_settings, corpus, labelrank.corpus_fingerprint(eval_dir), req.query,
+                shared=shared,
+            )
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001 — surface embedding failures as 502
         raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc
 
     results = []
-    for doc_id in rankings.get("q", []):
+    for doc_id in ranked:
         doc = corpus.get(doc_id) or {}
         text = doc.get("text") or ""
         results.append(LabelDoc(id=doc_id, title=doc.get("title"), text=text[:200] + ("…" if len(text) > 200 else "")))

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { fmt, short } from "../lib/format";
 import { PATH } from "../lib/nav";
 import { useDeleteModel, useHandoff, useModelsDetail, useStatus } from "../lib/queries";
-import type { ModelDetail } from "../lib/types";
+import type { ModelDetail, ModelEvalSummary } from "../lib/types";
 import { Modal } from "../components/Modal";
 import { Btn, ErrorNote, Info, Loading, Panel, Section, SectionLabel, Stat, Tag } from "../components/ui";
 
@@ -64,6 +64,13 @@ export default function Models() {
 
   const models = data?.models ?? [];
   const delivered = status.data?.handed_off?.model;
+  // 점수는 같은 평가셋끼리만 비교 가능 — 옛(더 쉬운) 평가셋의 포화 점수가 현재 점수처럼
+  // 보이면 모델 선택을 오도하므로, 다른 평가셋에서 측정된 값은 흐리게 + *로 표시한다
+  const stale = (s: ModelEvalSummary | null | undefined) =>
+    !!(data?.current_fingerprint && s && s.eval_fingerprint !== data.current_fingerprint);
+  const anyStale = models.some((m) => stale(m.eval_dev) || stale(m.eval_final));
+  const staleTitle = (s: ModelEvalSummary) =>
+    `다른 평가셋(${s.eval_fingerprint ?? "기록 없음"})에서 측정 — 현재 평가셋(${data?.current_fingerprint})의 점수와 비교할 수 없습니다. 평가 탭에서 다시 측정하면 갱신됩니다.`;
 
   return (
     <div className="space-y-9">
@@ -134,15 +141,40 @@ export default function Models() {
                         </div>
                       )}
                     </td>
-                    <td className="mono px-3 py-3 text-right text-mut">
-                      {m.eval_dev ? fmt(m.eval_dev.metrics["ndcg@10"] ?? 0) : "—"}
+                    <td className="mono px-3 py-3 text-right">
+                      {m.eval_dev ? (
+                        <span
+                          className={stale(m.eval_dev) ? "text-faint" : "text-mut"}
+                          title={stale(m.eval_dev) ? staleTitle(m.eval_dev) : undefined}
+                        >
+                          {fmt(m.eval_dev.metrics["ndcg@10"] ?? 0)}
+                          {stale(m.eval_dev) && " *"}
+                        </span>
+                      ) : (
+                        <span className="text-faint">—</span>
+                      )}
                     </td>
-                    <td className="mono px-3 py-3 text-right text-mut">
-                      {m.eval_dev?.metrics["recall@50"] != null ? fmt(m.eval_dev.metrics["recall@50"]) : "—"}
+                    <td className="mono px-3 py-3 text-right">
+                      {m.eval_dev?.metrics["recall@50"] != null ? (
+                        <span
+                          className={stale(m.eval_dev) ? "text-faint" : "text-mut"}
+                          title={stale(m.eval_dev) ? staleTitle(m.eval_dev) : undefined}
+                        >
+                          {fmt(m.eval_dev.metrics["recall@50"])}
+                          {stale(m.eval_dev) && " *"}
+                        </span>
+                      ) : (
+                        <span className="text-faint">—</span>
+                      )}
                     </td>
                     <td className="mono px-3 py-3 text-right">
                       {m.eval_final ? (
-                        <span className="text-signal">{fmt(m.eval_final.metrics["ndcg@10"] ?? 0)} ✓</span>
+                        <span
+                          className={stale(m.eval_final) ? "text-faint" : "text-signal"}
+                          title={stale(m.eval_final) ? staleTitle(m.eval_final) : undefined}
+                        >
+                          {fmt(m.eval_final.metrics["ndcg@10"] ?? 0)} ✓{stale(m.eval_final) && " *"}
+                        </span>
                       ) : (
                         <span className="text-faint">—</span>
                       )}
@@ -178,6 +210,12 @@ export default function Models() {
               </tbody>
             </table>
           </Panel>
+        )}
+        {anyStale && (
+          <p className="mt-2 text-[11.5px] text-faint">
+            <span className="mono">*</span> 다른 평가셋에서 측정된 점수 — 현재 평가셋의 점수와 비교할 수 없습니다. 평가
+            탭에서 다시 측정하면 갱신됩니다.
+          </p>
         )}
         {handoff.isPending && <p className="mt-2 text-[12px] text-faint">패키지 생성 중 — 샘플 벡터 임베딩과 속도 측정에 잠시 걸립니다…</p>}
       </Section>

@@ -51,19 +51,27 @@ export interface ModelsResponse {
 }
 
 // GET /api/models/detail — the saved-model shelf
+export interface ModelEvalSummary {
+  run_id?: string;
+  metrics: Metrics;
+  n_queries?: number;
+  split?: string;
+  eval_fingerprint?: string | null; // which eval-set content scored this run
+}
 export interface ModelDetail {
   path: string;
   size_bytes: number;
   dim?: number | null;
   created_at?: string | null;
   meta?: Record<string, unknown> | null; // train_meta.json (recipe + history)
-  eval_dev?: { run_id?: string; metrics: Metrics; n_queries?: number; split?: string } | null;
-  eval_final?: { run_id?: string; metrics: Metrics; n_queries?: number; split?: string } | null;
+  eval_dev?: ModelEvalSummary | null;
+  eval_final?: ModelEvalSummary | null;
   handed_off: boolean;
 }
 export interface ModelsDetailResponse {
   models: ModelDetail[];
   disk_total_bytes: number;
+  current_fingerprint?: string | null; // the bound eval set's content hash
 }
 export interface DeleteModelResponse extends ModelsDetailResponse {
   deleted: string;

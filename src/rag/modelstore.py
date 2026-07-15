@@ -23,6 +23,7 @@ from pathlib import Path
 from rag import runs as registry
 from rag.config import Settings
 from rag.core.formatting import format_document, format_query
+from rag.evaluation.beir import eval_dir_from_env, eval_set_fingerprint, resolve_split
 
 HANDOFF_MARKER = "runs/handoff.json"
 
@@ -61,16 +62,31 @@ def _eval_summary(record: dict) -> dict:
         "split": record.get("split"),
         "n_queries": record.get("n_queries"),
         "metrics": record.get("metrics") or {},
+        # which eval-set CONTENT scored this — numbers are only comparable within one
+        "eval_fingerprint": record.get("eval_fingerprint"),
     }
 
 
-def model_detail(path: str, runs: list[dict] | None = None) -> dict:
-    """One saved model joined with its recipe and its eval records."""
+def model_detail(
+    path: str, runs: list[dict] | None = None, current_fingerprint: str | None = None
+) -> dict:
+    """One saved model joined with its recipe and its eval records.
+
+    ``current_fingerprint`` (the bound eval set's content hash) makes runs measured
+    on the CURRENT set win the "best dev" pick — otherwise a saturated score from an
+    old/easier set would front the shelf and misrank the models. Runs from other
+    sets still show (with their fingerprint) when a model has nothing current.
+    """
     p = Path(path)
     runs = registry.load_runs() if runs is None else runs
     mine = [r for r in runs if r.get("model") == path]
     dev = [r for r in mine if r.get("split") in (None, "dev", "test")]
     final = [r for r in mine if r.get("split") == "final"]
+    if current_fingerprint:
+        current = [r for r in dev if r.get("eval_fingerprint") == current_fingerprint]
+        dev = current or dev
+        current = [r for r in final if r.get("eval_fingerprint") == current_fingerprint]
+        final = current or final
     best_dev = max(dev, key=lambda r: (r.get("metrics") or {}).get("ndcg@10", -1.0), default=None)
     return {
         "path": path,
@@ -87,11 +103,15 @@ def model_detail(path: str, runs: list[dict] | None = None) -> dict:
     }
 
 
-def list_detail(model_paths: list[str]) -> dict:
+def list_detail(model_paths: list[str], current_fingerprint: str | None = None) -> dict:
     """All saved models with details + the shelf's total disk usage."""
     runs = registry.load_runs()
-    models = [model_detail(path, runs) for path in model_paths]
-    return {"models": models, "disk_total_bytes": sum(m["size_bytes"] for m in models)}
+    models = [model_detail(path, runs, current_fingerprint) for path in model_paths]
+    return {
+        "models": models,
+        "disk_total_bytes": sum(m["size_bytes"] for m in models),
+        "current_fingerprint": current_fingerprint,
+    }
 
 
 def delete_model(path: str) -> None:
@@ -137,7 +157,11 @@ def build_handoff(path: str) -> dict:
     model.encode(bench_docs, normalize_embeddings=True)
     docs_per_sec = round(32 / max(time.perf_counter() - started, 1e-9), 1)
 
-    detail = model_detail(path)
+    # scores in the package should front the CURRENT eval set, not a stale one
+    eval_dir = eval_dir_from_env()
+    detail = model_detail(
+        path, current_fingerprint=eval_set_fingerprint(eval_dir, resolve_split(eval_dir))
+    )
     samples = [
         {"kind": "query", "text": raw, "input": formatted, "vector": [round(float(v), 6) for v in vec]}
         for raw, formatted, vec in zip(_SAMPLE_QUERIES, query_texts, vectors[: len(query_texts)])

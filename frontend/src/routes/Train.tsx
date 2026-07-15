@@ -357,7 +357,7 @@ export default function Train() {
               아래 설정을 베이스로 <b className="text-fg">한 축(하이퍼파라미터 하나)</b>을 바꿔가며 여러 런을 순차 실행하고,
               끝날 때마다 <b className="text-fg">자동 평가</b>해 리더보드에 쌓습니다. 단일 변수 탐침이라 결과는 “고정한 다른
               값 아래에서의” 비교 — LR은 거의 모든 것과 상호작용하니 비-LR 축은 <b className="text-fg">LR 동반(2축)</b>으로, 학습
-              노이즈는 <b className="text-fg">시드 반복</b>으로 다루세요. 다 돌면 <span className="mono">비교</span> 탭에서
+              노이즈는 <b className="text-fg">시드 반복</b>으로 다루세요. 다 돌면 <span className="mono">실험</span> 탭에서
               diff·유의성으로 확정합니다.
             </Info>
           </div>
@@ -684,7 +684,7 @@ export default function Train() {
                   />
                   학습 후 자동 평가
                   <Info title="자동 평가" align="left">
-                    런이 끝나는 즉시 평가셋(dev split)으로 측정해 <span className="mono">비교</span> 탭에 기록합니다 —
+                    런이 끝나는 즉시 평가셋(dev split)으로 측정해 <span className="mono">실험</span> 탭에 기록합니다 —
                     클릭 한 번이 줄고, 스윕은 라이브 리더보드가 됩니다.
                   </Info>
                 </label>

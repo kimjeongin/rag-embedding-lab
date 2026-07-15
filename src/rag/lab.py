@@ -74,10 +74,16 @@ def list_models(embedder: str, ollama_url: str) -> list[str]:
     return list_st_models()
 
 
-def default_model(embedder: str, choices: list[str]) -> str:
-    """A sensible default selection when the backend changes (so a stale model isn't kept)."""
+def default_model(embedder: str, choices: list[str], preferred: str | None = None) -> str:
+    """A sensible default selection when the backend changes (so a stale model isn't kept).
+
+    ``preferred`` is the process's own model (ST_MODEL / EMBED_MODEL) — the one the
+    user is actually serving — and wins when it's available; otherwise fall back to
+    a heuristic (an Ollama tag that looks like an embedder, or just the first)."""
     if not choices:
         return ""
+    if preferred and preferred in choices:
+        return preferred
     if embedder == "ollama":
         for choice in choices:
             if "embedding" in choice:

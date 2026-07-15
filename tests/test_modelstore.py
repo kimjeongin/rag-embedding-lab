@@ -42,6 +42,36 @@ def test_model_detail_joins_meta_and_eval_records(tmp_path, monkeypatch):
     assert listing["disk_total_bytes"] == detail["size_bytes"]
 
 
+def test_model_detail_prefers_current_eval_set_runs(tmp_path, monkeypatch):
+    """A saturated score from an old/easier eval set must not front the shelf when
+    the model also has a run on the CURRENT set — and summaries carry the
+    fingerprint so the UI can flag the leftovers."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RUNS_FILE", str(tmp_path / "evals.jsonl"))
+    from rag import runs as registry
+
+    path = _make_model(tmp_path, "m1")
+    registry.append_run("옛셋", "st", path, "data/eval", {"ndcg@10": 0.99},
+                        split="dev", eval_fingerprint="old000000000")
+    registry.append_run("현재셋", "st", path, "data/eval", {"ndcg@10": 0.88},
+                        split="dev", eval_fingerprint="cur000000000")
+
+    detail = modelstore.model_detail(path, current_fingerprint="cur000000000")
+    assert detail["eval_dev"]["metrics"]["ndcg@10"] == 0.88      # current set wins
+    assert detail["eval_dev"]["eval_fingerprint"] == "cur000000000"
+
+    # no current-set run → fall back to the best of what exists (still flaggable)
+    other = _make_model(tmp_path, "m2")
+    registry.append_run("옛셋만", "st", other, "data/eval", {"ndcg@10": 0.97},
+                        split="dev", eval_fingerprint="old000000000")
+    fallback = modelstore.model_detail(other, current_fingerprint="cur000000000")
+    assert fallback["eval_dev"]["metrics"]["ndcg@10"] == 0.97
+    assert fallback["eval_dev"]["eval_fingerprint"] == "old000000000"
+
+    listing = modelstore.list_detail([path], current_fingerprint="cur000000000")
+    assert listing["current_fingerprint"] == "cur000000000"
+
+
 def test_delete_model_is_guarded_to_outputs(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     path = _make_model(tmp_path, "m1")

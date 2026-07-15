@@ -25,8 +25,15 @@ from rag.api.schemas.lab import (
     ModelsResponse,
 )
 from rag.config import Settings
+from rag.evaluation.beir import eval_dir_from_env, eval_set_fingerprint, resolve_split
 
 router = APIRouter()
+
+
+def _current_eval_fingerprint() -> str | None:
+    """The bound eval set's content hash — dev picks prefer runs measured on it."""
+    eval_dir = eval_dir_from_env()
+    return eval_set_fingerprint(eval_dir, resolve_split(eval_dir))
 
 
 @router.get("/models", response_model=ModelsResponse)
@@ -35,16 +42,19 @@ def models(
     settings: Settings = Depends(get_settings),
 ) -> ModelsResponse:
     choices = lab.list_models(embedder, settings.ollama_url)
+    preferred = settings.st_model if embedder == "sentence-transformers" else settings.embed_model
     return ModelsResponse(
         embedder=embedder,
         models=choices,
-        default=lab.default_model(embedder, choices),
+        default=lab.default_model(embedder, choices, preferred),
     )
 
 
 @router.get("/models/detail", response_model=ModelsDetailResponse)
 def models_detail() -> ModelsDetailResponse:
-    return ModelsDetailResponse(**modelstore.list_detail(lab.list_st_models()))
+    return ModelsDetailResponse(
+        **modelstore.list_detail(lab.list_st_models(), _current_eval_fingerprint())
+    )
 
 
 @router.delete("/models", response_model=DeleteModelResponse)
@@ -55,7 +65,10 @@ def delete_model(path: str) -> DeleteModelResponse:
         modelstore.delete_model(path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return DeleteModelResponse(deleted=path, **modelstore.list_detail(lab.list_st_models()))
+    return DeleteModelResponse(
+        deleted=path,
+        **modelstore.list_detail(lab.list_st_models(), _current_eval_fingerprint()),
+    )
 
 
 @router.post("/models/handoff", response_model=HandoffResponse)

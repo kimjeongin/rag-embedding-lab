@@ -338,12 +338,16 @@ class ModelDetail(BaseModel):
 class ModelsDetailResponse(BaseModel):
     models: list[ModelDetail]
     disk_total_bytes: int = 0
+    # the bound eval set's content hash — eval_dev/eval_final summaries whose
+    # eval_fingerprint differs were measured on another set (scores not comparable)
+    current_fingerprint: str | None = None
 
 
 class DeleteModelResponse(BaseModel):
     deleted: str
     models: list[ModelDetail]
     disk_total_bytes: int = 0
+    current_fingerprint: str | None = None
 
 
 class HandoffRequest(BaseModel):

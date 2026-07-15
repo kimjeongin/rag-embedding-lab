@@ -5,10 +5,12 @@
 // 인덱스를 만든 모델과 같아야 의미가 있다 (dim 불일치는 서버가 503으로 막고,
 // 같은 dim의 다른 모델은 model_matches 경고가 잡는다).
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, RefreshCw, Search as SearchIcon, Trash2, Undo2 } from "lucide-react";
+import { ClipboardCheck, ExternalLink, RefreshCw, Search as SearchIcon, Trash2, Undo2 } from "lucide-react";
 
 import { api } from "../lib/api";
+import { PATH } from "../lib/nav";
 import { cx, fmt } from "../lib/format";
 import {
   keys,
@@ -304,14 +306,14 @@ function SearchPanel() {
         <div className="mt-4">
           {search.isPending && <Loading label="검색 중…" />}
           {search.isError && <ErrorNote>{(search.error as Error).message}</ErrorNote>}
-          {search.isSuccess && <Results data={search.data} />}
+          {search.isSuccess && <Results data={search.data} query={search.variables ?? ""} />}
         </div>
       </Panel>
     </Section>
   );
 }
 
-function Results({ data }: { data: SearchResponse }) {
+function Results({ data, query }: { data: SearchResponse; query: string }) {
   if (data.hits.length === 0)
     return <div className="py-8 text-center text-[13px] text-faint">결과가 없습니다.</div>;
   return (
@@ -319,6 +321,14 @@ function Results({ data }: { data: SearchResponse }) {
       <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-faint">
         <Tag tone="cyan">{data.model}</Tag>
         <span className="mono">{data.collection}</span>
+        {/* 결과가 이상하다 → 그 자리에서 판정해 평가셋(qrels)으로 만드는 지름길 */}
+        <Link
+          to={`${PATH.data}?label=${encodeURIComponent(query)}`}
+          title="이 쿼리를 데이터 탭의 라벨링으로 가져가 정답을 판정합니다 — 판정하면 평가셋(qrels)이 됩니다"
+          className="inline-flex items-center gap-1 text-cyan hover:underline"
+        >
+          <ClipboardCheck size={12} /> 이 쿼리 판정 → 평가셋
+        </Link>
         <span
           className="mono ml-auto"
           title="임베딩 = 쿼리를 벡터로 (모델 추론) · 검색 = Qdrant ANN 조회 — 느리면 어느 쪽이 병목인지 여기서 갈립니다"
