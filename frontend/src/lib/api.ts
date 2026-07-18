@@ -18,6 +18,7 @@ import type {
   IndexJobStatus,
   IndexRequest,
   ImportPairsResponse,
+  Bm25Request,
   ImportTrecRequest,
   ImportTrecResponse,
   JobCreateRequest,
@@ -100,6 +101,7 @@ export const api = {
       `/runs/diff?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}${metric ? `&metric=${encodeURIComponent(metric)}` : ""}`,
     ),
   importTrec: (body: ImportTrecRequest) => request<ImportTrecResponse>("/runs/import-trec", json(body)),
+  registerBm25: (body: Bm25Request) => request<ImportTrecResponse>("/runs/bm25", json(body)),
 
   search: (query: string, topK = 10) => request<SearchResponse>("/search", json({ query, top_k: topK })),
   searchStatus: () => request<SearchStatusResponse>("/search/status"),

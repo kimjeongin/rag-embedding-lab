@@ -145,6 +145,11 @@ class GenEvalResponse(BaseModel):
 
 
 # ── runs registry ───────────────────────────────────────────────────────────────
+class SliceStats(BaseModel):
+    n: int                                          # scored queries in this slice
+    metrics: dict[str, float] = Field(default_factory=dict)
+
+
 class RunRecord(BaseModel):
     id: str
     created_at: str
@@ -160,6 +165,9 @@ class RunRecord(BaseModel):
     ci95: dict[str, list[float]] | None = None      # {metric: [lo, hi]} bootstrap 95% CI
     split: str | None = None                        # dev (tuning) | final (one-shot confirm) | test (legacy)
     note: str | None = None                         # experimenter's hypothesis/memo
+    # 슬라이스별 평균 — 평가 쿼리에 slice 태그가 있을 때만: {slice: {"n": int, "metrics": {...}}}.
+    # 전체 평균이 가리는 슬라이스 붕괴(예: standard 0.99 / jargon 0.15)를 런 자체에 남긴다.
+    slices: dict[str, SliceStats] | None = None
 
 
 class RunsResponse(BaseModel):
@@ -192,6 +200,9 @@ class DiffResponse(BaseModel):
     by_metric: dict[str, dict]          # every shared metric's paired summary
     slices: list[dict]                  # per-topic {topic, n, mean_a, mean_b, delta}
     texts_available: bool = False       # query texts + doc titles joined from the live eval set
+    # 후보군 상보성 — recall@k(A), recall@k(B), recall@k(A∪B)와 한계 기여(marginal).
+    # 하이브리드에서 "B를 추가하면 리랭커가 볼 수 있는 정답 천장이 얼마나 오르나".
+    union: dict | None = None
 
 
 # ── POST /api/eval ──────────────────────────────────────────────────────────────
@@ -484,6 +495,13 @@ class PruneResponse(BaseModel):
 
 
 # ── POST /api/runs/import-trec — an external retriever's ranking as a run ───────
+class Bm25Request(BaseModel):
+    """POST /api/runs/bm25 — 내장 BM25(문자 bigram) 베이스라인을 현재 평가셋에 채점·등록."""
+    label: str = "bm25"
+    split: str = "dev"
+    note: str = ""
+
+
 class ImportTrecRequest(BaseModel):
     label: str = ""                      # e.g. "BM25 (production)"
     content: str                         # TREC run lines: qid Q0 docid rank score tag

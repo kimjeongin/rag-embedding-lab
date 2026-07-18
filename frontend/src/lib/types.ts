@@ -260,6 +260,9 @@ export interface RunRecord {
   ci95?: Record<string, number[]> | null;
   split?: string | null; // dev (tuning) | final (one-shot confirm) | test (legacy)
   note?: string | null; // experimenter's hypothesis/memo
+  /** 슬라이스별 평균 — 평가 쿼리에 slice 태그가 있을 때만 (예: standard/jargon).
+   * 전체 평균이 가리는 슬라이스 붕괴를 런 자체가 들고 다닌다. */
+  slices?: Record<string, { n: number; metrics: Metrics }> | null;
 }
 export interface RunsResponse {
   runs: RunRecord[];
@@ -304,6 +307,25 @@ export interface DiffResponse {
   by_metric: Record<string, { mean_a: number; mean_b: number; delta: number; p_value: number }>;
   slices: { topic: string; n: number; mean_a: number; mean_b: number; delta: number }[];
   texts_available: boolean;
+  /** 후보군 상보성 — A/B/A∪B top-k의 recall과 한계 기여(marginal_b = union − A).
+   * 랭킹이 저장된 런끼리, 평가셋이 디스크와 일치할 때만 채워진다. */
+  union?: {
+    k: number;
+    n: number;
+    recall_a: number;
+    recall_b: number;
+    recall_union: number;
+    marginal_b: number;
+    marginal_a: number;
+    slices: { topic: string; n: number; recall_a: number; recall_b: number; recall_union: number; marginal_b: number }[];
+  } | null;
+}
+
+// POST /api/runs/bm25 — 내장 BM25(문자 bigram) 베이스라인 채점·등록
+export interface Bm25Request {
+  label?: string;
+  split?: string;
+  note?: string;
 }
 
 // POST /api/runs/import-trec

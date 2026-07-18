@@ -94,6 +94,31 @@ def mean_metrics(per_query: Mapping[str, Mapping[str, float]]) -> dict[str, floa
     return {key: sum(row[key] for row in per_query.values()) / n for key in keys}
 
 
+def slice_means(
+    per_query: Mapping[str, Mapping[str, float]],
+    slice_map: Mapping[str, str],
+) -> dict[str, dict]:
+    """{slice: {"n": count, "metrics": {metric: mean}}} — 슬라이스별 평균.
+
+    A whole-set mean can average a near-perfect slice against a collapsed one into an
+    unremarkable middle number; the breakdown is what tells you WHICH kind of query
+    the model fails. Only scored queries that carry a slice tag participate; returns
+    {} unless at least two distinct slices are present (one slice == the overall mean,
+    nothing to break down).
+    """
+    groups: dict[str, dict[str, Mapping[str, float]]] = {}
+    for query_id, row in per_query.items():
+        name = slice_map.get(query_id)
+        if name:
+            groups.setdefault(name, {})[query_id] = row
+    if len(groups) < 2:
+        return {}
+    return {
+        name: {"n": len(rows), "metrics": mean_metrics(rows)}
+        for name, rows in sorted(groups.items())
+    }
+
+
 def evaluate_rankings(
     rankings: Mapping[str, Sequence[str]],
     qrels: Mapping[str, Mapping[str, float]],

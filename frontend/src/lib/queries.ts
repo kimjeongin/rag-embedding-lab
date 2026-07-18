@@ -10,6 +10,7 @@ import type {
   GenEvalRequest,
   GenPairsRequest,
   ImportPairsRequest,
+  Bm25Request,
   ImportTrecRequest,
   JobCreateRequest,
   LabelCommitRequest,
@@ -166,6 +167,19 @@ export function useImportTrec() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: ImportTrecRequest) => api.importTrec(body),
+    onError: fail,
+    onSuccess: (data) => {
+      toast.success(data.message);
+      qc.invalidateQueries({ queryKey: keys.runs });
+      qc.invalidateQueries({ queryKey: keys.status });
+    },
+  });
+}
+
+export function useRegisterBm25() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Bm25Request) => api.registerBm25(body),
     onError: fail,
     onSuccess: (data) => {
       toast.success(data.message);

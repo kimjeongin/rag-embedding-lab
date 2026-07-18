@@ -164,3 +164,20 @@ async def test_evaluate_reports_rankings_and_split(tmp_path, monkeypatch):
     assert report.split == "test"                  # legacy fallback resolved + recorded
     assert report.rankings["q1"][0] == "d1"        # what was retrieved survives into the report
     assert all(len(r) <= 10 for r in report.rankings.values())
+
+
+def test_load_query_slices_reads_optional_tags(tmp_path):
+    from rag.evaluation.beir import load_query_slices, write_beir_dataset
+
+    write_beir_dataset(
+        str(tmp_path),
+        corpus=[{"_id": "d1", "title": "t", "text": "x"}],
+        queries=[
+            {"_id": "q1", "text": "a", "slice": "standard"},
+            {"_id": "q2", "text": "b", "slice": "jargon"},
+            {"_id": "q3", "text": "c"},                       # 태그 없음 — 제외
+        ],
+        qrels_rows=[("q1", "d1", 1)],
+        split="dev",
+    )
+    assert load_query_slices(str(tmp_path)) == {"q1": "standard", "q2": "jargon"}

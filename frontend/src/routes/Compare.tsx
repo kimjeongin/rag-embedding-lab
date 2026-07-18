@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart3, Check, ClipboardCopy, GitCompareArrows, Play, Star, Trash2, Upload } from "lucide-react";
+import { BarChart3, Check, ClipboardCopy, GitCompareArrows, Play, Sigma, Star, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { RUN_COLORS, runColor } from "../lib/colors";
 import { fmt, short } from "../lib/format";
 import { PATH } from "../lib/nav";
-import { useDeleteRun, useImportTrec, useModelsDetail, useRunEval, useRuns } from "../lib/queries";
+import { useDeleteRun, useImportTrec, useModelsDetail, useRegisterBm25, useRunEval, useRuns } from "../lib/queries";
 import { METRICS, type Embedder, type ModelDetail, type RunRecord } from "../lib/types";
 import { BarChart } from "../components/charts";
 import { DiffView } from "../components/DiffView";
@@ -143,6 +143,7 @@ export default function Compare() {
   const details = useModelsDetail();
   const [sel, setSel] = useState<string[]>([]);
   const [trecOpen, setTrecOpen] = useState(false);
+  const bm25 = useRegisterBm25();
   const [pinned, setPinned] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(PIN_KEY) ?? "[]");
@@ -261,6 +262,16 @@ export default function Compare() {
           <span className="inline-flex items-center gap-2.5">
             실험 테이블
             <span className="inline-flex gap-1.5 normal-case tracking-normal">
+              <Btn
+                variant="subtle"
+                className="px-2 py-1 text-[11.5px]"
+                icon={<Sigma size={13} />}
+                disabled={bm25.isPending}
+                onClick={() => bm25.mutate({ note: "내장 BM25(문자 bigram) — dense와의 상보성 기준선" })}
+                title="내장 BM25(문자 bigram)를 현재 평가셋에 채점해 런으로 등록 — dense 런과 diff하면 상보성이 보입니다"
+              >
+                {bm25.isPending ? "BM25 채점 중…" : "BM25 베이스라인"}
+              </Btn>
               <Btn variant="subtle" className="px-2 py-1 text-[11.5px]" icon={<Upload size={13} />} onClick={() => setTrecOpen(true)}>
                 외부 랭킹(BM25)
               </Btn>

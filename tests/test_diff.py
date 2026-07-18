@@ -98,3 +98,18 @@ def test_diff_route_joins_texts_when_eval_set_matches(tmp_path, monkeypatch):
 
         missing = client.get("/api/runs/diff", params={"a": rec_a["id"], "b": "nope"})
         assert missing.status_code == 404
+
+
+def test_compare_runs_prefers_explicit_slice_map_over_id_shape():
+    a = _run("a", {"q-test-0": 0.5, "q-test-1": 0.5, "q-test-2": 0.9})
+    b = _run("b", {"q-test-0": 0.8, "q-test-1": 0.9, "q-test-2": 0.2})
+
+    plain = compare_runs(a, b)
+    assert plain["slices"] == []                       # id 모양으로는 topic이 하나뿐("test")
+
+    tagged = compare_runs(
+        a, b, slice_map={"q-test-0": "standard", "q-test-1": "standard", "q-test-2": "jargon"}
+    )
+    by_name = {s["topic"]: s for s in tagged["slices"]}
+    assert by_name["standard"]["delta"] == pytest.approx(0.35)
+    assert by_name["jargon"]["delta"] == pytest.approx(-0.7)

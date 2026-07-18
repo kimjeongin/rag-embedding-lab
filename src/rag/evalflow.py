@@ -10,7 +10,13 @@ from __future__ import annotations
 from rag import lab
 from rag import runs as registry
 from rag.config import Settings
-from rag.evaluation.beir import eval_dir_from_env, eval_set_fingerprint, resolve_split
+from rag.evaluation.beir import (
+    eval_dir_from_env,
+    eval_set_fingerprint,
+    load_query_slices,
+    resolve_split,
+)
+from rag.evaluation.metrics import slice_means
 from rag.evaluation.retrieval import evaluate
 
 
@@ -56,6 +62,10 @@ async def run_eval_flow(
     if not report.metrics:
         raise NoJudgedQueries("판정된 쿼리가 없습니다 — qrels/<split>.tsv를 확인하세요")
 
+    # 슬라이스별 평균 — 평가셋이 쿼리에 slice 태그를 달아둔 경우(예: standard/jargon)
+    # 전체 평균이 가리는 슬라이스 붕괴를 런 기록 자체에 남긴다.
+    slices = slice_means(report.per_query, load_query_slices(eval_dir))
+
     record = registry.append_run(
         label, embedder, settings.active_model, eval_dir, report.metrics,
         eval_fingerprint=fingerprint,
@@ -65,6 +75,7 @@ async def run_eval_flow(
         rankings=report.rankings,
         split=report.split,
         note=note,
+        slices=slices,
     )
     return {
         "model": settings.active_model,

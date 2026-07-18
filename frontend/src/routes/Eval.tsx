@@ -155,6 +155,42 @@ export default function Eval() {
               );
             })}
           </div>
+          {result.run.slices && (
+            <div className="mt-4">
+              <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-mut">
+                슬라이스별 점수
+                <Info title="평균이 가리는 것" align="left">
+                  평가 쿼리에 <span className="mono">slice</span> 태그가 있으면 태그별 평균을 따로 보여줍니다.
+                  전체 평균은 거의 만점인 슬라이스와 무너진 슬라이스를 섞어 <b className="text-fg">평범한 숫자</b>로
+                  만들 수 있어요 — 모델이 <b className="text-fg">어떤 종류의 쿼리</b>에서 지는지는 여기서 보세요.
+                </Info>
+              </div>
+              <Panel className="overflow-hidden p-0">
+                <table className="w-full text-left text-[12.5px]">
+                  <thead>
+                    <tr className="border-b border-line bg-ink-880/60 text-[10.5px] uppercase tracking-wider text-faint">
+                      <th className="px-4 py-2 font-medium">슬라이스</th>
+                      <th className="px-4 py-2 font-medium">쿼리</th>
+                      {KPIS.map((k) => (
+                        <th key={k} className="px-4 py-2 font-medium">{k}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="text-mut">
+                    {Object.entries(result.run.slices).map(([name, s], i, arr) => (
+                      <tr key={name} className={i < arr.length - 1 ? "border-b border-line/60" : ""}>
+                        <td className="px-4 py-2 font-medium text-fg">{name}</td>
+                        <td className="mono px-4 py-2">{s.n}</td>
+                        {KPIS.map((k) => (
+                          <td key={k} className="mono px-4 py-2">{fmt(s.metrics[k] ?? 0)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Panel>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
             <Btn variant="ghost" icon={<BarChart3 size={15} />} onClick={() => nav(PATH.compare)}>
               실험 비교 보기

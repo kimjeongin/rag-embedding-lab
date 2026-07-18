@@ -46,6 +46,7 @@ def append_run(
     rankings: dict[str, list[str]] | None = None,
     split: str | None = None,
     note: str | None = None,
+    slices: dict[str, dict] | None = None,
 ) -> dict:
     """Append one eval result and return the stored record (label falls back to model).
 
@@ -80,6 +81,8 @@ def append_run(
         record["split"] = split
     if note and note.strip():
         record["note"] = note.strip()
+    if slices:
+        record["slices"] = slices
     out = Path(path or runs_file())
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("a", encoding="utf-8") as f:

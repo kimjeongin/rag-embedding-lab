@@ -135,22 +135,64 @@ export function DiffView({ a, b }: { a: RunRecord; b: RunRecord }) {
       {data.slices.length > 0 && (
         <div className="mb-4">
           <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-mut">
-            topic별 슬라이스
+            슬라이스별 Δ
             <Info title="평균이 숨기는 것" align="left">
-              전체 평균이 올라도 특정 topic만 조용히 무너질 수 있습니다 — 음수 Δ topic은 그 주제의 쿼리들을 위
-              표에서 직접 확인하세요.
+              전체 평균이 올라도 특정 슬라이스(쿼리 태그 또는 topic)만 조용히 무너질 수 있습니다 — 음수 Δ
+              슬라이스는 그 쿼리들을 위 표에서 직접 확인하세요.
             </Info>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {data.slices.map((s) => (
               <Tag key={s.topic} tone={s.delta < 0 ? "mut" : "signal"}>
                 <span className={s.delta < 0 ? "text-danger" : ""}>
-                  topic {s.topic} (n={s.n}) {s.delta > 0 ? "+" : ""}
+                  {s.topic} (n={s.n}) {s.delta > 0 ? "+" : ""}
                   {s.delta.toFixed(3)}
                 </span>
               </Tag>
             ))}
           </div>
+        </div>
+      )}
+
+      {data.union && (
+        <div className="mb-4">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-mut">
+            후보군 상보성 (top-{data.union.k} 합집합)
+            <Info title="하이브리드 관점의 가치" align="left">
+              프로덕션은 여러 랭커의 후보를 합쳐 리랭커에 넘깁니다. 그래서 B의 실제 가치는 단독 점수가 아니라{" "}
+              <b className="text-fg">A가 놓친 정답을 후보군에 보태는 양</b> — recall(A∪B) − recall(A) — 입니다. A에
+              BM25 런을 두면 "dense가 어휘 일치 위에 실제로 보태는 정답"이 나와요.
+            </Info>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["A 단독", data.union.recall_a],
+              ["B 단독", data.union.recall_b],
+              ["A∪B", data.union.recall_union],
+            ].map(([labelText, v]) => (
+              <div key={labelText as string} className="rounded-lg border border-line bg-ink-925/60 px-3 py-2">
+                <div className="mono text-[10.5px] text-faint">recall@{data.union!.k} · {labelText}</div>
+                <div className="mono mt-0.5 text-[12px] text-mut">{fmt(v as number)}</div>
+              </div>
+            ))}
+            <div className="rounded-lg border border-line bg-ink-925/60 px-3 py-2">
+              <div className="mono text-[10.5px] text-faint">B의 한계 기여</div>
+              <div className={`mono mt-0.5 text-[12px] ${data.union.marginal_b > 0 ? "text-signal" : "text-faint"}`}>
+                {data.union.marginal_b > 0 ? "+" : ""}
+                {data.union.marginal_b.toFixed(4)}
+              </div>
+            </div>
+          </div>
+          {data.union.slices.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {data.union.slices.map((s) => (
+                <Tag key={s.topic} tone={s.marginal_b > 0 ? "signal" : "mut"}>
+                  {s.topic} (n={s.n}) 한계 기여 {s.marginal_b > 0 ? "+" : ""}
+                  {s.marginal_b.toFixed(3)}
+                </Tag>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

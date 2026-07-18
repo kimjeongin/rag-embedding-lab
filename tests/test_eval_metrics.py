@@ -104,3 +104,23 @@ def test_per_query_metrics_accepts_extended_recall_cutoffs():
 
     means = mean_metrics(per_query)
     assert list(means) == ["recall@1", "recall@3", "recall@5", "recall@10", "recall@50", "mrr@10", "ndcg@10"]
+
+
+def test_slice_means_breaks_down_by_tag_and_needs_two_slices():
+    from rag.evaluation.metrics import slice_means
+
+    per_query = {
+        "q1": {"ndcg@10": 1.0},
+        "q2": {"ndcg@10": 0.9},
+        "q3": {"ndcg@10": 0.1},   # jargon 슬라이스 — 평균(0.666)이 가리는 붕괴
+        "q4": {"ndcg@10": 0.8},   # untagged — 어느 슬라이스에도 안 들어감
+    }
+    tags = {"q1": "standard", "q2": "standard", "q3": "jargon"}
+
+    out = slice_means(per_query, tags)
+    assert out["standard"]["n"] == 2
+    assert math.isclose(out["standard"]["metrics"]["ndcg@10"], 0.95)
+    assert out["jargon"] == {"n": 1, "metrics": {"ndcg@10": 0.1}}
+
+    assert slice_means(per_query, {"q1": "only"}) == {}   # 슬라이스 1개 = 전체 평균과 동일
+    assert slice_means(per_query, {}) == {}

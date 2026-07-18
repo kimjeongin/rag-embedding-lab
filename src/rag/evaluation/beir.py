@@ -93,6 +93,20 @@ def load_queries(eval_dir: str) -> dict[str, str]:
     }
 
 
+def load_query_slices(eval_dir: str) -> dict[str, str]:
+    """{query_id: slice} from queries.jsonl's optional ``slice`` key ({} if untagged).
+
+    A slice tags WHERE a query's difficulty comes from (e.g. "standard" vs "jargon" —
+    사내 은어로만 답을 찾을 수 있는 쿼리). Slice-wise means expose gaps that a whole-set
+    average hides: base 모델이 표준 쿼리 0.99 / 은어 쿼리 0.15여도 평균은 0.56으로 보인다.
+    """
+    return {
+        str(rec["_id"]): str(rec["slice"])
+        for rec in load_jsonl(str(Path(eval_dir) / "queries.jsonl"))
+        if rec.get("slice")
+    }
+
+
 def load_qrels(eval_dir: str, split: str = DEFAULT_SPLIT) -> dict[str, dict[str, float]]:
     """{query_id: {doc_id: gain}} from qrels/<split>.tsv.
 
