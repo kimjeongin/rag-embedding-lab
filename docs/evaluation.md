@@ -59,7 +59,14 @@ data/eval/
 
 ```json
 {"_id": "q-3-0", "text": "search text columns in postgres"}
+{"_id": "q-3-1", "text": "돌핀 정산 어디서 해", "slice": "jargon"}
 ```
+
+- `slice`(선택)는 쿼리 난이도의 **출처**를 태그한다 (예: `standard` vs `jargon` —
+  사내 은어로만 답을 찾을 수 있는 쿼리). 태그가 있으면 평가 런에 슬라이스별 평균이
+  함께 저장되고, 실험 탭의 diff에도 슬라이스별 Δ가 뜬다. 전체 평균은 거의 만점인
+  슬라이스와 무너진 슬라이스를 섞어 평범한 숫자로 만들 수 있다 — 모델이 *어떤
+  종류의 쿼리*에서 지는지는 슬라이스가 알려준다.
 
 ### `qrels/test.tsv` — tab-separated, with a header row
 
@@ -183,6 +190,17 @@ conventions, so they're comparable to published numbers.
 | **nDCG@10** | are relevant docs ranked *high* (graded)? | `DCG@10 / IDCG@10`, gain = qrels score, discount = `1/log2(rank+1)` |
 
 `recall@1` is the strictest ("gold ranked #1"); `nDCG@10` is BEIR's headline number.
+
+### BM25 베이스라인과 후보군 상보성
+
+프로덕션이 BM25 + dense 하이브리드라면 dense의 가치는 단독 recall이 아니라
+**BM25가 놓친 정답을 후보군에 보태는 양**이다. 실험 탭의 "BM25 베이스라인" 버튼
+(`POST /api/runs/bm25`)이 내장 BM25(문자 bigram, from scratch)를 현재 평가셋에
+채점해 일반 런으로 등록하고, dense 런과 diff하면 **후보군 상보성** 블록이
+`recall@10(A)`, `recall@10(B)`, `recall@10(A∪B)`와 한계 기여
+(`recall(A∪B) − recall(A)`)를 슬라이스별로 보여준다. 사내 시스템명·약어처럼
+문자가 일치하는 쿼리는 BM25가 이미 잡으므로, dense 단독 점수는 하이브리드
+기여를 과대평가할 수 있다 — 이 블록이 그 거품을 걷어낸다.
 
 ---
 

@@ -34,6 +34,7 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 | `uv run rag-gen-data` | write a toy fine-tuning dataset |
 | `uv run rag-gen-synthetic` | write an LLM-generated **training** dataset (search-box queries, round-trip filtered, + margin-guarded hard negatives) |
 | `uv run rag-gen-eval` | write a **BEIR-format eval set** (`data/eval`) — `EVAL_SOURCE=corpus` uses the crawled site as the haystack |
+| `uv run rag-gen-intranet` | write the **가상 인트라넷 리허설 데이터셋** (`data-intranet/`) — 사내사이트 검색의 쌍둥이(페이지 url·description·agent prompt·수집 메타데이터) + 은어 양성 대조군(standard/jargon 슬라이스) |
 | `uv run rag-train` | fine-tune the embedding model |
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
 | `uv run rag-index` | embed `data/corpus.jsonl` into **Qdrant** (versioned collection + atomic alias swap; `--prune` drops rollback copies) |
@@ -44,6 +45,16 @@ exit. The web UI lives in [`frontend/`](frontend) — see [Web UI](#web-ui). For
 use, a [`Makefile`](#3-run) wraps these (`make run` / `make dev` / `make help`), and the
 PoC data pipeline has one-word targets: `make crawl` / `pairs` / `evalset` / `baseline` /
 `train` — or `make pipeline` for the whole chain.
+
+**가상 인트라넷 데이터셋으로 랩 전체를 돌리기** (실데이터 리허설 + 파이프라인의
+격차 검출력 검증 — 은어는 corpus에 없고 학습쌍에만 있어 base는 못 맞히고 FT만
+배울 수 있다):
+
+```bash
+uv run rag-gen-intranet   # data-intranet/ 생성 (corpus 195p · train 741 · eval 222q)
+CORPUS_FILE=data-intranet/corpus.jsonl TRAIN_FILE=data-intranet/train.jsonl \
+TRAIN_EVAL_FILE=data-intranet/test.jsonl EVAL_DIR=data-intranet/eval uv run rag-serve
+```
 
 ## How it works
 
