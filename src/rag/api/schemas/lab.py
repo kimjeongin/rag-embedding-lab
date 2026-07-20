@@ -246,6 +246,10 @@ class TrainRequest(BaseModel):
     # Backbone dropout override; None keeps the model's own defaults. (LoRA adapters
     # have their separate lora_dropout below.)
     dropout: float | None = Field(default=None, ge=0, le=0.9)
+    # 데이터의 hard-negative 컬럼 상한: None = 전부, 0 = 제외(in-batch만). negative
+    # 컬럼 수만큼 배치당 텍스트가 늘어 mined negatives가 붙은 데이터는 같은 batch로도
+    # OOM이 날 수 있다 — 그때 줄이는 knob. triplet은 무시하고 항상 1개를 쓴다.
+    max_negatives: int | None = Field(default=None, ge=0, le=16)
     # Matryoshka: wrap the loss so truncated vectors (768→256→128→…) stay strong.
     # matryoshka_dims empty + matryoshka on → derived from the model's dim at train time.
     matryoshka: bool = False

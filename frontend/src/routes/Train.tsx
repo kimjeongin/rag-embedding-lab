@@ -202,6 +202,7 @@ export default function Train() {
   const [matryoshka, setMatryoshka] = useState(false);
   const [matryoshkaDims, setMatryoshkaDims] = useState(""); // blank = auto from model dim
   const [dropout, setDropout] = useState("");
+  const [maxNegatives, setMaxNegatives] = useState(""); // 빈칸 = 전부, 0 = 제외(in-batch만)
   const [patience, setPatience] = useState(3);
   const [monitor, setMonitor] = useState<"ndcg" | "loss">("ndcg");
   const [method, setMethod] = useState<"full" | "lora">("full");
@@ -271,6 +272,7 @@ export default function Train() {
 
   const baseConfig = (): TrainRequest => {
     const parsedDropout = parseFloat(dropout);
+    const parsedMaxNeg = parseInt(maxNegatives, 10);
     return {
       base_model: base.trim(),
       output_dir: out.trim(),
@@ -284,6 +286,7 @@ export default function Train() {
         ? matryoshkaDims.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0)
         : [],
       dropout: Number.isFinite(parsedDropout) ? parsedDropout : null,
+      max_negatives: Number.isFinite(parsedMaxNeg) && parsedMaxNeg >= 0 ? parsedMaxNeg : null,
       early_stop_patience: patience,
       early_stop_metric: monitor,
       auto_name: true,
@@ -491,7 +494,7 @@ export default function Train() {
               className="flex items-center gap-1.5 text-[12.5px] font-medium text-mut transition-colors hover:text-fg"
             >
               <ChevronRight size={14} className={`transition-transform ${showAdvanced ? "rotate-90" : ""}`} />
-              고급 설정 <span className="font-normal text-faint">— device · dropout · early stopping · 메모</span>
+              고급 설정 <span className="font-normal text-faint">— device · dropout · hard negative · early stopping · 메모</span>
             </button>
             {showAdvanced && (
               <>
@@ -506,6 +509,17 @@ export default function Train() {
                         아키텍처마다 적용 키가 달라(BERT: <span className="mono">hidden_dropout_prob</span>, Qwen:{" "}
                         <span className="mono">attention_dropout</span>) 실제 적용 키는 학습 로그 첫 줄에 표시됩니다. 작은
                         데이터일수록 효과적 — 보통 0~0.3 비교.
+                      </Info>
+                    </div>
+                  </Field>
+                  <Field label="hard negative 상한" hint="빈칸=전부 · 0=제외">
+                    <div className="flex items-center gap-2">
+                      <Input value={maxNegatives} onChange={(e) => setMaxNegatives(e.target.value)} placeholder="예: 0" className="mono" disabled={running} />
+                      <Info title="max_negatives (메모리 knob)" align="left">
+                        데이터에 mined negative가 붙어 있으면 <b className="text-fg">컬럼 수만큼 배치당 텍스트가
+                        늘어</b> 같은 batch size로도 OOM이 날 수 있습니다. 상한을 낮추거나 <span className="mono">0</span>
+                        으로 끄면(in-batch negative만 사용) 메모리가 negatives 없는 데이터 수준으로 돌아옵니다. triplet
+                        loss는 이 값과 무관하게 항상 1개를 씁니다.
                       </Info>
                     </div>
                   </Field>

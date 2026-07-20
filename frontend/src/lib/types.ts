@@ -390,6 +390,9 @@ export interface TrainRequest {
   matryoshka?: boolean; // wrap the loss so truncated vectors (768→256→…) stay strong
   matryoshka_dims?: number[]; // empty + matryoshka on → derived from the model's dim
   dropout?: number | null; // backbone dropout; null = model defaults
+  /** 데이터의 hard-negative 컬럼 상한: null = 전부, 0 = 제외(in-batch만).
+   * negative 컬럼 수만큼 배치가 무거워져 OOM 시 줄이는 knob (triplet은 항상 1). */
+  max_negatives?: number | null;
   early_stop_patience?: number; // 0 = off (run all epochs, save the last)
   early_stop_metric?: "ndcg" | "loss";
   auto_name?: boolean;

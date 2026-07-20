@@ -102,3 +102,9 @@ def test_resolve_matryoshka_dims_honours_a_request_but_clamps_to_model_dim():
 def test_resolve_matryoshka_dims_falls_back_to_auto_when_request_unusable():
     # every requested dim exceeds the model → ignore the request, derive from the dim
     assert resolve_matryoshka_dims((9999,), 768) == [768, 384, 192, 96]
+
+
+def test_negative_count_cap_zero_drops_all_columns():
+    # max_negatives=0: mined negatives가 있어도 컬럼을 만들지 않는다 (in-batch만 —
+    # negatives가 배치 메모리를 배로 늘려 OOM이 날 때 쓰는 knob).
+    assert negative_count(_rows(4, 2), cap=0) == 0

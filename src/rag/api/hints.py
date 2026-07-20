@@ -8,8 +8,9 @@ from __future__ import annotations
 _HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("out of memory", "mps backend out of memory", "cuda out of memory"),
      "메모리 부족입니다 — batch size를 줄이거나 LoRA로 전환해 보세요. batch를 유지하고 싶으면 Cached MNRL이 "
-     "메모리를 아껴줍니다. Matryoshka를 켰다면 여러 차원의 backward 그래프를 동시에 들고 있어 batch·LoRA로도 "
-     "잘 안 줄어드니, 차원 수를 줄이세요(또는 VRAM이 더 큰 GPU)."),
+     "메모리를 아껴줍니다. 데이터에 hard negative가 붙어 있다면 컬럼 수만큼 배치가 무거워지니 max_negatives를 "
+     "줄이거나 0으로 끄세요(in-batch negative만 사용). Matryoshka를 켰다면 여러 차원의 backward 그래프를 동시에 "
+     "들고 있어 batch·LoRA로도 잘 안 줄어드니, 차원 수를 줄이세요(또는 VRAM이 더 큰 GPU)."),
     (("no module named", "modulenotfounderror"),
      "학습 스택이 설치되어 있지 않습니다 — `uv sync --group training` 후 다시 시도하세요."),
     (("hard negative",),

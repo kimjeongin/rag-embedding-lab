@@ -60,6 +60,13 @@ class TrainingConfig:
     loss: str = _DEFAULT_LOSS
     gist_guide: str = _DEFAULT_GIST_GUIDE        # guide model for GISTEmbedLoss
 
+    # Cap on hard-negative COLUMNS taken from the dataset (None = all, 0 = drop them —
+    # in-batch negatives only). Every negative column multiplies the texts per batch
+    # row, so a dataset with mined negatives can OOM a device that trains the same
+    # pairs without them fine (실측: negatives 2개 = 배치 텍스트 2배 → MPS 41GB OOM).
+    # Triplet ignores this and always takes exactly 1.
+    max_negatives: int | None = None
+
     # Matryoshka representation learning: wrap the chosen loss so the embedding stays
     # strong when truncated to a shorter prefix (768→256→128→…). The production side
     # then stores/searches shorter vectors at little quality cost. `matryoshka_dims`
@@ -106,6 +113,7 @@ class TrainingConfig:
         """Build config from environment variables, falling back to the defaults."""
         train_file, eval_file = dataset_paths()
         dropout = os.getenv("TRAIN_DROPOUT", "")
+        max_negatives = os.getenv("TRAIN_MAX_NEGATIVES", "")
         return cls(
             base_model=os.getenv("TRAIN_BASE_MODEL", _DEFAULT_BASE_MODEL),
             output_dir=os.getenv("TRAIN_OUTPUT_DIR", _DEFAULT_OUTPUT_DIR),
@@ -118,6 +126,8 @@ class TrainingConfig:
             query_instruction=os.getenv("QUERY_INSTRUCTION", DEFAULT_QUERY_INSTRUCTION),
             loss=os.getenv("TRAIN_LOSS", _DEFAULT_LOSS),
             gist_guide=os.getenv("TRAIN_GIST_GUIDE", _DEFAULT_GIST_GUIDE),
+            max_negatives=int(max_negatives) if max_negatives else None,  # "" = 전부
+
             matryoshka=os.getenv("TRAIN_MATRYOSHKA", "0").lower() not in ("0", "false", "no", ""),
             matryoshka_dims=_parse_dims(os.getenv("TRAIN_MATRYOSHKA_DIMS", "")),
             dropout=float(dropout) if dropout else None,   # "" = keep model defaults
