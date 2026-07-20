@@ -27,6 +27,8 @@ from rag.api.schemas.lab import (
     GenEvalResponse,
     GenPairsRequest,
     GenPairsResponse,
+    ImportClicklogRequest,
+    ImportClicklogResponse,
     ImportPairsRequest,
     ImportPairsResponse,
     LabelCommitRequest,
@@ -40,7 +42,7 @@ from rag.api.schemas.lab import (
 from rag.api.sse import sse_event
 from rag.config import Settings
 from rag.core.errors import VectorStoreError
-from rag.datagen import ingest
+from rag.datagen import clicklog, ingest
 from rag.datagen.dummy import generate_dataset
 from rag.datagen.eval_corpus import generate as generate_eval_set
 from rag.datagen.eval_corpus import split_qrels as split_eval_qrels
@@ -316,6 +318,55 @@ def import_pairs(req: ImportPairsRequest) -> ImportPairsResponse:
         skipped=skipped,
         fingerprint_changed=fingerprint_changed,
         message=message,
+    )
+
+
+@router.post("/data/import-clicklog", response_model=ImportClicklogResponse)
+def import_clicklog(req: ImportClicklogRequest) -> ImportClicklogResponse:
+    """세션 클릭로그 → 클리닝(노이즈 규칙) → 학습쌍.
+
+    /data/import(클릭 1건 = 쌍 1건)와 달리 세션 구조를 본다: dwell로 바운스를
+    거르고, 재검색 세션의 실패한 앞 쿼리를 최종 만족 문서에 연결하고(현행 엔진이
+    못 푸는 표현의 supervision), 만족 클릭 위에서 스킵된 문서를 hard negative로
+    붙인다. PII 쿼리는 통째로 버린다. 무엇을 왜 버렸는지는 report로 반환."""
+    events, errors = ingest.parse_records(req.content)
+    if not events:
+        raise HTTPException(status_code=400, detail="; ".join(errors) or "읽을 수 있는 이벤트가 없습니다")
+
+    result = clicklog.clean(
+        events,
+        clicklog.CleanConfig(min_dwell=req.min_dwell, transfer_reformulations=req.transfer),
+    )
+
+    eval_dir = eval_dir_from_env()
+    corpus = load_corpus(eval_dir) if (Path(eval_dir) / "corpus.jsonl").exists() else {}
+    skipped = list(errors)
+    pairs = []
+    for pair in result.pairs:
+        doc = corpus.get(pair["doc_id"])
+        if doc is None:
+            skipped.append(f"corpus에 없는 doc_id '{pair['doc_id']}' (쿼리: {pair['query'][:30]})")
+            continue
+        record = {
+            "query": pair["query"],
+            "positive": {"title": doc.get("title"), "content": doc.get("text") or ""},
+        }
+        negatives = [
+            {"title": corpus[d].get("title"), "content": corpus[d].get("text") or ""}
+            for d in pair["negatives"] if d in corpus
+        ]
+        if negatives:
+            record["negatives"] = negatives
+        pairs.append(record)
+
+    added = _append_train_pairs(pairs)
+    r = result.report
+    message = (
+        f"클리닝 완료 — 학습쌍 +{added} (직접 {r['positives_direct']} · 전이 {r['positives_transferred']}) · "
+        f"바운스 {r['bounces_ignored']}건 무시 · PII {r['dropped_pii']}건 드롭"
+    )
+    return ImportClicklogResponse(
+        parsed=len(events), added_train=added, report=r, skipped=skipped, message=message
     )
 
 

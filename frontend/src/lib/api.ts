@@ -19,6 +19,8 @@ import type {
   IndexRequest,
   ImportPairsResponse,
   Bm25Request,
+  ImportClicklogRequest,
+  ImportClicklogResponse,
   ImportTrecRequest,
   ImportTrecResponse,
   JobCreateRequest,
@@ -90,6 +92,8 @@ export const api = {
   genPairs: (body: GenPairsRequest) => request<GenPairsResponse>("/data/pairs", json(body)),
   genEval: (body: GenEvalRequest) => request<GenEvalResponse>("/data/eval", json(body)),
   importPairs: (body: ImportPairsRequest) => request<ImportPairsResponse>("/data/import", json(body)),
+  importClicklog: (body: ImportClicklogRequest) =>
+    request<ImportClicklogResponse>("/data/import-clicklog", json(body)),
   labelSearch: (body: LabelSearchRequest) => request<LabelSearchResponse>("/data/label/search", json(body)),
   labelCommit: (body: LabelCommitRequest) => request<LabelCommitResponse>("/data/label/commit", json(body)),
 

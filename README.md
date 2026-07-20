@@ -35,6 +35,7 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 | `uv run rag-gen-synthetic` | write an LLM-generated **training** dataset (search-box queries, round-trip filtered, + margin-guarded hard negatives) |
 | `uv run rag-gen-eval` | write a **BEIR-format eval set** (`data/eval`) — `EVAL_SOURCE=corpus` uses the crawled site as the haystack |
 | `uv run rag-gen-intranet` | write the **가상 인트라넷 리허설 데이터셋** (`data-intranet/`) — 사내사이트 검색의 쌍둥이(페이지 url·description·agent prompt·수집 메타데이터) + 은어 양성 대조군(standard/jargon 슬라이스) |
+| `uv run rag-gen-clicklog` | write a **노이즈 세션 클릭로그** (`data-intranet/clicklog.jsonl` + 정답) — 포지션 바이어스·오클릭·재검색·PII를 재현, 데이터 탭 "클릭로그(세션)" 가져오기의 리허설 입력 |
 | `uv run rag-train` | fine-tune the embedding model |
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
 | `uv run rag-index` | embed `data/corpus.jsonl` into **Qdrant** (versioned collection + atomic alias swap; `--prune` drops rollback copies) |

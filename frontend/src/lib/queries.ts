@@ -11,6 +11,7 @@ import type {
   GenPairsRequest,
   ImportPairsRequest,
   Bm25Request,
+  ImportClicklogRequest,
   ImportTrecRequest,
   JobCreateRequest,
   LabelCommitRequest,
@@ -116,6 +117,20 @@ export function useGenEval() {
       qc.invalidateQueries({ queryKey: keys.corpus });
       qc.invalidateQueries({ queryKey: keys.status });
       qc.invalidateQueries({ queryKey: keys.runs }); // fingerprint moved — stale flags change
+    },
+  });
+}
+
+export function useImportClicklog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ImportClicklogRequest) => api.importClicklog(body),
+    onError: fail,
+    onSuccess: (data) => {
+      toast.success(data.message);
+      qc.invalidateQueries({ queryKey: keys.dataOverview });
+      qc.invalidateQueries({ queryKey: keys.pairs });
+      qc.invalidateQueries({ queryKey: keys.status });
     },
   });
 }

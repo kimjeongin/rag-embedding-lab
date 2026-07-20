@@ -13,6 +13,7 @@ import {
   useDataOverview,
   useGenEval,
   useGenPairs,
+  useImportClicklog,
   useImportPairs,
   useLabelCommit,
   useModels,
@@ -107,56 +108,100 @@ function CrawlPanel({ corpusFile, onCorpusFile }: { corpusFile: string; onCorpus
  * data source for an internal-site search: (쿼리, 클릭한 사이트) = 학습쌍이자 정답 판정. */
 function ImportPanel() {
   const importPairs = useImportPairs();
+  const importClicklog = useImportClicklog();
+  const [mode, setMode] = useState<"pairs" | "clicklog">("pairs");
   const [content, setContent] = useState("");
   const [target, setTarget] = useState<"train" | "qrels" | "both">("both");
   const result = importPairs.data;
+  const logReport = importClicklog.data?.report;
+  const skipped = mode === "pairs" ? (result?.skipped ?? []) : (importClicklog.data?.skipped ?? []);
+  const busy = importPairs.isPending || importClicklog.isPending;
+  const submit = () => {
+    const done = { onSuccess: () => setContent("") };
+    if (mode === "pairs") importPairs.mutate({ content, target }, done);
+    else importClicklog.mutate({ content }, done);
+  };
 
   return (
     <Panel className="p-5">
       <div className="mb-4 flex items-center gap-2">
         <Upload size={16} className="text-signal" />
         <h3 className="text-[15px] font-semibold text-fg">실데이터 가져오기</h3>
-        <Info title="실로그가 최고의 데이터입니다" align="left">
-          사내 검색의 <b className="text-fg">쿼리 로그·클릭 로그</b>가 이미 최고의 학습/평가 데이터입니다. (쿼리,
-          클릭한 문서) 한 줄이 <b className="text-fg">MNRL 학습쌍</b>이자 <b className="text-fg">정답 판정(qrels)</b> —
-          개별 클릭은 노이즈여도 양으로 이깁니다. 형식: CSV <span className="mono">query,doc_id</span>(헤더 생략
-          가능) 또는 JSONL <span className="mono">{'{"query": …, "doc_id": …}'}</span>. doc_id 대신{" "}
-          <span className="mono">title/content</span>를 주면 학습쌍으로만 들어갑니다.
-        </Info>
+        {mode === "pairs" ? (
+          <Info title="실로그가 최고의 데이터입니다" align="left">
+            사내 검색의 <b className="text-fg">쿼리 로그·클릭 로그</b>가 이미 최고의 학습/평가 데이터입니다. (쿼리,
+            클릭한 문서) 한 줄이 <b className="text-fg">MNRL 학습쌍</b>이자 <b className="text-fg">정답 판정(qrels)</b> —
+            개별 클릭은 노이즈여도 양으로 이깁니다. 형식: CSV <span className="mono">query,doc_id</span>(헤더 생략
+            가능) 또는 JSONL <span className="mono">{'{"query": …, "doc_id": …}'}</span>. doc_id 대신{" "}
+            <span className="mono">title/content</span>를 주면 학습쌍으로만 들어갑니다.
+          </Info>
+        ) : (
+          <Info title="세션 로그는 클릭보다 많이 안다" align="left">
+            세션 단위 원본 로그를 붙여넣으면 <b className="text-fg">노이즈 규칙</b>을 거쳐 학습쌍이 됩니다: 짧은
+            dwell 클릭은 바운스로 무시, <b className="text-fg">재검색 세션의 실패한 앞 쿼리는 최종 만족 문서에
+            연결</b>(현행 엔진이 못 푸는 사내 표현의 supervision이 여기서 나옵니다), 만족 클릭 위에서 스킵된 문서는
+            hard negative, PII 쿼리는 통째로 드롭. 형식: JSONL 한 줄 = 검색 1회{" "}
+            <span className="mono">{'{"session", "query", "results": [doc_id…], "clicks": [{"doc_id","rank","dwell_sec"}…]}'}</span>
+          </Info>
+        )}
+      </div>
+      <div className="mb-3">
+        <Seg
+          options={[
+            { value: "pairs", label: "쌍 (query,doc)" },
+            { value: "clicklog", label: "클릭로그 (세션)" },
+          ]}
+          value={mode}
+          onChange={setMode}
+        />
       </div>
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
         rows={5}
-        placeholder={"vpn 안됨,site-vpn-guide\n연차 신청,site-hr-portal\n…  (또는 JSONL)"}
+        placeholder={
+          mode === "pairs"
+            ? "vpn 안됨,site-vpn-guide\n연차 신청,site-hr-portal\n…  (또는 JSONL)"
+            : '{"session": "s-1", "query": "돌핀 정산 안돼", "results": ["page-3", …], "clicks": []}\n{"session": "s-1", "query": "머니핀 정산", "results": […], "clicks": [{"doc_id": "page-17", "rank": 1, "dwell_sec": 95}]}'
+        }
         className="mono w-full rounded-xl border border-line bg-ink-925 px-3.5 py-2.5 text-[12px] text-fg outline-none placeholder:text-faint focus:border-signal/50"
       />
       <div className="mt-3 flex flex-wrap items-center gap-2.5">
-        <Seg
-          options={[
-            { value: "both", label: "학습쌍 + qrels" },
-            { value: "train", label: "학습쌍만" },
-            { value: "qrels", label: "qrels만" },
-          ]}
-          value={target}
-          onChange={setTarget}
-        />
-        <Btn
-          icon={<Upload size={14} />}
-          disabled={!content.trim() || importPairs.isPending}
-          onClick={() => importPairs.mutate({ content, target }, { onSuccess: () => setContent("") })}
-        >
-          {importPairs.isPending ? "가져오는 중…" : "가져오기"}
+        {mode === "pairs" ? (
+          <Seg
+            options={[
+              { value: "both", label: "학습쌍 + qrels" },
+              { value: "train", label: "학습쌍만" },
+              { value: "qrels", label: "qrels만" },
+            ]}
+            value={target}
+            onChange={setTarget}
+          />
+        ) : (
+          <span className="text-[11.5px] text-faint">클리닝을 거쳐 학습쌍으로만 들어갑니다 (판정은 판정 루프에서)</span>
+        )}
+        <Btn icon={<Upload size={14} />} disabled={!content.trim() || busy} onClick={submit}>
+          {busy ? "가져오는 중…" : mode === "pairs" ? "가져오기" : "클리닝해서 가져오기"}
         </Btn>
       </div>
-      {result && result.skipped.length > 0 && (
+      {mode === "clicklog" && logReport && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <Tag tone="signal">직접 쌍 {logReport.positives_direct}</Tag>
+          <Tag tone="signal">재검색 전이 {logReport.positives_transferred}</Tag>
+          <Tag>hard negative {logReport.hard_negatives}</Tag>
+          <Tag tone="mut">바운스 무시 {logReport.bounces_ignored}</Tag>
+          <Tag tone="mut">PII 드롭 {logReport.dropped_pii}</Tag>
+          <Tag tone="mut">이탈 세션 {logReport.abandoned_sessions}</Tag>
+        </div>
+      )}
+      {skipped.length > 0 && (
         <div className="mono mt-3 max-h-24 overflow-auto rounded-lg border border-amber/25 bg-amber/8 p-2.5 text-[11px] text-amber">
-          {result.skipped.map((s, i) => (
+          {skipped.map((s, i) => (
             <div key={i}>· {s}</div>
           ))}
         </div>
       )}
-      {result?.fingerprint_changed && (
+      {mode === "pairs" && result?.fingerprint_changed && (
         <p className="mt-2 text-[11.5px] text-amber">
           평가셋 내용이 바뀌었습니다 — 이전 런들은 "다른 평가셋"으로 표시되며 새 런과 비교되지 않습니다 (의도된 동작).
         </p>

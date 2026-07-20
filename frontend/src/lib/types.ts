@@ -321,6 +321,20 @@ export interface DiffResponse {
   } | null;
 }
 
+// POST /api/data/import-clicklog — 세션 클릭로그를 클리닝해 학습쌍으로
+export interface ImportClicklogRequest {
+  content: string;
+  min_dwell?: number; // 이 미만 dwell 클릭은 바운스 (기본 20초)
+  transfer?: boolean; // 실패한 앞 쿼리를 세션의 최종 만족 문서로 전이 (기본 켬)
+}
+export interface ImportClicklogResponse {
+  parsed: number;
+  added_train: number;
+  report: Record<string, number>; // 규칙별 카운트 (dropped_pii, bounces_ignored, positives_transferred …)
+  skipped: string[];
+  message: string;
+}
+
 // POST /api/runs/bm25 — 내장 BM25(문자 bigram) 베이스라인 채점·등록
 export interface Bm25Request {
   label?: string;

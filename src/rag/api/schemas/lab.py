@@ -391,6 +391,26 @@ class ImportPairsResponse(BaseModel):
 
 
 # ── /api/data/label — judge queries against the corpus to grow qrels ────────────
+class ImportClicklogRequest(BaseModel):
+    """POST /api/data/import-clicklog — 세션 클릭로그(JSONL)를 클리닝해 학습쌍으로.
+
+    한 줄 = 검색 1회: {"session", "query", "results": [doc_id…], "clicks":
+    [{"doc_id", "rank", "dwell_sec"}…]}. 클리닝 규칙(dwell/재검색 전이/skip-above/
+    PII 드롭)은 rag.datagen.clicklog 참고.
+    """
+    content: str
+    min_dwell: float = Field(default=20.0, ge=0)   # 이 미만 dwell 클릭은 바운스
+    transfer: bool = True                          # 실패한 앞 쿼리를 최종 만족 문서로 전이
+
+
+class ImportClicklogResponse(BaseModel):
+    parsed: int                          # 읽은 이벤트 수
+    added_train: int = 0
+    report: dict = Field(default_factory=dict)   # 규칙별 카운트 (clicklog.clean 리포트)
+    skipped: list[str] = Field(default_factory=list)
+    message: str = ""
+
+
 class LabelSearchRequest(BaseModel):
     query: str
     embedder: Embedder = "sentence-transformers"
