@@ -162,10 +162,14 @@ def build_eval_settings(
         return Settings(
             embedder="ollama", embed_model=(model or base.embed_model), embed_dim=embed_dim,
             ollama_url=(ollama_url or base.ollama_url), query_instruction=base.query_instruction,
+            model_profile=base.model_profile,
             qdrant_url=base.qdrant_url, qdrant_collection=base.qdrant_collection,
         )
+    # model_profile carries the env override through: evaluating with a different input
+    # format than training/serving would use is the silent failure this exists to stop.
     return Settings(
         embedder="sentence-transformers", st_model=(model or base.st_model), embed_dim=embed_dim,
         query_instruction=base.query_instruction, truncate_dim=truncate_dim,
+        model_profile=base.model_profile,
         qdrant_url=base.qdrant_url, qdrant_collection=base.qdrant_collection,
     )

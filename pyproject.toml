@@ -27,6 +27,7 @@ rag-train = "rag.cli.train:main"             # fine-tune embeddings:   uv run ra
 rag-eval = "rag.cli.evaluate:main"           # measure retrieval:      uv run rag-eval
 rag-index = "rag.cli.index:main"             # corpus → Qdrant index:  uv run rag-index --model outputs/…
 rag-search = "rag.cli.search:main"           # query the live index:   uv run rag-search "질문"
+rag-bench = "rag.cli.bench:main"             # 서빙 성능·자원 벤치:     uv run rag-bench --model outputs/…
 
 [dependency-groups]
 # Dev tooling (installed by `uv sync`); run tests with `uv run pytest`.

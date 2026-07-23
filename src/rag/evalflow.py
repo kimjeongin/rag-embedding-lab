@@ -18,6 +18,7 @@ from rag.evaluation.beir import (
 )
 from rag.evaluation.metrics import slice_means
 from rag.evaluation.retrieval import evaluate
+from rag.modelprofile import resolve_profile
 
 
 class NoJudgedQueries(ValueError):
@@ -76,6 +77,8 @@ async def run_eval_flow(
         split=report.split,
         note=note,
         slices=slices,
+        model_profile=resolve_profile(settings.active_model, settings.model_profile).name,
+        embed_dim=dim,
     )
     return {
         "model": settings.active_model,

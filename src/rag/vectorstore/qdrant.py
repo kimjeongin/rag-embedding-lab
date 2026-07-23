@@ -109,6 +109,29 @@ class QdrantStore:
             for p in result.get("points", [])
         ]
 
+    def scroll_vectors(self, name: str, page: int = 256) -> list[tuple[str, list[float]]]:
+        """Every [(point_id, vector)] in the collection, paged.
+
+        Reading the stored vectors back is what lets a benchmark separate *model*
+        quality from *index* approximation: brute-force cosine over these exact
+        vectors is the ANN-free ceiling, so ceiling − HNSW = the index's own loss.
+        Any other exact baseline would re-embed and fold encoder nondeterminism in.
+        """
+        out: list[tuple[str, list[float]]] = []
+        offset = None
+        while True:
+            body: dict = {"limit": page, "with_vector": True, "with_payload": False}
+            if offset is not None:
+                body["offset"] = offset
+            result = self._request("POST", f"/collections/{name}/points/scroll", json=body)["result"]
+            for point in result.get("points", []):
+                vector = point.get("vector")
+                if isinstance(vector, list):
+                    out.append((str(point["id"]), vector))
+            offset = result.get("next_page_offset")
+            if offset is None:
+                return out
+
     # ── aliases (the serving pointer) ──────────────────────────────────────────
     def alias_target(self, alias: str) -> str | None:
         """The collection an alias points at (None if the alias doesn't exist)."""

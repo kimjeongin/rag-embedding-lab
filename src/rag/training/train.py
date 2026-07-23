@@ -21,6 +21,7 @@ import contextlib
 import json
 from pathlib import Path
 
+from rag.modelprofile import resolve_profile
 from rag.training.config import TrainingConfig
 from rag.training.data import to_ir_eval, to_training_dataset
 from rag.training.model import load_base_model, pick_device
@@ -209,7 +210,14 @@ def train(cfg: TrainingConfig) -> dict:
     # TripletLoss takes exactly (anchor, positive, negative); the MNRL/GIST family
     # treats EVERY extra column as another negative — so give it all mined ones.
     max_negatives = 1 if cfg.loss == "triplet" else cfg.max_negatives
-    train_dataset = to_training_dataset(cfg.train_file, cfg.query_instruction, max_negatives)
+    # The base model's input format — every text below (train, validation) is built
+    # with it, and it's recorded in train_meta.json so serving inherits the same one.
+    profile = resolve_profile(cfg.base_model, cfg.model_profile)
+    print(f"[train] input format profile: {profile.name}"
+          f"{'' if profile.uses_instruction else ' (instruction unused by this model)'}")
+    train_dataset = to_training_dataset(
+        cfg.train_file, cfg.query_instruction, max_negatives, profile=profile
+    )
     negative_columns = [c for c in train_dataset.column_names if c.startswith("negative")]
     print(f"[train] {len(train_dataset)} training pairs from {cfg.train_file} "
           f"(hard negatives per pair: {len(negative_columns)})")
@@ -221,7 +229,7 @@ def train(cfg: TrainingConfig) -> dict:
     # near 1.0 and early stopping would be steering on noise. (Costs one corpus embed
     # per epoch; at lab scale that's seconds.)
     queries, corpus, relevant = to_ir_eval(
-        cfg.eval_file, cfg.query_instruction, distractor_file=cfg.train_file
+        cfg.eval_file, cfg.query_instruction, distractor_file=cfg.train_file, profile=profile
     )
     evaluator = InformationRetrievalEvaluator(
         queries, corpus, relevant, name="val", show_progress_bar=False
@@ -256,11 +264,18 @@ def train(cfg: TrainingConfig) -> dict:
         eval_strategy="epoch",
         save_strategy="no",      # best-epoch snapshotting is ours (best.pt), not HF's
         report_to=[],            # no wandb/tensorboard
+        # Recompute activations in the backward pass instead of storing them. This is
+        # the ONLY memory lever that leaves the recipe intact — batch size changes the
+        # in-batch negatives MNRL trains on, and LoRA changes which weights move, so
+        # both make a run non-comparable to a full-precision baseline. Costs ~30% time.
+        gradient_checkpointing=cfg.gradient_checkpointing,
     )
     # eval_dataset feeds eval_strategy="epoch" (HF requires one even with an
     # evaluator) and adds a held-out eval_loss next to the evaluator's nDCG. Same
     # negative arity as training, so eval_loss is computed on the same task shape.
-    eval_dataset = to_training_dataset(cfg.eval_file, cfg.query_instruction, max_negatives)
+    eval_dataset = to_training_dataset(
+        cfg.eval_file, cfg.query_instruction, max_negatives, profile=profile
+    )
     best_cb = _best_epoch_callback(model, cfg)
     trainer = SentenceTransformerTrainer(
         model=model, args=args, train_dataset=train_dataset, eval_dataset=eval_dataset,
@@ -305,10 +320,15 @@ def _write_meta(final_dir: str, cfg: TrainingConfig, history: list[dict],
 
     meta: dict = {
         "base_model": cfg.base_model,
+        # The input format this model was trained with. Serving reads it back
+        # (rag.modelprofile) so a tuned model can't be served with another model's
+        # prompts — the failure that produces no error, only worse numbers.
+        "model_profile": resolve_profile(cfg.base_model, cfg.model_profile).name,
         "method": cfg.method,
         "loss": cfg.loss,
         "learning_rate": cfg.learning_rate,
         "batch_size": cfg.batch_size,
+        "gradient_checkpointing": cfg.gradient_checkpointing,
         "dropout": cfg.dropout,
         "seed": cfg.seed,
         "max_epochs": cfg.epochs,

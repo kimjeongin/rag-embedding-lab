@@ -47,6 +47,8 @@ def append_run(
     split: str | None = None,
     note: str | None = None,
     slices: dict[str, dict] | None = None,
+    model_profile: str | None = None,
+    embed_dim: int | None = None,
 ) -> dict:
     """Append one eval result and return the stored record (label falls back to model).
 
@@ -83,6 +85,14 @@ def append_run(
         record["note"] = note.strip()
     if slices:
         record["slices"] = slices
+    # Which input format produced these vectors, and at what width. Once models with
+    # DIFFERENT formats are compared (qwen3 vs nemotron3), a score with no record of
+    # its formatting can't be audited or reproduced — and a wrong format is invisible
+    # in the number itself. embed_dim makes the accuracy-per-storage-cost read honest.
+    if model_profile:
+        record["model_profile"] = model_profile
+    if embed_dim is not None:
+        record["embed_dim"] = int(embed_dim)
     out = Path(path or runs_file())
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("a", encoding="utf-8") as f:

@@ -18,6 +18,13 @@ const LOSS_OPTIONS: { value: TrainLoss; label: string }[] = [
   { value: "triplet", label: "Triplet" },
 ];
 
+// 자주 쓰는 base 모델 — 입력 포맷(프로파일)은 백엔드가 모델 이름에서 해석하므로
+// 여기서는 고를 수만 있으면 된다. dim은 재색인 비용/저장 크기 감을 주려고 표시.
+const BASE_PRESETS: { model: string; label: string; dim: number }[] = [
+  { model: "Qwen/Qwen3-Embedding-0.6B", label: "Qwen3 0.6B", dim: 1024 },
+  { model: "nvidia/Nemotron-3-Embed-1B-BF16", label: "Nemotron 1B", dim: 2048 },
+];
+
 const RUN_STATUS: Record<string, { label: string; cls: string }> = {
   pending: { label: "대기", cls: "text-faint" },
   running: { label: "학습 중", cls: "text-signal2" },
@@ -368,6 +375,24 @@ export default function Train() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="base 모델" hint="HuggingFace 또는 outputs/ 경로 (이어서 학습)">
               <Input value={base} onChange={(e) => setBase(e.target.value)} disabled={running} />
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {BASE_PRESETS.map((p) => (
+                  <button
+                    key={p.model}
+                    type="button"
+                    disabled={running}
+                    onClick={() => setBase(p.model)}
+                    title={p.model}
+                    className={`rounded border px-1.5 py-0.5 text-[11px] transition-colors disabled:opacity-50 ${
+                      base === p.model
+                        ? "border-acc/40 bg-acc/10 text-fg"
+                        : "border-line text-mut hover:text-fg"
+                    }`}
+                  >
+                    {p.label} <span className="text-faint">{p.dim}d</span>
+                  </button>
+                ))}
+              </div>
             </Field>
             <Field label="저장 이름" hint="N = best epoch">
               <Input value={out} onChange={(e) => setOut(e.target.value)} disabled={running} />

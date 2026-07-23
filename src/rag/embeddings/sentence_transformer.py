@@ -19,6 +19,7 @@ from rag.config import Settings
 from rag.core.entities import Document
 from rag.core.errors import EmbeddingError
 from rag.core.formatting import format_document, format_query
+from rag.modelprofile import resolve_profile
 
 
 class SentenceTransformerEmbedder:
@@ -43,6 +44,20 @@ class SentenceTransformerEmbedder:
             settings.st_model, device=device, truncate_dim=settings.truncate_dim
         )
         self._instruction = settings.query_instruction
+        self._profile = resolve_profile(settings.st_model, settings.model_profile)
+
+        # We prepend the profile's prefixes ourselves and call encode() (not
+        # encode_query/encode_document), so a model that also applies a prompt BY
+        # DEFAULT would double-prefix — "query: query: …" — and only look slightly
+        # worse. Models ship default_prompt_name=null today; refuse if one doesn't.
+        if getattr(self._model, "default_prompt_name", None):
+            raise EmbeddingError(
+                f"'{settings.st_model}'은 default_prompt_name="
+                f"{self._model.default_prompt_name!r}을 갖고 있어 랩이 붙이는 "
+                f"'{self._profile.name}' 접두사와 이중 적용됩니다 — 모델의 "
+                f"config_sentence_transformers.json에서 default_prompt_name을 null로 "
+                f"두거나 MODEL_PROFILE=plain으로 랩 쪽 접두사를 끄세요"
+            )
 
         dim = self._model.get_embedding_dimension()
         if dim != settings.embed_dim:
@@ -52,13 +67,13 @@ class SentenceTransformerEmbedder:
             )
 
     async def embed_documents(self, documents: Sequence[Document]) -> list[list[float]]:
-        """Doc side: title prepended to body, identifiers excluded."""
-        inputs = [format_document(doc.title, doc.content) for doc in documents]
+        """Doc side: formatted per the model's profile, identifiers excluded."""
+        inputs = [format_document(doc.title, doc.content, self._profile) for doc in documents]
         return await self._encode(inputs)
 
     async def embed_queries(self, queries: Sequence[str]) -> list[list[float]]:
-        """Query side: instruction-prefixed — encoded in one batch."""
-        inputs = [format_query(q, self._instruction) for q in queries]
+        """Query side: prefixed per the model's profile — encoded in one batch."""
+        inputs = [format_query(q, self._instruction, self._profile) for q in queries]
         return await self._encode(inputs)
 
     async def _encode(self, texts: list[str]) -> list[list[float]]:

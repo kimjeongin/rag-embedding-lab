@@ -15,6 +15,7 @@ from rag.config import Settings
 from rag.core.entities import Document
 from rag.core.errors import EmbeddingError
 from rag.core.formatting import format_document, format_query
+from rag.modelprofile import resolve_profile
 
 
 # Per-request input cap. Ollama embeds a list sequentially in one request, so a whole
@@ -30,6 +31,7 @@ class OllamaEmbedder:
         self._model = settings.embed_model
         self._dim = settings.embed_dim
         self._instruction = settings.query_instruction
+        self._profile = resolve_profile(settings.embed_model, settings.model_profile)
 
     async def _embed(self, inputs: list[str]) -> list[list[float]]:
         rows: list[list[float]] = []
@@ -61,11 +63,11 @@ class OllamaEmbedder:
         return embeddings
 
     async def embed_documents(self, documents: Sequence[Document]) -> list[list[float]]:
-        """Doc side: title prepended to body, identifiers excluded."""
-        inputs = [format_document(doc.title, doc.content) for doc in documents]
+        """Doc side: formatted per the model's profile, identifiers excluded."""
+        inputs = [format_document(doc.title, doc.content, self._profile) for doc in documents]
         return await self._embed(inputs)
 
     async def embed_queries(self, queries: Sequence[str]) -> list[list[float]]:
-        """Query side: instruction-prefixed — embedded in one request."""
-        inputs = [format_query(q, self._instruction) for q in queries]
+        """Query side: prefixed per the model's profile — embedded in one request."""
+        inputs = [format_query(q, self._instruction, self._profile) for q in queries]
         return await self._embed(inputs)

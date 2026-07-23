@@ -19,9 +19,17 @@ base 모델이 이미 아는 공공 텍스트라 파인튜닝이 파고들 도�
   - 학습 쿼리와 평가 쿼리는 문장 템플릿 풀을 분리한다(표현 암기가 아니라
     어휘 연결을 배웠는지 측정).
 
-corpus의 content(=임베딩 입력의 본문)는 description+본문이고, agent_prompt와
-metadata는 임베딩에서 제외한다 — 식별자/운영 정보는 의미 검색의 신호가 아니라는
-`core.formatting`의 원칙과 같다(합류 실험은 별도 과제).
+corpus 레코드는 실 운영 검색 컬렉션의 **payload 스키마를 그대로 싣는다**
+(site_id · url · version_name · title · title_eng · llm_title · description ·
+description_eng · user_queries · need_steps · hard_guide_name). 실데이터가
+도착하면 파이프라인이 같은 형태를 이미 받도록 하기 위한 리허설이다.
+
+임베딩 입력(content)은 description+본문이고, payload의 나머지 필드(다국어·llm_title·
+user_queries·agent_prompt·metadata)는 임베딩에서 제외한다 — 식별자/운영 정보는
+의미 검색의 신호가 아니라는 `core.formatting`의 원칙과 같다. 특히 user_queries는
+운영에선 doc-side query augmentation으로 임베딩에 접어 넣을 수 있으나, 여기서는
+평가 난이도·양성 대조군을 그대로 두기 위해 payload에만 저장한다(합류는 별도 과제).
+불변식으로, user_queries를 포함한 모든 payload 텍스트에 은어가 새지 않게 검증한다.
 """
 from __future__ import annotations
 
@@ -294,6 +302,83 @@ OWNERS = ("김서연", "박도윤", "이하람", "정시우", "최나린", "한�
 
 PAGE_KINDS = ("home", "guide", "faq", "access", "notice", "release", "manual")
 
+# ── 실 운영 payload 스키마용 보조 데이터 ─────────────────────────────────────
+# 실제 사내 검색 컬렉션은 페이지마다 다국어(title_eng/description_eng)와 LLM 보정
+# 필드(llm_title, user_queries)를 함께 저장한다. 리허설 데이터셋이 그 스키마의
+# 쌍둥이가 되도록 여기서 결정론적으로 채운다(난수 미사용 — 학습/평가 재현 보존).
+SYSTEM_EN: dict[str, tuple[str, str]] = {
+    "hangyeol": ("Hangyeol", "processes approvals and electronic sign-off"),
+    "peopleon": ("PeopleOn", "manages HR records and certificate issuance"),
+    "moneypin": ("MoneyPin", "handles corporate cards and expense settlement"),
+    "gateone": ("GateOne", "provides VPN and remote access"),
+    "notree": ("Notree", "runs the internal wiki and document collaboration"),
+    "shipit": ("ShipIt", "manages the service deployment pipeline"),
+    "argos": ("Argos", "handles service monitoring and incident alerts"),
+    "toksquare": ("TalkSquare", "provides internal messaging and channel collaboration"),
+    "roombook": ("RoomBook", "handles meeting-room and desk reservations"),
+    "assethub": ("AssetHub", "manages IT assets and licenses"),
+    "onepass": ("OnePass", "manages corporate accounts and SSO authentication"),
+    "helpme": ("HelpMe", "handles IT issue intake and remote support"),
+    "legalgate": ("LegalGate", "receives contract reviews and legal counsel requests"),
+    "baroBuy": ("BaroBuy", "processes purchase requests and vendor management"),
+    "safecampus": ("SafeCampus", "runs security training and simulation drills"),
+    "docspot": ("DocSpot", "centralizes official documents and secure sharing"),
+    "dataon": ("DataOn", "provides internal metrics and datasets"),
+    "recruita": ("Recruita", "manages job postings and interview scheduling"),
+    "edubridge": ("EduBridge", "runs job training and course enrollment"),
+    "carepoint": ("CarePoint", "manages welfare points and health benefits"),
+    "worklog": ("WorkLog", "manages attendance records and work schemes"),
+    "issuego": ("IssueGo", "provides project issue tracking"),
+    "hubport": ("HubPort", "operates the internal API gateway"),
+    "brandbox": ("BrandBox", "manages brand assets and design requests"),
+    "tripon": ("TripOn", "handles business-trip requests and bookings"),
+    "mailguard": ("MailGuard", "handles email security and spam blocking"),
+    "townhall": ("TownHall", "handles company-wide announcements and internal communication"),
+}
+
+TEAM_EN: dict[str, str] = {
+    "경영지원팀": "Management Support", "인사팀": "HR", "재무팀": "Finance",
+    "정보보안팀": "Information Security", "플랫폼개발팀": "Platform Engineering",
+    "SRE팀": "SRE", "커뮤니케이션팀": "Communications", "총무팀": "General Affairs",
+    "IT지원팀": "IT Support", "법무팀": "Legal", "구매팀": "Procurement",
+    "데이터팀": "Data", "인재개발팀": "People Development", "디자인팀": "Design",
+}
+
+KIND_EN: dict[str, str] = {
+    "home": "Overview", "guide": "User Guide", "faq": "FAQ",
+    "access": "Access & Permissions", "notice": "Maintenance Notice",
+    "release": "Release Notes", "manual": "Admin Manual",
+}
+
+# 규정 페이지 영문: slug → (title_eng, description_eng)
+POLICY_EN: dict[str, tuple[str, str]] = {
+    "remote-work": ("Remote Work Policy",
+                    "Sets the rules for remote work, including weekly application via WorkLog "
+                    "and core-time online presence."),
+    "security-basics": ("Information Security Basics",
+                        "Guides essential security rules for all employees, including approved "
+                        "sharing channels, screen lock and password rules."),
+    "family-leave": ("Family Event Leave and Allowance Policy",
+                     "Explains leave days and allowance criteria for family events, applied with "
+                     "supporting documents to HR."),
+    "office-badge": ("Office Access Badge Guide",
+                     "Explains how new hires and employees who lost a badge get one issued; "
+                     "temporary badges are issued same-day at the front desk."),
+    "employee-discount": ("Employee Partner Discounts",
+                          "Lists partner discounts for telecom, lodging and culture and how to "
+                          "use them; codes refresh quarterly."),
+    "privacy-internal": ("Internal Personal Data Management Plan",
+                         "Defines access-right principles and an annual review for departments "
+                         "handling customer personal data; violations are reported to security."),
+}
+
+# version_name 라벨 풀 — 시스템 순번으로 결정론적 선택(난수 미사용).
+VERSION_LABELS = ("정식 오픈", "2025 개편", "2026 상반기 개편", "통합 리뉴얼",
+                  "보안 강화 릴리스", "모바일 대응 개편", "접근성 개선")
+
+# 절차형 페이지 — need_steps=True (단계별 가이드가 필요한 페이지).
+STEP_KINDS = frozenset({"guide", "faq", "access"})
+
 
 def _josa(word: str, with_batchim: str, without: str) -> str:
     """받침 유무로 조사를 고른다 (한글이 아니면 받침 없는 쪽)."""
@@ -316,6 +401,61 @@ def _metadata(rng: random.Random, version: str) -> dict:
         "collected_at": f"2026-{month:02d}-{day:02d}T{rng.randint(9, 18):02d}:00:00+09:00",
         "source": "intranet-crawler/0.4",
     }
+
+
+def _guide_name(sys: System) -> str:
+    """이 시스템의 권위 있는 단계별 가이드 문서명 (hard_guide_name)."""
+    return f"{sys.name} 사용 가이드"
+
+
+def _title_eng(sys: System, kind: str) -> str:
+    name_en = SYSTEM_EN[sys.slug][0]
+    if kind == "home":
+        return f"{name_en} — Internal System"
+    return f"{name_en} — {KIND_EN[kind]}"
+
+
+def _description_eng(sys: System, kind: str) -> str:
+    name_en, desc_en = SYSTEM_EN[sys.slug]
+    team_en = TEAM_EN.get(sys.team, sys.team)
+    return {
+        "home": f"{name_en} is the internal system that {desc_en}. Operated by the {team_en} team.",
+        "guide": f"Step-by-step guide to the main tasks in {name_en}.",
+        "faq": f"Common problems and fixes when using {name_en}.",
+        "access": f"Access model and permission-request steps for {name_en}.",
+        "notice": f"Scheduled maintenance and incident history for {name_en}.",
+        "release": f"Latest release changes for {name_en}.",
+        "manual": f"Admin guide for {name_en} operators.",
+    }[kind]
+
+
+def _llm_title(sys: System, kind: str, version: str) -> str:
+    """검색 최적화용 LLM 보정 제목 — 업무 키워드를 접어 넣되 은어는 쓰지 않는다."""
+    name, team = sys.name, sys.team
+    tasks = ", ".join(t.name for t in sys.tasks)
+    return {
+        "home": f"{name} 소개 — {sys.desc} 사내 시스템 ({team})",
+        "guide": f"{name} 사용 가이드 — {tasks} 방법 안내",
+        "faq": f"{name} 자주 묻는 질문 — {sys.tasks[0].name}·{sys.tasks[1].name} 오류 해결",
+        "access": f"{name} 접근 권한 신청 방법 안내",
+        "notice": f"{name} 점검 일정 및 장애 공지",
+        "release": f"{name} 릴리스 노트 {version} 변경 사항",
+        "manual": f"{name} 관리자 매뉴얼 — 운영 기능 안내",
+    }[kind]
+
+
+def _user_queries(sys: System, kind: str) -> list[str]:
+    """페이지별 예상 검색 쿼리 (doc-side augmentation) — 공식 명칭만, 은어 금지."""
+    name = sys.name
+    return {
+        "home": [f"{name} 들어가는 법", f"{name}이 뭐 하는 곳인가요"],
+        "guide": [f"{name} {t.variant}" for t in sys.tasks],
+        "faq": [f"{name} {sys.tasks[0].name} 오류", f"{name} 로그인이 안 돼요"],
+        "access": [f"{name} 권한 신청", f"{name} 계정 권한 요청"],
+        "notice": [f"{name} 점검 일정", f"{name} 언제 점검하나요"],
+        "release": [f"{name} 새 기능", f"{name} 업데이트 내역"],
+        "manual": [f"{name} 관리자 기능", f"{name} 운영 설정"],
+    }[kind]
 
 
 def _page_body(sys: System, kind: str, version: str, rng: random.Random) -> tuple[str, str, str]:
@@ -410,30 +550,64 @@ def _agent_prompt(sys: System, kind: str, url: str) -> str:
 
 
 def build_pages(rng: random.Random) -> list[dict]:
-    """카탈로그 전체 페이지 — corpus.jsonl 레코드(풍부한 필드 포함)."""
+    """카탈로그 전체 페이지 — corpus.jsonl 레코드.
+
+    각 레코드는 실 운영 검색 컬렉션의 **payload 스키마를 그대로 싣는다**(site_id ·
+    url · version_name · title · title_eng · llm_title · description ·
+    description_eng · user_queries · need_steps · hard_guide_name). 그 아래
+    랩 내부 필드(content=임베딩 입력, agent_prompt, metadata, system, kind)를
+    덧붙이는데 이들은 운영 payload에는 없고 파이프라인 구동에만 쓰인다.
+
+    payload 필드는 전부 결정론적으로 채운다 — 난수 스트림을 건드리지 않아야
+    train/test/eval이 동일하게 재현되어 기존 실험 수치가 유효하게 남는다.
+    """
     pages: list[dict] = []
-    for sys in SYSTEMS:
+    for site_id, sys in enumerate(SYSTEMS, start=1):
         version = _version(rng)
+        version_name = f"{VERSION_LABELS[(site_id - 1) % len(VERSION_LABELS)]} ({version})"
+        guide_name = _guide_name(sys)
         for kind in PAGE_KINDS:
             url = f"{BASE_URL}/{sys.slug}/{kind}"
             title, desc, body = _page_body(sys, kind, version, rng)
+            need_steps = kind in STEP_KINDS
             pages.append({
+                # ── 실 운영 컬렉션 payload (production parity) ──
+                "site_id": site_id,
                 "url": url,
+                "version_name": version_name,
                 "title": title,
+                "title_eng": _title_eng(sys, kind),
+                "llm_title": _llm_title(sys, kind, version),
                 "description": desc,
+                "description_eng": _description_eng(sys, kind),
+                "user_queries": _user_queries(sys, kind),
+                "need_steps": need_steps,
+                "hard_guide_name": guide_name if need_steps else None,
+                # ── 랩 내부 (운영 payload에 없음: 임베딩 입력·에이전트·수집 메타) ──
                 "content": body,
                 "agent_prompt": _agent_prompt(sys, kind, url),
                 "metadata": _metadata(rng, version),
                 "system": sys.slug,
                 "kind": kind,
             })
-    for slug, title, body in POLICIES:
+    for i, (slug, title, body) in enumerate(POLICIES):
         url = f"{BASE_URL}/policy/{slug}"
         desc = body.split(". ")[0] + "."
+        need_steps = "신청" in body or "절차" in body
+        title_eng, desc_eng = POLICY_EN[slug]
+        topic = title.split(" 규정")[0].split(" 안내")[0]
         pages.append({
+            "site_id": len(SYSTEMS) + 1 + i,
             "url": url,
+            "version_name": "제정 (v1.0.0)",
             "title": title,
+            "title_eng": title_eng,
+            "llm_title": f"{title} — 사내 규정 안내",
             "description": desc,
+            "description_eng": desc_eng,
+            "user_queries": [f"{topic} 규정", f"{title} 어디서 봐요"],
+            "need_steps": need_steps,
+            "hard_guide_name": title if need_steps else None,
             "content": body,
             "agent_prompt": (
                 f"당신은 {COMPANY} 인트라넷의 사내 규정 안내 에이전트입니다. "
@@ -562,16 +736,23 @@ def generate(seed: int = 20260718) -> tuple[list[dict], list[dict], list[dict]]:
     """(corpus_pages, train_pairs, eval_pairs) — seed 고정, 생성 후 불변 조건 검증.
 
     불변 조건: ① 은어는 corpus 어떤 텍스트 필드에도 등장하지 않는다(양성 대조군의
-    전제 — 깨지면 base도 맞힐 수 있게 되어 실험이 무효). ② 평가 쿼리 문자열은
-    학습 쿼리와 겹치지 않는다(암기 측정 방지).
+    전제 — 깨지면 base도 맞힐 수 있게 되어 실험이 무효). payload 확장(title_eng ·
+    llm_title · user_queries · description_eng 등)을 포함해 모든 텍스트 필드를
+    검사한다. ② 평가 쿼리 문자열은 학습 쿼리와 겹치지 않는다(암기 측정 방지).
     """
     rng = random.Random(seed)
     pages = build_pages(rng)
     train, eval_pairs = build_queries(pages, rng)
 
+    # payload의 모든 텍스트 필드를 훑어 은어 유출을 검사한다 — user_queries는 리스트라
+    # 펼쳐서 합류시킨다. (content/title 뿐 아니라 새 다국어·LLM 필드도 대상)
+    text_fields = ("title", "title_eng", "llm_title", "description",
+                   "description_eng", "content", "hard_guide_name", "version_name")
     aliases = [a for sys in SYSTEMS for a in sys.aliases]
     for p in pages:
-        searchable = " ".join((p["title"], p["description"], p["content"]))
+        parts = [str(p.get(f) or "") for f in text_fields]
+        parts.extend(p.get("user_queries") or [])
+        searchable = " ".join(parts)
         for alias in aliases:
             if alias in searchable:
                 raise ValueError(f"은어 '{alias}'가 corpus에 등장합니다: {p['url']}")

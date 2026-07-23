@@ -2,7 +2,10 @@
 
 data-intranet/ 아래에 랩이 그대로 먹을 수 있는 전체 레이아웃을 쓴다:
 
-    corpus.jsonl   페이지 카탈로그 (url·description·content·agent_prompt·metadata)
+    corpus.jsonl   페이지 카탈로그 — 실 운영 컬렉션 payload 스키마 그대로
+                   (site_id·url·version_name·title·title_eng·llm_title·description·
+                    description_eng·user_queries·need_steps·hard_guide_name)
+                   + 랩 내부 필드(content=임베딩 입력·agent_prompt·metadata)
     train.jsonl    학습쌍 — 클릭로그 시뮬레이션 (은어 쿼리 포함)
     test.jsonl     평가용 held-out 쌍 (slice 태그: standard | jargon)
     eval/          BEIR 평가셋 (queries.jsonl에 slice 태그, qrels dev/final 분리)

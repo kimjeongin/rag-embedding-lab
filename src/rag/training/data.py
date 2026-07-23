@@ -3,8 +3,8 @@ with train/inference parity.
 
 The one thing that must be right: a training/eval example's query and document text
 must be built the same way as at inference. So both go through ``rag.core.formatting``
-(the module the serving path uses): the query gets the instruction prefix, the
-document gets its title prepended.
+(the module the serving path uses), with the SAME `ModelProfile` — the base model's
+format, resolved once by the caller and passed in here.
 
 `datasets` is imported lazily so this module stays importable without the training
 stack.
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import random
 
-from rag.core.formatting import format_document, format_query
+from rag.core.formatting import DEFAULT_PROFILE, ModelProfile, format_document, format_query
 from rag.dataset import load_jsonl
 
 
@@ -71,7 +71,12 @@ def pad_negatives(rows: list[dict], target: int, seed: int = 13) -> int:
     return padded
 
 
-def to_training_dataset(path: str, instruction: str, max_negatives: int | None = None):
+def to_training_dataset(
+    path: str,
+    instruction: str,
+    max_negatives: int | None = None,
+    profile: ModelProfile = DEFAULT_PROFILE,
+):
     """Build a 🤗 ``datasets.Dataset`` for the contrastive losses.
 
     Columns are (anchor, positive) — anchor = instruction-prefixed query, positive =
@@ -93,19 +98,26 @@ def to_training_dataset(path: str, instruction: str, max_negatives: int | None =
             print(f"[data] {padded}/{len(rows)} records had fewer than {target} hard "
                   f"negatives — padded with docs borrowed from other records")
     data = {
-        "anchor": [format_query(r["query"], instruction) for r in rows],
-        "positive": [format_document(r["positive"].get("title"), r["positive"]["content"]) for r in rows],
+        "anchor": [format_query(r["query"], instruction, profile) for r in rows],
+        "positive": [
+            format_document(r["positive"].get("title"), r["positive"]["content"], profile)
+            for r in rows
+        ],
     }
     for k in range(target):
         column = "negative" if k == 0 else f"negative_{k + 1}"
         data[column] = [
-            format_document(r["negatives"][k].get("title"), r["negatives"][k]["content"]) for r in rows
+            format_document(r["negatives"][k].get("title"), r["negatives"][k]["content"], profile)
+            for r in rows
         ]
     return Dataset.from_dict(data)
 
 
 def to_ir_eval(
-    path: str, instruction: str, distractor_file: str | None = None
+    path: str,
+    instruction: str,
+    distractor_file: str | None = None,
+    profile: ModelProfile = DEFAULT_PROFILE,
 ) -> tuple[dict, dict, dict]:
     """Build (queries, corpus, relevant_docs) for sentence-transformers'
     InformationRetrievalEvaluator used DURING training.
@@ -128,13 +140,13 @@ def to_ir_eval(
         key = (pos.get("title"), pos["content"])
         if key not in doc_ids:
             doc_ids[key] = f"d{len(doc_ids)}"
-            corpus[doc_ids[key]] = format_document(pos.get("title"), pos["content"])
+            corpus[doc_ids[key]] = format_document(pos.get("title"), pos["content"], profile)
         return doc_ids[key]
 
     for i, record in enumerate(load_jsonl(path)):
         did = _add_doc(record["positive"])
         qid = f"q{i}"
-        queries[qid] = format_query(record["query"], instruction)
+        queries[qid] = format_query(record["query"], instruction, profile)
         relevant[qid] = {did}
 
     if distractor_file:

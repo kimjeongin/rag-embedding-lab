@@ -46,6 +46,11 @@ class Settings:
     st_model: str = _DEFAULT_ST_MODEL
     st_device: str = ""
 
+    # Input-format profile ("qwen3" | "nemotron3" | "plain"). "" = resolve from the
+    # model (its train_meta.json, else its name) — see rag.modelprofile. Set it only
+    # to override that, e.g. for a model whose name says nothing about its format.
+    model_profile: str = ""
+
     # Matryoshka inference: truncate embeddings to this many dims (then re-normalize).
     # None = full dim. Only meaningful for a model trained with MatryoshkaLoss — it's
     # how the production side would store/search shorter vectors. (ST backend only.)
@@ -70,6 +75,7 @@ class Settings:
             embed_model=os.getenv("EMBED_MODEL", _DEFAULT_EMBED_MODEL),
             st_model=os.getenv("ST_MODEL", _DEFAULT_ST_MODEL),
             st_device=os.getenv("ST_DEVICE", ""),
+            model_profile=os.getenv("MODEL_PROFILE", ""),
             truncate_dim=int(truncate) if truncate else None,
             qdrant_url=os.getenv("QDRANT_URL", _DEFAULT_QDRANT_URL),
             qdrant_collection=os.getenv("QDRANT_COLLECTION", _DEFAULT_QDRANT_COLLECTION),

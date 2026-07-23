@@ -17,16 +17,24 @@ serve time, and the gains evaporate (or invert).
 
 ## The formatting contract
 
-Qwen3-Embedding is an **asymmetric** model: queries and documents are embedded
-*differently*. The lab defines this in exactly one place —
+Retrieval embedding models are **asymmetric**: queries and documents are embedded
+*differently*, and each model family wants its own template. The lab defines these as
+`ModelProfile`s in exactly one place —
 [`src/rag/core/formatting.py`](../src/rag/core/formatting.py) — and **training, evaluation,
 and inference all call it**, so they can't drift apart. Your serving stack is outside this
 repo, so it's on you to match it.
 
-| Side | Template the lab uses | Notes |
-|------|----------------------|-------|
-| **Query** | `Instruct: {instruction}\nQuery: {query}` | An instruction **prefix** is prepended. |
-| **Document** | `{title}\n\n{content}` (or just `{content}` if no title) | **No** instruction. Title joined to body by a blank line (`\n\n`). |
+**Match the profile of the model you deploy**, not just the table's first row:
+
+| Profile | Query | Document |
+|---------|-------|----------|
+| **`qwen3`** (Qwen3-Embedding) | `Instruct: {instruction}\nQuery: {query}` | `{title}\n\n{content}` (or `{content}` if no title) |
+| **`nemotron3`** (Nemotron-3-Embed) | `query: {query}` | `passage: {title}\n\n{content}` |
+| **`plain`** | `{query}` | `{title}\n\n{content}` |
+
+A fine-tuned model records its profile in `train_meta.json`, so
+`rag.modelprofile.resolve_profile()` gives you the right answer for a model directory.
+Serving a `nemotron3` model with `qwen3` prompts raises nothing — it just scores worse.
 
 - `{instruction}` is `QUERY_INSTRUCTION` (env-configurable), default:
   `Given a web search query, retrieve relevant passages that answer the query`

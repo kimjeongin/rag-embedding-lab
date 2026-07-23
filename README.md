@@ -34,12 +34,13 @@ as a thin entrypoint in [`rag/cli/`](src/rag/cli)):
 | `uv run rag-gen-data` | write a toy fine-tuning dataset |
 | `uv run rag-gen-synthetic` | write an LLM-generated **training** dataset (search-box queries, round-trip filtered, + margin-guarded hard negatives) |
 | `uv run rag-gen-eval` | write a **BEIR-format eval set** (`data/eval`) — `EVAL_SOURCE=corpus` uses the crawled site as the haystack |
-| `uv run rag-gen-intranet` | write the **가상 인트라넷 리허설 데이터셋** (`data-intranet/`) — 사내사이트 검색의 쌍둥이(페이지 url·description·agent prompt·수집 메타데이터) + 은어 양성 대조군(standard/jargon 슬라이스) |
+| `uv run rag-gen-intranet` | write the **가상 인트라넷 리허설 데이터셋** (`data-intranet/`) — 사내사이트 검색의 쌍둥이. corpus는 실 운영 컬렉션 payload 스키마 그대로(`site_id·url·version_name·title·title_eng·llm_title·description·description_eng·user_queries·need_steps·hard_guide_name`) + 은어 양성 대조군(standard/jargon 슬라이스) |
 | `uv run rag-gen-clicklog` | write a **노이즈 세션 클릭로그** (`data-intranet/clicklog.jsonl` + 정답) — 포지션 바이어스·오클릭·재검색·PII를 재현, 데이터 탭 "클릭로그(세션)" 가져오기의 리허설 입력 |
 | `uv run rag-train` | fine-tune the embedding model |
 | `uv run rag-eval` | measure retrieval quality over a BEIR-format set (recall@k / MRR / nDCG) |
 | `uv run rag-index` | embed `data/corpus.jsonl` into **Qdrant** (versioned collection + atomic alias swap; `--prune` drops rollback copies) |
 | `uv run rag-search "질문"` | query the live Qdrant index from the CLI (serving smoke test) |
+| `uv run rag-bench --model <path>` | **서빙 벤치** — 실제 Qdrant 경로에서 지연시간(p50/p95/p99)·ANN 정확도와 그 근사 손실·GPU 피크·색인 비용·저장 발자국을 측정 (`--list`로 기록 조회). 수치는 하드웨어에 종속되므로 기록마다 하드웨어 지문이 붙고 그룹을 넘는 비교는 막습니다 |
 
 `rag-serve` (API + UI) is a long-running server; the rest are batch tools that run and
 exit. The web UI lives in [`frontend/`](frontend) — see [Web UI](#web-ui). For everyday
@@ -59,18 +60,26 @@ TRAIN_EVAL_FILE=data-intranet/test.jsonl EVAL_DIR=data-intranet/eval uv run rag-
 
 ## How it works
 
-### Asymmetric embeddings (Qwen3)
-Qwen3-Embedding treats documents and queries differently:
+### Asymmetric embeddings — per-model profiles
+Embedding models want different input formats, and using the wrong one is a **silent**
+failure (vectors still come out, scores are just quietly worse). So the format is a
+`ModelProfile`, defined once in [`core/formatting.py`](src/rag/core/formatting.py) and
+applied by the embedder adapters — **training, evaluation, and inference all reuse the
+same module** (parity).
 
-| Side | What we embed | `Embedder` method |
-|------|---------------|-------------------|
-| Document | `"{title}\n\n{content}"` (title prepended; no instruction prefix) | `embed_documents` (input built by `format_document`) |
-| Query | `Instruct: {task}\nQuery: {query}` | `embed_queries` |
+| Profile | Query | Document |
+|---------|-------|----------|
+| `qwen3` (default) | `Instruct: {task}\nQuery: {query}` | `{title}\n\n{content}` |
+| `nemotron3` | `query: {query}` | `passage: {title}\n\n{content}` |
+| `plain` | `{query}` | `{title}\n\n{content}` |
 
-The asymmetry is defined once in [`core/formatting.py`](src/rag/core/formatting.py)
-(`format_query` / `format_document`) and applied by the embedder adapters, so it can't be
-mixed up — and **training, evaluation, and inference all reuse the same module** (parity).
-The `{task}` comes from `QUERY_INSTRUCTION`.
+The `{task}` comes from `QUERY_INSTRUCTION` (profiles with `uses_instruction=False`
+ignore it). Which profile applies is resolved by
+[`modelprofile.py`](src/rag/modelprofile.py), in order: explicit `MODEL_PROFILE` →
+the model dir's `train_meta.json` (a fine-tuned model inherits its `base_model`'s
+profile — it's a *path*, so its name says nothing) → the model name → the default,
+announced on stderr. Identifiers (url/domain/path) are excluded from the document
+side in every profile.
 
 > **Serving the fine-tuned model in your own stack (Elasticsearch, a hybrid + rerank
 > pipeline, …)?** Your serving pipeline must embed text with this **exact same formatting**,
@@ -165,7 +174,8 @@ Configuration is via environment variables (all optional). See [`.env.example`](
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `EMBED_DIM` | `1024` | embedding dimension (must match the model) |
-| `QUERY_INSTRUCTION` | `Given a web search query, retrieve relevant passages that answer the query` | Qwen3 query task description |
+| `QUERY_INSTRUCTION` | `Given a web search query, retrieve relevant passages that answer the query` | query task description (used only by profiles with `uses_instruction`, e.g. `qwen3`) |
+| `MODEL_PROFILE` | `` (auto) | input-format override: `qwen3` \| `nemotron3` \| `plain`. Empty resolves from the model — see [profiles](#asymmetric-embeddings--per-model-profiles) |
 | `EMBEDDER` | `sentence-transformers` | backend: `sentence-transformers` (default) or `ollama` (parity check) |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama base URL (query-synthesis LLM; `ollama` backend) |
 | `EMBED_MODEL` | `qwen3-embedding:0.6b` | embedding model name (`ollama` backend only) |
@@ -304,7 +314,8 @@ ST_MODEL=outputs/embedding-ft      uv run rag-eval  # fine-tuned
 **all** of them as extra columns on top of in-batch negatives (TripletLoss takes exactly
 one). Bring your own data in this format (point `TRAIN_FILE`/`TRAIN_EVAL_FILE` at it) or
 put documents in `data/corpus.jsonl` and run `rag-gen-synthetic`. Key env:
-`TRAIN_BASE_MODEL`, `TRAIN_EPOCHS` (a *ceiling* — early stopping ends sooner),
+`TRAIN_BASE_MODEL`, `TRAIN_MODEL_PROFILE` (input format; empty = resolved from the base
+model's name and recorded in `train_meta.json`), `TRAIN_EPOCHS` (a *ceiling* — early stopping ends sooner),
 `TRAIN_PATIENCE` / `TRAIN_MONITOR` (`ndcg` or `loss`; the best epoch's weights are what
 gets saved), `TRAIN_LOSS` (`mnrl` / `cached_mnrl` / `gist` / `triplet`),
 `TRAIN_MATRYOSHKA`(+`TRAIN_MATRYOSHKA_DIMS` — truncatable vectors; memory-heavy, reduce

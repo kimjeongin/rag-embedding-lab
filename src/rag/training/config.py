@@ -55,6 +55,13 @@ class TrainingConfig:
     device: str = ""                             # "" = auto (cuda → mps → cpu)
     query_instruction: str = DEFAULT_QUERY_INSTRUCTION
 
+    # Input-format profile ("qwen3" | "nemotron3" | "plain"). "" = resolve from
+    # base_model's name (rag.modelprofile). Training MUST format text the same way
+    # serving will, so whatever is resolved here is recorded in train_meta.json and
+    # inherited by the saved model — a Nemotron tuned with Qwen prompts is ruined
+    # silently, and nothing downstream could detect it.
+    model_profile: str = ""
+
     # Loss function — all four work with the (query, positive[, negatives]) dataset;
     # triplet additionally *requires* hard negatives on every record.
     loss: str = _DEFAULT_LOSS
@@ -66,6 +73,12 @@ class TrainingConfig:
     # pairs without them fine (실측: negatives 2개 = 배치 텍스트 2배 → MPS 41GB OOM).
     # Triplet ignores this and always takes exactly 1.
     max_negatives: int | None = None
+
+    # Trade compute for memory: don't keep activations from the forward pass, recompute
+    # them during backward (~30% slower). Unlike batch size / LoRA, this changes NOTHING
+    # about the optimisation, so a checkpointed run stays comparable to one without —
+    # which is what makes it the right first lever when a bigger backbone OOMs.
+    gradient_checkpointing: bool = False
 
     # Matryoshka representation learning: wrap the chosen loss so the embedding stays
     # strong when truncated to a shorter prefix (768→256→128→…). The production side
@@ -124,9 +137,12 @@ class TrainingConfig:
             learning_rate=float(os.getenv("TRAIN_LR", str(_DEFAULT_LR))),
             device=os.getenv("TRAIN_DEVICE", ""),
             query_instruction=os.getenv("QUERY_INSTRUCTION", DEFAULT_QUERY_INSTRUCTION),
+            model_profile=os.getenv("TRAIN_MODEL_PROFILE", os.getenv("MODEL_PROFILE", "")),
             loss=os.getenv("TRAIN_LOSS", _DEFAULT_LOSS),
             gist_guide=os.getenv("TRAIN_GIST_GUIDE", _DEFAULT_GIST_GUIDE),
             max_negatives=int(max_negatives) if max_negatives else None,  # "" = 전부
+            gradient_checkpointing=os.getenv("TRAIN_GRAD_CHECKPOINT", "0").lower()
+            not in ("0", "false", "no", ""),
 
             matryoshka=os.getenv("TRAIN_MATRYOSHKA", "0").lower() not in ("0", "false", "no", ""),
             matryoshka_dims=_parse_dims(os.getenv("TRAIN_MATRYOSHKA_DIMS", "")),
