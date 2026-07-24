@@ -62,9 +62,13 @@ curl -s -X POST localhost:8000/api/index/prune       # 라이브 외 컬렉션 �
 ## 포맷 패리티 (가장 중요한 계약)
 
 색인의 문서와 검색의 쿼리는 학습·평가와 **같은** `rag/core/formatting.py`를 통과합니다
-(Embedder 어댑터 내부에서) — 쿼리는 `Instruct: {task}\nQuery: {q}`, 문서는
-`{title}\n\n{content}`. 서빙 쪽에서 이 포맷이 어긋나면 fine-tune 이득이 사라집니다.
-Ollama 등 다른 스택으로 옮길 때의 검증 절차는 [serving-parity.md](serving-parity.md) 참고.
+(Embedder 어댑터 내부에서). 포맷은 모델별 `ModelProfile`로 정의됩니다 — 예: `qwen3`는
+쿼리 `Instruct: {task}\nQuery: {q}` · 문서 `{title}\n\n{content}`, `nemotron3`는 `query: {q}` ·
+`passage: {title}\n\n{content}`. 서빙 쪽에서 이 포맷이 어긋나면 **예외 없이 점수만 조용히**
+나빠지므로(fine-tune 이득 소멸), 프로파일을 한 곳에 강제합니다. 어떤 프로파일을 쓸지는
+`rag.modelprofile`이 결정합니다: `MODEL_PROFILE` 환경변수 → 모델 폴더의 `train_meta.json`
+(파인튜닝 모델은 base 포맷 상속) → 모델 이름 → 기본값(qwen3). 다른 스택으로 옮길 때의 검증
+절차는 [serving-parity.md](serving-parity.md) 참고.
 
 ## 안전 가드
 
@@ -92,3 +96,13 @@ Ollama 등 다른 스택으로 옮길 때의 검증 절차는 [serving-parity.md
 | `QDRANT_COLLECTION` | `docs` | 컬렉션 패밀리 접두어 (alias는 `{prefix}-live`) |
 | `EMBEDDER` | `sentence-transformers` | 서빙 임베더 백엔드 (기본이 ST — Ollama는 서빙 경로에 없음) |
 | `ST_MODEL` | `outputs/embedding-ft` | 서빙할 모델 경로 (핸드오프한 모델) |
+| `MODEL_PROFILE` | `` (자동) | 입력 포맷 프로파일 강제(`qwen3`·`nemotron3`·`plain`). 비우면 모델에서 자동 해석 |
+
+## 서빙 성능·비용 측정 (`rag-bench`)
+
+색인·검색이 실제로 무엇을 쓰는지 — 응답 지연(p50/p95/p99) · GPU 피크 · 저장 발자국 ·
+색인 처리량 · ANN 근사 손실 — 은 실제 Qdrant 경로에서 [`rag-bench`](../src/rag/cli/bench.py)로
+잽니다: `uv run rag-bench --model <경로> --label <이름>` (기록 조회는 `--list`). 이 수치는
+하드웨어에 종속되므로 기록마다 하드웨어 지문이 붙고, 지문이 다른 지연·메모리는 비교가
+차단됩니다(정확도만 하드웨어 무관하게 이전). 모델 선택 시 정확도 외의 비용 축을 결정
+근거로 쓰기 위한 도구입니다.

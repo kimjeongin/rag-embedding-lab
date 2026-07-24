@@ -338,7 +338,7 @@ src/rag/
 ├── core/             innermost — pure, no config/framework/driver imports
 │   ├── entities.py   Document  (typed, frozen)
 │   ├── ports.py      Embedder  (Protocol — the boundary the lab depends on)
-│   ├── formatting.py format_query / format_document  (asymmetry, one place)
+│   ├── formatting.py ModelProfile templates (qwen3 · nemotron3 · plain) — format_query/document, one place
 │   └── errors.py
 ├── embeddings/       Embedder adapters: ollama.py · sentence_transformer.py · factory.py (build_embedder)
 ├── vectorstore/      qdrant.py — Qdrant over plain httpx REST (no client lib; every wire call visible)
@@ -347,12 +347,15 @@ src/rag/
 ├── evaluation/       beir.py (corpus/queries/qrels IO) · retrieval.py (embed + in-memory rank) · metrics.py
 ├── serving.py        framework-free serving flow: versioned collections · atomic alias swap ·
 │                     idempotent index_corpus · search · rollback (set_live) · prune (CLI + API share it)
+├── servingbench.py   serving benchmark: real Qdrant path latency (p50/95/99) · ANN-vs-exact accuracy ·
+│                     GPU peak · storage footprint · hardware-fingerprinted records (rag-bench)
 ├── api/              lab HTTP API (FastAPI) + composition root
 │   ├── app.py        create_app(): Settings + lab routes + serve frontend/dist
 │   ├── jobs.py       server-owned training jobs (single/sweep) · pruning.py (median pruning, pure) · hints.py (failure→fix)
 │   ├── indexjob.py   the one background-reindex slot (handoff hook + POST /api/index)
 │   └── deps.py · errors.py · schemas/lab.py · routes/lab/ (status·models·data·runs·jobs·evaluate·search)
-├── cli/              entrypoints (thin): serve · crawl · gen_data · gen_synthetic · gen_eval · train · evaluate · index · search
+├── cli/              entrypoints (thin): serve · crawl · gen_data · gen_synthetic · gen_eval · gen_intranet · gen_clicklog · train · evaluate · index · search · bench
+├── modelprofile.py   resolve a model's input-format profile (env override → train_meta.json → name → default)
 ├── runs.py           eval-run registry (JSONL) ·  lab.py  env/model introspection ·  trainlog.py  log parsing
 ├── dataset.py        shared training-pair JSONL IO (datagen ↔ training)
 └── config.py         Settings (injected; from_env at the root)

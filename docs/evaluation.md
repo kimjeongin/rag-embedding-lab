@@ -109,9 +109,14 @@ haystack.
 
 ### 3. Formatting parity (train ≈ serve ≈ eval)
 Text is embedded with the **same** `rag.core.formatting` rules used in serving and
-training, so the numbers reflect production behaviour:
-- **Query** → `Instruct: {QUERY_INSTRUCTION}\nQuery: {text}`
-- **Document** → `{title}\n\n{text}` (title prepended; ids/urls excluded)
+training, so the numbers reflect production behaviour. The format is a per-model
+`ModelProfile`, resolved by `rag.modelprofile` (env `MODEL_PROFILE` → the model's
+`train_meta.json` → its name → default). Examples:
+- **`qwen3`** — query `Instruct: {QUERY_INSTRUCTION}\nQuery: {text}` · doc `{title}\n\n{text}`
+- **`nemotron3`** — query `query: {text}` · doc `passage: {title}\n\n{text}`
+
+Using the wrong profile raises nothing — it just scores worse — so eval, training, and
+serving all resolve it the same way, and each run records the profile it used (below).
 
 > ⚠️ **This parity must extend to *your own* serving stack** (Elasticsearch, hybrid +
 > rerank, …). If your production pipeline embeds text differently than the lab, these
@@ -245,6 +250,15 @@ build (GGUF quantisation, llama.cpp pooling/truncation) and the HF fp32 path sco
 *same weights* slightly differently, and on a small query set that gap can rival the
 effect you're measuring. An `EMBEDDER=ollama` run is still useful — as a **serving-path
 parity check** against the ST run of the same model, not as the training baseline.
+
+> **Comparing two *different* base models** (e.g. Qwen3 vs Nemotron-3-Embed) works the
+> same way, but each model needs its own input-format profile — the eval resolves it
+> automatically (§3), and every run records `model_profile` + `embed_dim` so a score's
+> formatting is never ambiguous. Because K=50 recall saturates on small corpora, judge
+> on `nDCG@10` / `recall@1`. Accuracy is only half the decision: for the serving-cost
+> half (latency, GPU, storage) measure the real Qdrant path with `rag-bench`
+> (see [serving.md](serving.md)). A worked comparison lives in
+> [report.md §3.6](report.md) and the tuning design in [model-tuning-plan.md](model-tuning-plan.md).
 
 A fine-tune "helped" if its recall@1 / nDCG@10 go **up** on the *same* `EVAL_DIR` — by
 more than the reported 95% CI suggests noise can explain. `rag-eval` (and the API)
