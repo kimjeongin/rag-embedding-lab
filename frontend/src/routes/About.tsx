@@ -119,6 +119,7 @@ const TOC: [string, string][] = [
   ["compare", "비교·확정"],
   ["handoff", "납품"],
   ["serving", "서빙"],
+  ["models-pick", "모델 선택"],
   ["report", "보고 포인트"],
   ["glossary", "용어 사전"],
 ];
@@ -903,6 +904,120 @@ docs-live                                                   ← 검색이 바라
             안에서 실제로 돌려보고 검증하는 축소판입니다. 납품받는 쪽은 이 탭을 그대로 절차서로 쓸 수 있습니다.
           </p>
         </Panel>
+      </Topic>
+
+      {/* ── 11.5 Model selection ───────────────────────────────────────── */}
+      <Topic id="models-pick" title="모델 선택 — 여러 모델 중 무엇을 차기로 삼을까" hint="입력 포맷, 공정한 비교, 그리고 정확도 너머의 비용" delay={250}>
+        <div className="space-y-4">
+          <p className="text-[13px] leading-relaxed text-mut">
+            지금까지는 <b className="text-fg">한 모델</b>(Qwen3-Embedding-0.6B)을 잘 학습하는 이야기였습니다.
+            그런데 “더 좋은 임베딩 모델이 새로 나오면?”에 답하려면 <b className="text-fg">여러 모델을 공정하게
+            비교</b>할 수 있어야 합니다. 이 랩은 최근 공개된 <M>Nemotron-3-Embed-1B</M>를 같은 레시피로
+            학습해 현행 Qwen과 비교했고, 그 과정에서 세 가지 장치를 갖췄습니다.
+          </p>
+
+          {/* 1) ModelProfile */}
+          <Panel className="space-y-3 p-5">
+            <div className="flex items-center gap-2">
+              <Boxes size={16} className="text-signal" />
+              <h3 className="text-[14px] font-semibold text-fg">① 입력 포맷 — 모델마다 “말 거는 방식”이 다르다</h3>
+            </div>
+            <p className="text-[12.5px] leading-relaxed text-mut">
+              임베딩 모델은 쿼리·문서를 그대로 넣는 게 아니라 <b className="text-fg">정해진 껍데기로 감싸서</b>
+              넣습니다. Qwen은 쿼리에 <M>{"Instruct: …\\nQuery: …"}</M> 지시문을, Nemotron은 <M>query: </M> /
+              <M>passage: </M> 접두사를 붙입니다. 차원(1024 vs 2048)과 풀링 방식도 다릅니다. 이 랩은 포맷을
+              모델별 <b className="text-fg">프로파일</b>로 한 곳에 정의하고, 학습·평가·서빙이 <b className="text-fg">
+              모두 같은 정의</b>를 참조하게 합니다. 파인튜닝 결과물은 폴더(이름 없음)라, 학습 기록에 적힌
+              base 모델로 포맷을 물려받습니다.
+            </p>
+            <Analogy>
+              같은 질문이라도 어떤 사람은 <b className="text-fg">존댓말로</b> 물어야 답하고 어떤 사람은
+              반말이라야 답합니다. 상대에 맞는 말투를 안 쓰면 <b className="text-fg">대답 자체는 나오는데
+              엉뚱</b>해집니다 — 임베딩 포맷이 정확히 이렇습니다.
+            </Analogy>
+            <Note tone="amber" title="왜 이게 위험한가 — 틀려도 에러가 안 난다">
+              Nemotron 파인튜닝 모델을 일부러 Qwen 포맷으로 검색시키면 nDCG가 <M>0.889 → 0.345</M>로
+              무너집니다(168쿼리 중 138패 1승). 그런데 <b className="text-fg">예외는 하나도 안 납니다</b> —
+              벡터는 정상적으로 나오고 검색도 되고 점수만 조용히 나빠집니다. 심지어 <b className="text-fg">학습조차
+              안 한 원본(0.543)보다도 낮아서</b>, 포맷을 틀리면 파인튜닝에 쓴 노력이 마이너스가 됩니다. 포맷을
+              한 곳에 강제하는 이유입니다.
+            </Note>
+          </Panel>
+
+          {/* 2) Fair comparison */}
+          <Panel className="space-y-3 p-5">
+            <div className="flex items-center gap-2">
+              <BarChart3 size={16} className="text-signal" />
+              <h3 className="text-[14px] font-semibold text-fg">② 공정한 비교 — 같은 조건, 그리고 두 개의 함정</h3>
+            </div>
+            <p className="text-[12.5px] leading-relaxed text-mut">
+              두 모델을 <b className="text-fg">같은 데이터·같은 레시피·같은 평가셋</b>으로 학습·평가하고,
+              쿼리별 paired 검정으로 차이가 우연인지 판정합니다. 결과는 아래와 같았습니다.
+            </p>
+            <Tbl
+              head={["모델 (파인튜닝 후)", "차원", "전체 nDCG", "은어", "recall@50"]}
+              rows={[
+                ["Qwen 0.6B", "1024", "0.8794", "0.7725", "1.0000"],
+                ["Nemotron 1B", "2048", "0.8885", "0.7879", "1.0000"],
+                ["Nemotron @1024 절단", "1024", "0.8548", "0.7265", "1.0000"],
+              ]}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Note tone="cyan" title="함정 1 — base 순위 ≠ 파인튜닝 후 순위">
+                Nemotron은 학습 전(base)엔 한국어에서 Qwen보다 <b className="text-fg">뒤졌지만</b>, 파인튜닝
+                후엔 근소하게 앞섰습니다. “원본이 더 좋으니 파인튜닝해도 더 좋겠지”는 <b className="text-fg">
+                성립하지 않습니다</b> — 반드시 학습시켜 보고 판단해야 합니다.
+              </Note>
+              <Note tone="cyan" title="함정 2 — 포화된 지표는 변별을 못 한다">
+                세 모델 모두 <M>recall@50 = 1.0</M>입니다. 지금 평가셋(195문서)에서 상위 50개는 전체의 26%라
+                너무 후한 그물이라서요. 그래서 모델 비교는 포화되지 않은 <M>nDCG@10</M>·<M>recall@1</M>로
+                봐야 합니다. (전체 차이 p=0.55 — 통계적으로 무의미)
+              </Note>
+            </div>
+          </Panel>
+
+          {/* 3) Serving bench */}
+          <Panel className="space-y-3 p-5">
+            <div className="flex items-center gap-2">
+              <Gauge size={16} className="text-signal" />
+              <h3 className="text-[14px] font-semibold text-fg">③ 정확도 너머 — 서빙 비용(속도·GPU·저장)</h3>
+            </div>
+            <p className="text-[12.5px] leading-relaxed text-mut">
+              정확도가 비슷하면 결정은 <b className="text-fg">비용</b>으로 넘어갑니다. <M>rag-bench</M>는 실제
+              Qdrant 검색 경로에서 응답 지연·GPU 피크·저장 크기를 잽니다. 지연은 <b className="text-fg">평균이
+              아니라 p50/p95/p99</b>로 보는데, 사용자가 체감하는 건 평균이 아니라 <b className="text-fg">가끔
+              느린 꼬리</b>이기 때문입니다.
+            </p>
+            <Tbl
+              head={["항목", "Qwen 0.6B", "Nemotron 1B"]}
+              rows={[
+                ["구조", "28층 × 1024", "16층 × 2048"],
+                ["응답 p50 / p95 (ms)", "45.8 / 74.5", "32.9 / 59.1"],
+                ["GPU 피크", "1,554 MB", "2,753 MB"],
+                ["1M 문서 저장", "4.1 GB", "8.2 GB"],
+              ]}
+            />
+            <Analogy>
+              응답속도는 <b className="text-fg">몸집이 아니라 계단 수</b>가 좌우합니다. Nemotron은 파라미터가
+              2배인데도 더 빠른데, <b className="text-fg">16층</b>짜리라 <b className="text-fg">28층</b>짜리
+              Qwen보다 오를 계단이 적기 때문입니다(층은 순서대로 밟아야 해 병렬화가 안 됨). 대신 넓어서
+              메모리·저장은 정직하게 2배입니다.
+            </Analogy>
+            <Note tone="amber" title="이 숫자는 하드웨어에 묶여 있다">
+              위 지연·GPU 수치는 개발용 Mac(MPS)에서 잰 것이라 <b className="text-fg">서버 GPU로 그대로
+              옮겨가지 않습니다</b>. 그래서 벤치 기록마다 하드웨어 지문을 남기고, 지문이 다른 수치끼리는 비교를
+              막습니다(정확도만 하드웨어 무관하게 이전됩니다). 최종 결정은 실제 서비스 하드웨어에서 재측정합니다.
+            </Note>
+            <div className="flex flex-wrap gap-2.5">
+              <Btn icon={<BarChart3 size={15} />} onClick={() => nav(PATH.report)}>
+                보고 페이지에서 전체 비교
+              </Btn>
+              <Btn variant="ghost" icon={<FlaskConical size={15} />} onClick={() => nav(PATH.compare)}>
+                실험 탭에서 실물 확인
+              </Btn>
+            </div>
+          </Panel>
+        </div>
       </Topic>
 
       {/* ── 12. Report ─────────────────────────────────────────────────── */}

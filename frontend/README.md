@@ -1,7 +1,8 @@
 # RAG Embedding Lab — web UI
 
 The React front-end for the embedding lab, tabs in pipeline order:
-**개요 → 데이터 → 학습 → 평가 → 실험 → 모델 → 검색 → 소개**.
+**개요 → 데이터 → 학습 → 평가 → 실험 → 모델 → 검색**, plus **보고**(stakeholder report) and
+**소개**(concept reference).
 A thin client over the lab API (`/api/*`); see the [root README](../README.md#web-ui) for
 the full picture and run instructions.
 
@@ -32,7 +33,7 @@ src/
                 sse.ts · sweep.ts · crawlStore.ts · syntheticStore.ts
   components/   ui/ (primitives) · charts.tsx · diagrams.tsx (About) · Sidebar · Header · Modal
                 DataTable · DiffView
-  routes/       Layout · Overview · Data · Train · Eval · Compare · Models · Search · About
+  routes/       Layout · Overview · Data · Train · Eval · Compare · Models · Search · Report · About
   main.tsx      providers (Query + Router + Toaster) and the route table
 ```
 

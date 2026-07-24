@@ -1,9 +1,9 @@
 // Navigation model — the steps, their routes, copy, and icons. Single source for the
 // sidebar, the header title, and the router.
-import { BarChart3, BookOpen, Database, FlaskConical, Gauge, HardDrive, LayoutDashboard, Search } from "lucide-react";
+import { BarChart3, BookOpen, Database, FileText, FlaskConical, Gauge, HardDrive, LayoutDashboard, Search } from "lucide-react";
 import type { ComponentType } from "react";
 
-export type Step = "overview" | "data" | "train" | "eval" | "compare" | "models" | "search" | "about";
+export type Step = "overview" | "data" | "train" | "eval" | "compare" | "models" | "search" | "report" | "about";
 
 /** URL path per step (overview is the index route). */
 export const PATH: Record<Step, string> = {
@@ -14,13 +14,14 @@ export const PATH: Record<Step, string> = {
   compare: "/compare",
   models: "/models",
   search: "/search",
+  report: "/report",
   about: "/about",
 };
 
 /** Which step a URL path belongs to (for the header title). */
 export const stepFromPath = (pathname: string): Step => {
   const seg = pathname.split("/")[1];
-  return (["data", "train", "eval", "compare", "models", "search", "about"] as const).find((s) => s === seg) ?? "overview";
+  return (["data", "train", "eval", "compare", "models", "search", "report", "about"] as const).find((s) => s === seg) ?? "overview";
 };
 
 export const META: Record<Step, { title: string; sub: string }> = {
@@ -31,6 +32,7 @@ export const META: Record<Step, { title: string; sub: string }> = {
   compare: { title: "실험", sub: "평가한 모델들을 비교하고 승자를 고릅니다." },
   models: { title: "모델", sub: "학습된 모델을 보관·정리하고 서빙팀에 납품합니다." },
   search: { title: "검색", sub: "학습한 모델이 Qdrant 인덱스에서 실제로 검색합니다." },
+  report: { title: "보고", sub: "프로젝트의 추진 배경·경과·성과·향후 계획." },
   about: { title: "소개", sub: "이 프로젝트가 무엇이고 어떻게 동작하는지." },
 };
 
@@ -42,6 +44,7 @@ export const STEP_ICON: Record<Step, ComponentType<{ size?: number; className?: 
   compare: BarChart3,
   models: HardDrive,
   search: Search,
+  report: FileText,
   about: BookOpen,
 };
 
@@ -63,5 +66,11 @@ export const NAV_GROUPS: { label?: string; items: { id: Step; title: string; sub
     ],
   },
   { label: "서빙", items: [{ id: "search", title: "검색", sub: "Qdrant · 실검색" }] },
-  { label: "안내", items: [{ id: "about", title: "소개", sub: "이 프로젝트는?" }] },
+  {
+    label: "안내",
+    items: [
+      { id: "report", title: "보고", sub: "경과 · 성과 · 계획" },
+      { id: "about", title: "소개", sub: "이 프로젝트는?" },
+    ],
+  },
 ];
