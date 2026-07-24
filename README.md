@@ -344,7 +344,7 @@ src/rag/
 ├── vectorstore/      qdrant.py — Qdrant over plain httpx REST (no client lib; every wire call visible)
 ├── datagen/          crawl.py (site → corpus) · topics.py (16-topic set) · dummy.py (toy) · synthetic.py (LLM queries + filters + hard negatives) · eval_corpus.py (BEIR sample) · eval_from_corpus.py (BEIR from the real corpus)
 ├── training/         config · data · model · train  (contrastive fine-tuning)
-├── evaluation/       beir.py (corpus/queries/qrels IO) · retrieval.py (embed + in-memory rank) · metrics.py
+├── evaluation/       beir.py (corpus/queries/qrels IO) · retrieval.py (embed + in-memory rank) · metrics.py · bm25.py (lexical baseline) · hybrid.py (RRF fusion of dense + BM25)
 ├── serving.py        framework-free serving flow: versioned collections · atomic alias swap ·
 │                     idempotent index_corpus · search · rollback (set_live) · prune (CLI + API share it)
 ├── servingbench.py   serving benchmark: real Qdrant path latency (p50/95/99) · ANN-vs-exact accuracy ·

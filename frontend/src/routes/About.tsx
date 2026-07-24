@@ -120,6 +120,7 @@ const TOC: [string, string][] = [
   ["handoff", "납품"],
   ["serving", "서빙"],
   ["models-pick", "모델 선택"],
+  ["hybrid", "하이브리드 융합"],
   ["report", "보고 포인트"],
   ["glossary", "용어 사전"],
 ];
@@ -916,6 +917,15 @@ docs-live                                                   ← 검색이 바라
             학습해 현행 Qwen과 비교했고, 그 과정에서 세 가지 장치를 갖췄습니다.
           </p>
 
+          <Note tone="cyan" title="먼저 물은 것 — 그냥 갖다 쓸 수 있는 공개 모델이 있나? (없다)">
+            비교에 앞서 공개 모델 7종(Qwen·Nemotron·bge-m3·multilingual-e5·<b className="text-fg">한국어 특화
+            KURE</b> 등)을 파인튜닝 없이 우리 셋에 걸어봤습니다. 전부 <M>nDCG@10 0.54~0.57</M>에 몰려 있고
+            은어는 0.15~0.25로 무너집니다 — <b className="text-fg">한국어 특화 KURE조차 은어 0.19</b>. 즉 문제는
+            "한국어를 아느냐"가 아니라 "우리 조직 은어를 아느냐"이고, 그건 <b className="text-fg">어떤 공개
+            모델도 모릅니다</b>. 그래서 질문이 "무엇을 그대로 쓸까"가 아니라 <b className="text-fg">"무엇을
+            파인튜닝할까"</b>로 바뀝니다. (파인튜닝하면 0.879 / 은어 0.772)
+          </Note>
+
           {/* 1) ModelProfile */}
           <Panel className="space-y-3 p-5">
             <div className="flex items-center gap-2">
@@ -1017,6 +1027,46 @@ docs-live                                                   ← 검색이 바라
               </Btn>
             </div>
           </Panel>
+        </div>
+      </Topic>
+
+      {/* ── 11b. Hybrid fusion ─────────────────────────────────────────── */}
+      <Topic id="hybrid" title="하이브리드 융합 — 어휘 검색과 의미 검색을 합치기" hint="두 번째 개선 레버: 모델을 바꾸지 않고 BM25와 dense를 섞는다" delay={255}>
+        <div className="space-y-4">
+          <p className="text-[13.5px] leading-relaxed text-mut">
+            프로덕션 검색은 <b className="text-fg">BM25(어휘 일치) + dense(의미) + 리랭커</b>입니다. dense를 더
+            좋게 만드는 것(파인튜닝) 말고, <b className="text-fg">BM25와 dense를 섞는 방식 자체를 튜닝</b>해서도
+            품질을 올릴 수 있습니다 — 이것이 모델 교체와는 다른 두 번째 개선 레버입니다.
+          </p>
+          <Analogy>
+            <b className="text-fg">BM25는 색인 사서</b>입니다 — 쿼리에 있는 단어가 문서에 그대로 있으면 찾아주죠
+            ("지출결의"라는 글자를 문서에서 매칭). <b className="text-fg">dense는 통역사</b>입니다 — 글자가 달라도
+            의미로 잇습니다(은어 "파피루스"를 "한결"로). 사서는 은어를 못 풀고, 통역사는 흔한 단어에서 가끔
+            헷갈립니다. <b className="text-fg">둘을 합치면 서로의 약점을 메웁니다.</b>
+          </Analogy>
+          <Note tone="cyan" title="어떻게 섞나 — Reciprocal Rank Fusion (RRF)">
+            두 검색기의 점수는 스케일이 다릅니다(코사인 0~1 vs BM25 0~수십). 그래서 점수가 아니라
+            <b className="text-fg"> 순위</b>만 씁니다: 각 문서의 융합 점수 = <M>Σ 가중치 / (k + 그 검색기에서의 순위)</M>.
+            상위에 오를수록, 그리고 <b className="text-fg">두 검색기가 모두 올릴수록</b> 높아집니다. 손잡이는
+            dense 가중 α 하나뿐이라(1−α가 BM25) dev에서 튜닝합니다.
+          </Note>
+          <div>
+            <div className="mb-2 text-[12.5px] font-semibold text-mut">이 랩이 실제로 잰 것 — 융합이 성분 단독을 이기나 (dev, nDCG@10 / 은어)</div>
+            <Tbl
+              head={["", "dense 단독", "튜닝 하이브리드", "결론"]}
+              rows={[
+                ["base (파인튜닝 전)", "0.559 (은어 0.152)", "0.587 (은어 0.201)", "거의 안 오름"],
+                ["파인튜닝 후", "0.879 (은어 0.772)", "0.954 (은어 0.918)", "크게 오름 (p=1e-4)"],
+              ]}
+            />
+          </div>
+          <Note tone="amber" title="핵심 교훈 — 하이브리드는 파인튜닝의 대체재가 아니다">
+            base 모델에 BM25를 아무리 잘 섞어도 은어는 <M>0.152 → 0.201</M>뿐입니다 — 은어는 문서 본문에 없어
+            사서(BM25)도 못 찾고, 통역사(base dense)도 아직 못 배웠으니 둘을 합쳐도 모릅니다. 큰 융합 이득은
+            <b className="text-fg"> 파인튜닝이 은어를 가르친 뒤에야</b> 나옵니다. 즉 <b className="text-fg">파인튜닝이
+            먼저(선행 조건), 하이브리드는 그 위에 얹는 마감재</b>입니다. 그리고 dense가 이미 완벽한 슬라이스에선
+            섞을 이유가 없어(오히려 노이즈) 배포처마다 α를 다시 맞춰야 합니다.
+          </Note>
         </div>
       </Topic>
 
