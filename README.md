@@ -367,6 +367,7 @@ docs/evaluation.md    the eval data contract + experiment assumptions (read befo
 docs/serving.md       the serving path: Qdrant, versioned collections, rollback, automation
 docs/serving-parity.md porting the embedding contract to another serving stack
 docs/report.md        stakeholder report — why fine-tune, what was built, honest PoC numbers
+docs/realdata-handoff.md  ★ pick-up runbook: continue with real company data (start here at Step 1)
 data/                 corpus.jsonl · train/test.jsonl (training pairs) · eval/ (BEIR-format eval set)
 ```
 
